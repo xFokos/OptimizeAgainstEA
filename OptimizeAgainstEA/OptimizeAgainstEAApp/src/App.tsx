@@ -1,35 +1,51 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import Wizard from "./Wizard";
+import type { ScreenData } from "./types";
+import BG1 from "./assets/TestBG1.jpg";
+import BG2 from "./assets/TestBG2.jpg";
 
-function App() {
-  const [count, setCount] = useState(0)
+const SCREENS: ScreenData[] = [
+    {
+        id: "s1",
+        title: "Screen 1",
+        bg: BG1,
+        options: [
+            { id: "o1", label: "Option A" },
+            { id: "o2", label: "Option B" },
+            { id: "o3", label: "Option C" },
+        ],
+    },
+    {
+        id: "s2",
+        title: "Screen 2",
+        bg: BG2,
+        options: [
+            { id: "o4", label: "Option D" },
+            { id: "o5", label: "Option E" },
+        ],
+    },
+    {
+        id: "s3",
+        title: "Screen 3",
+        bg: BG1,
+        options: [
+            { id: "o6", label: "Option F" },
+            { id: "o7", label: "Option G" },
+            { id: "o8", label: "Option H" },
+        ],
+    },
+];
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+export default function App() {
+    const handleFinish = (selections: Record<string, string[]>) => {
+        console.log("Fertig, Selektionen:", selections);
+    };
+
+    return (
+        <div style={{ maxWidth: 900, margin: "2rem auto", fontFamily: "Arial, sans-serif" }}>
+            <h1>Mehrseitiger Wizard</h1>
+            <Wizard screens={SCREENS} onFinish={handleFinish} />
+        </div>
+    );
 }
 
-export default App
+
