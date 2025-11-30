@@ -1,0 +1,11 @@
+.my-button {
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: #4A90E2;
+    font-family: Inter, sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
