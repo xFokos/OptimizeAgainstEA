@@ -1,51 +1,75 @@
-import Wizard from "./Wizard";
-import type { ScreenData } from "./types";
+import { useState } from "react";
+import SidePanel from "./components/SidePanel";
 import BG1 from "./assets/TestBG1.jpg";
 import BG2 from "./assets/TestBG2.jpg";
 
-const SCREENS: ScreenData[] = [
-    {
-        id: "s1",
-        title: "Screen 1",
-        bg: BG1,
-        options: [
-            { id: "o1", label: "Option A" },
-            { id: "o2", label: "Option B" },
-            { id: "o3", label: "Option C" },
-        ],
-    },
-    {
-        id: "s2",
-        title: "Screen 2",
-        bg: BG2,
-        options: [
-            { id: "o4", label: "Option D" },
-            { id: "o5", label: "Option E" },
-        ],
-    },
-    {
-        id: "s3",
-        title: "Screen 3",
-        bg: BG1,
-        options: [
-            { id: "o6", label: "Option F" },
-            { id: "o7", label: "Option G" },
-            { id: "o8", label: "Option H" },
-        ],
-    },
-];
-
 export default function App() {
-    const handleFinish = (selections: Record<string, string[]>) => {
-        console.log("Fertig, Selektionen:", selections);
+    const buttons = [
+        { id: "b1", background: BG1, text: "Button1", width: 220, height: 120 },
+        { id: "b2", background: BG2, text: "Button2", width: 220, height: 120 },
+    ];
+
+    const totalPanels = 3;
+    const [visiblePanels, setVisiblePanels] = useState<boolean[]>(
+        new Array(totalPanels).fill(false).map((_, i) => i === 0)
+    );
+
+    const handleSelectionChange = (panelIndex: number) => (selectedIndex: number, cfg: any) => {
+        console.log(`Panel ${panelIndex + 1} - Ausgewählt:`, selectedIndex, cfg);
+        setVisiblePanels((prev) => {
+            const next = [...prev];
+            const nextIndex = panelIndex + 1;
+            if (nextIndex < next.length && !next[nextIndex]) {
+                next[nextIndex] = true;
+            }
+            return next;
+        });
     };
 
+    const wrapperWidthPercent = `${100 / totalPanels}%`;
+
     return (
-        <div style={{ maxWidth: 900, margin: "2rem auto", fontFamily: "Arial, sans-serif" }}>
-            <h1>Mehrseitiger Wizard</h1>
-            <Wizard screens={SCREENS} onFinish={handleFinish} />
+        <div
+            style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: "flex",
+                gap: 0,
+                margin: 0,
+                padding: 0,
+                boxSizing: "border-box",
+                alignItems: "stretch",
+                justifyContent: "flex-start",
+            }}
+        >
+            {new Array(totalPanels).fill(null).map((_, i) => {
+                const isVisible = !!visiblePanels[i];
+                return (
+                    <div
+                        key={i}
+                        style={{
+                            width: wrapperWidthPercent,
+                            height: "100%",
+                            boxSizing: "border-box",
+                            visibility: isVisible ? "visible" : "hidden",
+                            pointerEvents: isVisible ? "auto" : "none",
+                        }}
+                    >
+                        <SidePanel
+                            width="100%"
+                            headline={`Panel ${i + 1}`}
+                            buttons={buttons}
+                            onSelectionChange={handleSelectionChange(i)}
+                            gap={12}
+                            backgroundColor={i === 0 ? "#ffe6e6" : i === 1 ? "#e6ffe6" : "#e6e6ff"}
+                            opacity={0.95}
+                        />
+                    </div>
+                );
+            })}
         </div>
     );
 }
-
-
