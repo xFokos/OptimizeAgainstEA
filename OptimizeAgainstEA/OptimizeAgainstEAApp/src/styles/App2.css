@@ -1,0 +1,63 @@
+html, body, #root {
+    height: 100%;    /* Seite und Root-Element auf volle Höhe */
+    margin: 0;       /* Seitenrand entfernen */
+    padding: 0;      /* Seiteninnenabstand entfernen */
+}
+
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    background: #333;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 18px;
+    z-index: 100;
+}
+
+.fullpage-container {
+    height: 100vh;   /* Container füllt 100% der Fensterhöhe */
+    width: 100vw;    /* Container füllt 100% der Fensterbreite */
+    background-color: #f0f0f0; /* Beispielhintergrund */
+}
+
+.footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 5%;
+    background: #0077ff;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 16px;
+    z-index: 100;
+}
+
+.content {
+    height: 100%;
+    flex: 1;
+    background: #5555ff;
+    padding: 5%;
+    overflow: auto;
+}
+
+.floating-button {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #4caf50;
+    color: white;
+    border: none;
+    font-size: 32px;
+    cursor: pointer;
+}
