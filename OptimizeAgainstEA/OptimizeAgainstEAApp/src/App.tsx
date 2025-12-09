@@ -2,7 +2,7 @@ import { useState } from "react";
 import SidePanel from "./components/SidePanel";
 import BG1 from "./assets/TestBG1.jpg";
 import BG2 from "./assets/TestBG2.jpg";
-import ("./components/Generic.css");
+import ("./styles/Generic.css");
 
 export default function App() {
     const buttons = [

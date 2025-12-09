@@ -1,7 +1,7 @@
 
 import React from "react";
 import ImageButtonGroup from "./ImageButtonGroup";
-import "./Generic.css";
+import "../styles/Generic.css";
 
 type ButtonConfig = {
     background?: string;
