@@ -45,31 +45,39 @@ export default function App() {
                 justifyContent: "flex-start",
             }}
         >
-            {new Array(totalPanels).fill(null).map((_, i) => {
-                const isVisible = !!visiblePanels[i];
-                return (
-                    <div
-                        key={i}
-                        style={{
-                            width: wrapperWidthPercent,
-                            height: "100%",
-                            boxSizing: "border-box",
-                            visibility: isVisible ? "visible" : "hidden",
-                            pointerEvents: isVisible ? "auto" : "none",
-                        }}
-                    >
-                        <SidePanel
-                            width="100%"
-                            headline={`Panel ${i + 1}`}
-                            buttons={buttons}
-                            onSelectionChange={handleSelectionChange(i)}
-                            gap={12}
-                            backgroundColor={i === 0 ? "#ffe6e6" : i === 1 ? "#e6ffe6" : "#e6e6ff"}
-                            opacity={0.95}
-                        />
-                    </div>
-                );
-            })}
+            <div style={{
+                backgroundImage: 'url("./assets/TestBG1.jpg")',
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                width: "100vw",
+                height: "100vh"
+            }}>
+                {new Array(totalPanels).fill(null).map((_, i) => {
+                    const isVisible = !!visiblePanels[i];
+                    return (
+                        <div
+                            key={i}
+                            style={{
+                                width: wrapperWidthPercent,
+                                height: "100%",
+                                boxSizing: "border-box",
+                                visibility: isVisible ? "visible" : "hidden",
+                                pointerEvents: isVisible ? "auto" : "none",
+                            }}
+                        >
+                            <SidePanel
+                                width="100%"
+                                headline={`Panel ${i + 1}`}
+                                buttons={buttons}
+                                onSelectionChange={handleSelectionChange(i)}
+                                gap={12}
+                                backgroundColor={"#000000"}
+                                opacity={1 - (i + 1) * 0.2}
+                            />
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }

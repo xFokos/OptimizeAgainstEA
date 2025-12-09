@@ -1,6 +1,7 @@
 
 import React from "react";
 import ImageButtonGroup from "./ImageButtonGroup";
+import "./Generic.css";
 
 type ButtonConfig = {
     background?: string;
@@ -85,8 +86,8 @@ export default function SidePanel({
             role="complementary"
             aria-label="Side panel"
         >
-            <div style={{ width: "100%", textAlign: "center", marginBottom: 12 }}>
-                <h2 style={{ margin: 0 }}>{headline}</h2>
+            <div className={"headline-wrapper"}>
+                <h2 className={"headline"}>{headline}</h2>
             </div>
 
             <div
