@@ -61,7 +61,7 @@ export default function ImageButtonGroup({
                 return (
                     <div key={cfg.id ?? i} style={wrapperStyle}>
                         <ImageButton
-                            background={cfg.background}
+                            hoverImage={cfg.background}
                             text={cfg.text}
                             onClick={handleClick(i, cfg)}
                             width={cfg.width}

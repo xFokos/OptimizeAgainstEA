@@ -1,11 +1,60 @@
-.my-button {
+.button {
+    /* anpassbare Standardwerte */
+    --ib-width: 200px;
+    --ib-height: 48px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--ib-width);
+    height: var(--ib-height);
     padding: 8px 16px;
-    border-radius: 8px;
-    background: #4A90E2;
-    font-family: Inter, sans-serif;
-    font-size: 16px;
-    font-weight: 500;
-    color: white;
-    border: none;
+    border-radius: 12px;
+    border: 2px solid #000;
+    color: #000;
+    background-color: #fff;
     cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    text-align: center;
+    box-sizing: border-box;
+
+    /* Entfernt browser-spezifische Button-Default-Stile */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+/* optional: volle Breite */
+.button.full-width {
+    width: 100%;
+}
+
+/* Fokus-Feedback */
+.button:focus {
+    outline: 3px solid rgba(0,0,0,0.15);
+    outline-offset: 2px;
+}
+
+.button-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.button-wrapper img.hover-image {
+    position: absolute;
+    top: 50%;                       /* vertical center */
+    left: 100%;                     /* position it to the right side */
+    transform: translateY(-50%);    /* center vertically */
+
+    width: 200%;                    /* 200% of button width */
+    margin-left: 10px;              /* small gap between button and image */
+
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.button-wrapper:hover img.hover-image {
+    opacity: 1;
 }
