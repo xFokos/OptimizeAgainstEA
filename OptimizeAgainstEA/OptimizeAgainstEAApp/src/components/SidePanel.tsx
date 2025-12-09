@@ -70,6 +70,7 @@ export default function SidePanel({
     const bg = tryBuildBackground(backgroundColor, opacity);
     const useContainerOpacity = bg === null && typeof opacity === "number" && opacity < 1;
 
+
     return (
         <aside
             style={{
