@@ -2,12 +2,12 @@ import ImageButtonGroup from "./ImageButtonGroup";
 import "../styles/Generic.css";
 import type {ImageButtonProps} from "./ImageButton";
 
-type SidePanelProps = {
+export type SidePanelProps = {
     width?: number | string;
     headline: string;
     buttons: ImageButtonProps[];
     defaultSelected?: number;
-    onSelectionChange?: (selectedIndex: number, cfg: ImageButtonProps) => void;
+    onSelectionChange?: () => void;
     gap?: number | string;
     backgroundColor?: string; // neue Prop
     opacity?: number; // neue Prop (0..1)

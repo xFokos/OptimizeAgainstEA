@@ -1,26 +1,20 @@
-import BG1 from "../assets/TestBG1.jpg";
 import BG2 from "../assets/TestBG2.jpg";
 import {useState} from "react";
 import SidePanel from "./SidePanel.tsx";
+import {SidePanelData} from "./SidePanelData.ts";
 
 /*
 Wrapper for the SidePanels
-Contains Data for SidePanels and according Buttons
 Contains Logic for showing/hiding SidePanels based on selections
  */
 export default function SidePanelWrapper() {
-    const buttons = [
-        {id: "b1", hoverImage: BG1, text: "Button1"},
-        {id: "b2", hoverImage: BG2, text: "Button2"},
-    ];
 
-    const totalPanels = 4;
+    const totalPanels = SidePanelData.length;
     const [visiblePanels, setVisiblePanels] = useState<boolean[]>(
         new Array(totalPanels).fill(false).map((_, i) => i === 0)
     );
 
-    const handleSelectionChange = (panelIndex: number) => (selectedIndex: number, cfg: any) => {
-        console.log(`Panel ${panelIndex + 1} - Ausgewählt:`, selectedIndex, cfg);
+    const handleSelectionChange = (panelIndex: number) => () => {
         setVisiblePanels((prev) => {
             const next = [...prev];
             const nextIndex = panelIndex + 1;
@@ -73,13 +67,8 @@ export default function SidePanelWrapper() {
                             }}
                         >
                             <SidePanel
-                                width="100%"
-                                headline={`Panel ${i + 1}`}
-                                buttons={buttons}
+                                {...SidePanelData[i]}
                                 onSelectionChange={handleSelectionChange(i)}
-                                gap={12}
-                                backgroundColor={"#666666"}
-                                opacity={0.3}
                             />
                         </div>
                     );

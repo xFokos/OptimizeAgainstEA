@@ -29,6 +29,8 @@ export default function ImageButton({
         ? "button-wrapper selected"
         : "button-wrapper";
 
+    const hoverImageStyle: string = hoverImage === undefined ? "none" : "hover-image";
+
     return (
         <div className={wrapperClass} style={wrapperStyle}>
             <button
@@ -38,7 +40,7 @@ export default function ImageButton({
                 onClick={onClick}
             >
                 {text}
-                <img className="hover-image" src={hoverImage} alt="" />
+                <img className={hoverImageStyle} src={hoverImage} alt="" />
             </button>
         </div>
     );
