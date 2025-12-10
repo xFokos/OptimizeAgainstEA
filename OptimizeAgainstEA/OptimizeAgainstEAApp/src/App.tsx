@@ -1,11 +1,12 @@
 import { Routes, Route } from "react-router-dom";
 
+import "./App.css";
 import HomePage from "./pages/HomePage.tsx";
 import SettingsPage from "./pages/SettingsPage.tsx";
 import GamePage from "./pages/GamePage.tsx";
 import AnalyticsPage from "./pages/AnalyticsPage.tsx";
-import "./App.css";
 import JumpGamePage from "./pages/JumpGamePage.tsx";
+import TravelingSalesmanPage from "./pages/TravelingSalesmanPage.tsx";
 
 export default function App() {
     return (
@@ -15,6 +16,7 @@ export default function App() {
             <Route path="/Game" element={<GamePage />} />
             <Route path="/Analytics" element={<AnalyticsPage />} />
             <Route path="/JumpGame" element={<JumpGamePage />} />
+            <Route path="/TravelingSalesman" element={<TravelingSalesmanPage />} />
         </Routes>
     );
 }

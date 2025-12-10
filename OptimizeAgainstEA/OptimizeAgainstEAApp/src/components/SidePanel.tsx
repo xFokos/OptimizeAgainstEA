@@ -1,11 +1,11 @@
-import ImageButtonGroup from "./ImageButtonGroup";
+import ButtonGroup from "./ButtonGroup.tsx";
 import "../styles/Generic.css";
-import type {ImageButtonProps} from "./ImageButton";
+import type {ButtonConfig} from "../types.ts";
 
 export type SidePanelProps = {
     width?: number | string;
     headline: string;
-    buttons: ImageButtonProps[];
+    buttons: ButtonConfig<any>[];
     defaultSelected?: number;
     onSelectionChange?: () => void;
     gap?: number | string;
@@ -53,7 +53,7 @@ export default function SidePanel({
                                       headline,
                                       buttons,
                                       onSelectionChange,
-                                      gap = 8,
+                                      gap,
                                       backgroundColor,
                                       opacity = 1,
                                   }: SidePanelProps) {
@@ -90,7 +90,7 @@ export default function SidePanel({
                     justifyContent: "center",
                 }}
             >
-                <ImageButtonGroup
+                <ButtonGroup
                     buttons={buttons}
                     onSelectionChange={onSelectionChange}
                     gap={gap}

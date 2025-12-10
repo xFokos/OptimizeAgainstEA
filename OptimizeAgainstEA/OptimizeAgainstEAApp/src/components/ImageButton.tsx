@@ -4,7 +4,12 @@ import "../styles/Button.css";
 export type ImageButtonProps = {
     hoverImage?: string;
     text: string;
-    onClick?: React.MouseEventHandler<HTMLButtonElement>;
+
+    // single OR multiple click handlers
+    onClick?:
+        | React.MouseEventHandler<HTMLButtonElement>
+        | React.MouseEventHandler<HTMLButtonElement>[];
+
     width?: number | string;
     height?: number | string;
     id?: string | number;
@@ -19,17 +24,22 @@ export default function ImageButton({
                                         height = "30%",
                                         isSelected = false,
                                     }: ImageButtonProps) {
-
-    const wrapperStyle: React.CSSProperties = {
-        width,
-        height,
-    };
+    const wrapperStyle: React.CSSProperties = { width, height };
 
     const wrapperClass = isSelected
         ? "button-wrapper selected"
         : "button-wrapper";
 
-    const hoverImageStyle: string = hoverImage === undefined ? "none" : "hover-image";
+    const hoverImageClass = hoverImage ? "hover-image" : "none";
+
+    // unified click handler
+    const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+        if (Array.isArray(onClick)) {
+            onClick.forEach(fn => fn(e));
+        } else if (onClick) {
+            onClick(e);
+        }
+    };
 
     return (
         <div className={wrapperClass} style={wrapperStyle}>
@@ -37,10 +47,10 @@ export default function ImageButton({
                 type="button"
                 className="button"
                 aria-label={text}
-                onClick={onClick}
+                onClick={handleClick}
             >
                 {text}
-                <img className={hoverImageStyle} src={hoverImage} alt="" />
+                <img className={hoverImageClass} src={hoverImage} alt="" />
             </button>
         </div>
     );
