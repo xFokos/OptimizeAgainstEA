@@ -4,6 +4,7 @@ import HomePage from "./pages/HomePage.tsx";
 import SettingsPage from "./pages/SettingsPage.tsx";
 import GamePage from "./pages/GamePage.tsx";
 import AnalyticsPage from "./pages/AnalyticsPage.tsx";
+import "./App.css";
 
 export default function App() {
     return (

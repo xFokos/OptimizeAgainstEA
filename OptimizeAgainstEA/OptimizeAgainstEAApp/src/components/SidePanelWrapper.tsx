@@ -1,7 +1,7 @@
-import BG2 from "../assets/TestBG2.jpg";
 import {useState} from "react";
 import SidePanel from "./SidePanel.tsx";
 import {SidePanelData} from "./SidePanelData.ts";
+import BG2 from "../assets/TestBG2.jpg";
 
 /*
 Wrapper for the SidePanels
@@ -32,8 +32,8 @@ export default function SidePanelWrapper() {
             backgroundImage: `url(${BG2})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
-            width: "100vw",
-            height: "100vh"
+            width: "100%",
+            height: "100%"
         }}>
             <div
                 style={{
