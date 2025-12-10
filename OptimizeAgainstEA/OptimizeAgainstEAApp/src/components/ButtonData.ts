@@ -47,7 +47,7 @@ export const ButtonData: ButtonConfig[][] = [
         {
             component: ImageButton,
             props: {
-                text: "Steady-State GA",
+                text: "Particle Swarm Optimization",
                 width: widthValue,
                 height: heightValue,
             },
@@ -55,7 +55,7 @@ export const ButtonData: ButtonConfig[][] = [
         {
             component: ImageButton,
             props: {
-                text: "Binary Genetic Algorithm",
+                text: "Differential Evolution",
                 width: widthValue,
                 height: heightValue,
             },
