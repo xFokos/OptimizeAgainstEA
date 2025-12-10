@@ -5,9 +5,11 @@
 }
 
 .headline {
+    background-color: rgba(0,0,0,0.5); /* dark semi-transparent box */
+    padding: 4px 8px;
     font-size: 32px;
-    font-weight: 700;
-    color: black;
+    font-weight: bold;
+    color: white;
 }
 
 .opacity-gradient {
