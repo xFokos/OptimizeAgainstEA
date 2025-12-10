@@ -5,6 +5,7 @@ import SettingsPage from "./pages/SettingsPage.tsx";
 import GamePage from "./pages/GamePage.tsx";
 import AnalyticsPage from "./pages/AnalyticsPage.tsx";
 import "./App.css";
+import JumpGamePage from "./pages/JumpGamePage.tsx";
 
 export default function App() {
     return (
@@ -13,6 +14,7 @@ export default function App() {
             <Route path="/Settings" element={<SettingsPage />} />
             <Route path="/Game" element={<GamePage />} />
             <Route path="/Analytics" element={<AnalyticsPage />} />
+            <Route path="/JumpGame" element={<JumpGamePage />} />
         </Routes>
     );
 }
