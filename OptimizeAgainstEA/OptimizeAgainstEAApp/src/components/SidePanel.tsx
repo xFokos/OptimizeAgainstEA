@@ -1,23 +1,13 @@
-
-import React from "react";
 import ImageButtonGroup from "./ImageButtonGroup";
 import "../styles/Generic.css";
+import type {ImageButtonProps} from "./ImageButton";
 
-type ButtonConfig = {
-    background?: string;
-    text: string;
-    onClick?: React.MouseEventHandler<HTMLButtonElement>;
-    width?: number | string;
-    height?: number | string;
-    id?: string | number;
-};
-
-type Props = {
+type SidePanelProps = {
     width?: number | string;
     headline: string;
-    buttons: ButtonConfig[];
+    buttons: ImageButtonProps[];
     defaultSelected?: number;
-    onSelectionChange?: (selectedIndex: number, cfg: ButtonConfig) => void;
+    onSelectionChange?: (selectedIndex: number, cfg: ImageButtonProps) => void;
     gap?: number | string;
     backgroundColor?: string; // neue Prop
     opacity?: number; // neue Prop (0..1)
@@ -66,7 +56,7 @@ export default function SidePanel({
                                       gap = 8,
                                       backgroundColor,
                                       opacity = 1,
-                                  }: Props) {
+                                  }: SidePanelProps) {
     const bg = tryBuildBackground(backgroundColor, opacity);
     const useContainerOpacity = bg === null && typeof opacity === "number" && opacity < 1;
 

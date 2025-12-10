@@ -1,60 +1,60 @@
 .button {
-    /* anpassbare Standardwerte */
-    --ib-width: 200px;
-    --ib-height: 48px;
-
-    display: inline-flex;
+    width: 100%;               /* fills the wrapper */
+    height: 100%;
+    display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--ib-width);
-    height: var(--ib-height);
-    padding: 8px 16px;
-    border-radius: 12px;
-    border: 2px solid #000;
-    color: #000;
-    background-color: #fff;
-    cursor: pointer;
+
+    padding: 10px 20px;        /* comfortable spacing */
+    border-radius: 12px;       /* rounded corners */
+    border: 4px solid #000;    /* black outline */
+    background-color: #fff;    /* white inside */
+    color: #000;               /* black text */
+
     font-size: 16px;
     font-weight: 600;
     text-align: center;
-    box-sizing: border-box;
+    cursor: pointer;
 
-    /* Entfernt browser-spezifische Button-Default-Stile */
+    /* remove browser default styles */
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-}
 
-/* optional: volle Breite */
-.button.full-width {
-    width: 100%;
-}
-
-/* Fokus-Feedback */
-.button:focus {
-    outline: 3px solid rgba(0,0,0,0.15);
-    outline-offset: 2px;
+    /* smooth hover transition */
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
 }
 
 .button-wrapper {
     position: relative;
-    display: inline-block;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    border-radius: 16px;
+    padding: 2px;
 }
 
-.button-wrapper img.hover-image {
-    position: absolute;
-    top: 50%;                       /* vertical center */
-    left: 100%;                     /* position it to the right side */
-    transform: translateY(-50%);    /* center vertically */
+.button-wrapper.selected {
+    outline: 3px solid rgba(0,0,0,1);
+    outline-offset: 2px;
+}
 
-    width: 200%;                    /* 200% of button width */
-    margin-left: 10px;              /* small gap between button and image */
+.button img.hover-image {
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    transform: translateY(-50%);
+    width: 100%;
+    height: 100%;
+    margin-left: 10px;
 
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
+
+    z-index: 10; /* make sure it’s above the button */
 }
 
-.button-wrapper:hover img.hover-image {
+.button:hover img.hover-image {
     opacity: 1;
 }
