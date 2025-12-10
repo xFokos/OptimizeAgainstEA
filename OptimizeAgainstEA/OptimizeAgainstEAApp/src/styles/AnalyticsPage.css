@@ -1,0 +1,101 @@
+/* Full layout */
+.layout {
+    display: flex;
+    height: 100vh;
+    background: #eef1f4;
+    overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 240px;
+    background: #1f2937;
+    color: white;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+.logo {
+    margin: 0 0 24px;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.menu {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.menu button {
+    background: #374151;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    color: white;
+    font-size: 15px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.menu button:hover {
+    background: #4b5563;
+}
+
+/* Main connected window area */
+.main-window {
+    flex: 1;
+    background: white;
+    color: black;
+    margin: 16px;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Top bar inside main window */
+.top-bar {
+    padding: 20px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.top-bar h1 {
+    margin: 0;
+}
+
+/* Grid inside main window */
+.window-grid {
+    padding: 20px;
+    flex: 1;
+    display: grid;
+    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-auto-rows: minmax(160px, auto);
+    overflow-y: auto;
+}
+
+/* Individual windows */
+.window {
+    background: #f8fafc;
+    padding: 16px;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+}
+
+.window.wide {
+    grid-column: span 2;
+}
+
+/* Placeholder inside windows */
+.content-placeholder {
+    flex: 1;
+    margin-top: 10px;
+    background: #e2e8f0;
+    border-radius: 8px;
+    border: 2px dashed #cbd5e1;
+}
