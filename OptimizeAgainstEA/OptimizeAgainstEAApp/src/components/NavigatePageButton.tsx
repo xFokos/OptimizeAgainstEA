@@ -1,7 +1,7 @@
 import React, { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
-type NavigateButtonProps = {
+type NavigatePageButtonProps = {
     to: string;
     text: string;
 
@@ -9,12 +9,12 @@ type NavigateButtonProps = {
     height?: number | string;
 };
 
-export default function NavigateButton({
+export default function NavigatePageButton({
                                            to,
                                            text,
                                            width = "200px",
                                            height = "48px",
-                                       }: NavigateButtonProps) {
+                                       }: NavigatePageButtonProps) {
     const navigate = useNavigate();
 
     const handleClick = useCallback(() => {
