@@ -1,9 +1,11 @@
 html, body, #root {
-    height: 100%;    /* Seite und Root-Element auf volle Höhe */
-    margin: 0;       /* Seitenrand entfernen */
-    padding: 0;      /* Seiteninnenabstand entfernen */
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* kein Scrollen mehr */
 }
 
+/* HEADER bleibt oben */
 .header {
     position: fixed;
     top: 0;
@@ -19,18 +21,13 @@ html, body, #root {
     z-index: 100;
 }
 
-.fullpage-container {
-    height: 100vh;   /* Container füllt 100% der Fensterhöhe */
-    width: 100vw;    /* Container füllt 100% der Fensterbreite */
-    background-color: #f0f0f0; /* Beispielhintergrund */
-}
-
+/* FOOTER bleibt unten */
 .footer {
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 5%;
+    height: 60px; /* besser px statt % */
     background: #0077ff;
     color: white;
     display: flex;
@@ -40,14 +37,20 @@ html, body, #root {
     z-index: 100;
 }
 
-.content {
-    height: 100%;
-    flex: 1;
-    background: #5555ff;
-    padding: 5%;
-    overflow: auto;
+/* DER WICHTIGE PART:
+   Der Content bekommt GENAU die verbleibende Höhe */
+.fullpage-container {
+    position: fixed;
+    top: 60px;        /* Höhe des Headers */
+    bottom: 60px;     /* Höhe des Footers */
+    left: 0;
+    right: 0;
+    background-color: #5555ff;
+    overflow: auto;   /* falls der Inhalt größer ist */
+    padding: 40px;    /* dein Innenabstand */
 }
 
+/* Der Floating Button bleibt wie gehabt */
 .floating-button {
     position: fixed;
     bottom: 80px;
@@ -60,4 +63,5 @@ html, body, #root {
     border: none;
     font-size: 32px;
     cursor: pointer;
+    z-index: 200;
 }
