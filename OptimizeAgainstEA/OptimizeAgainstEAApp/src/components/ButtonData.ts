@@ -1,4 +1,4 @@
-import BG1 from "../assets/TestBG1.jpg";
+import JGBG from "../assets/JumpGameBG.jpg";
 import TSBG from "../assets/TravelingSalesmanBG.png";
 
 import ImageButton from "../components/ImageButton";
@@ -16,7 +16,7 @@ export const ButtonData: ButtonConfig[][] = [
             component: ImageButton,
             props: {
                 text: "Jumping Cube",
-                hoverImage: BG1,
+                hoverImage: JGBG,
                 width: widthValue,
                 height: heightValue,
                 targetPage: "/JumpGame",

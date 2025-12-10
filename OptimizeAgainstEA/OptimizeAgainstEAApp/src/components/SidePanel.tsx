@@ -38,7 +38,7 @@ function tryBuildBackground(color: string | undefined, opacity: number | undefin
         return hexToRgba(color, alpha);
     }
     // rgb(...) or rgba(...) -> if rgb, inject alpha
-    const rgbMatch = color.match(/^rgb\(\s*([^\)]+)\s*\)$/i);
+    const rgbMatch = color.match(/^rgb\(\s*([^)]+)\s*\)$/i);
     if (rgbMatch) {
         return color.replace(/^rgb\(/i, "rgba(").replace(/\)$/, `, ${alpha})`);
     }
