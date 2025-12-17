@@ -299,9 +299,6 @@ export default function TravelingSalesman() {
                     flexDirection: "column",
                     gap: 20,
                     alignItems: "center",
-
-                    /* 👇 SEPARATOR LINE */
-                    borderRight: "1px dashed rgba(0, 0, 0, 0.25)"
                 }}
             >
                 {/* Current Length */}
