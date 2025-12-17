@@ -53,6 +53,7 @@ export default function SidePanel({
                                       headline,
                                       buttons,
                                       onSelectionChange,
+                                      defaultSelected,
                                       gap,
                                       backgroundColor,
                                       opacity = 1,
@@ -94,6 +95,7 @@ export default function SidePanel({
                     buttons={buttons}
                     onSelectionChange={onSelectionChange}
                     gap={gap}
+                    defaultSelected={defaultSelected}
                 />
             </div>
         </aside>

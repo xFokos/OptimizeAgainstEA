@@ -1,7 +1,6 @@
 import {useEffect, useState} from "react";
 import SidePanel from "./SidePanel.tsx";
 import {SidePanelData} from "./SidePanelData.ts";
-import BG2 from "../assets/TestBG2.jpg";
 import NavigatePageButton from "./NavigatePageButton.tsx";
 
 /*
@@ -45,9 +44,6 @@ export default function SidePanelWrapper() {
 
     return (
         <div style={{
-            backgroundImage: `url(${BG2})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
             width: "100%",
             height: "100%"
         }}>

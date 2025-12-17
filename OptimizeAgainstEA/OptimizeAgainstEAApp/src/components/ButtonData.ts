@@ -37,6 +37,28 @@ export const ButtonData: ButtonConfig[][] = [
     // ======= PAGE 2 =======
     [
         {
+            component: NavigatePageButton,
+            props: {
+                key: "start",
+                text: "Start",
+                to: "/game", // <— or your route
+                width: widthValue,
+                height: heightValue,
+            },
+        },
+        {
+            component: ImageButton,
+            props: {
+                text: "Advanced Settings",
+                width: widthValue,
+                height: heightValue,
+            },
+        }
+    ],
+
+    // ======= PAGE 3 =======
+    [
+        {
             component: ImageButton,
             props: {
                 text: "Genetic Algorithm",
@@ -62,7 +84,7 @@ export const ButtonData: ButtonConfig[][] = [
         }
     ],
 
-    // ======= PAGE 3 =======
+    // ======= PAGE 4 =======
     [
         {
             component: ImageButton,
@@ -76,20 +98,6 @@ export const ButtonData: ButtonConfig[][] = [
             component: ImageButton,
             props: {
                 text: "Mating Function B",
-                width: widthValue,
-                height: heightValue,
-            },
-        }
-    ],
-
-    // ======= PAGE 4 =======
-    [
-        {
-            component: NavigatePageButton,
-            props: {
-                key: "start",
-                text: "Start",
-                to: "/game", // <— or your route
                 width: widthValue,
                 height: heightValue,
             },
