@@ -2,7 +2,8 @@ import TravelingSalesman from "../components/TravelingSalesman";
 import PageContainer from "../components/PageContainer.tsx";
 import ("../styles/Generic.css")
 import BackgroundImage from "../assets/HomePageBG.jpg";
-import EAGif from "../assets/TSMEA.gif";
+import EAGif from "../assets/TSMEA2.gif";
+import FitnessGif from "../assets/TSMFitness.gif";
 
 export default function TravellingSalesmanPage() {
 
@@ -22,7 +23,7 @@ export default function TravellingSalesmanPage() {
                         flex: "0 0 70%", // ~70% width
                         display: "flex",
                         flexDirection: "column",
-                        backgroundColor: "rgba(0, 0, 0, 0.8)",
+                        backgroundColor: "rgba(0, 0, 0, 0.2)",
                         borderRight: "2px dashed rgba(0, 0, 0, 1)"
                     }}
                 >
@@ -34,6 +35,7 @@ export default function TravellingSalesmanPage() {
                     style={{
                         flex: "0 0 30%", // ~30% width
                         display: "flex",
+                        flexDirection: "column",
                         justifyContent: "center",
                         alignItems: "center",
                         padding: 20,
@@ -42,6 +44,15 @@ export default function TravellingSalesmanPage() {
                 >
                     <img
                         src={EAGif}
+                        alt="Animated GIF"
+                        style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "contain", // or "cover" if you want it to fill
+                        }}
+                    />
+                    <img
+                        src={FitnessGif}
                         alt="Animated GIF"
                         style={{
                             width: "100%",
