@@ -2,6 +2,7 @@ import TravelingSalesman from "../components/TravelingSalesman";
 import PageContainer from "../components/PageContainer.tsx";
 import ("../styles/Generic.css")
 import BackgroundImage from "../assets/HomePageBG.jpg";
+import EAGif from "../assets/TSMEA.gif";
 
 export default function TravellingSalesmanPage() {
 
@@ -39,7 +40,15 @@ export default function TravellingSalesmanPage() {
                         boxSizing: "border-box",
                     }}
                 >
-                    <p>Extra content goes here</p>
+                    <img
+                        src={EAGif}
+                        alt="Animated GIF"
+                        style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "contain", // or "cover" if you want it to fill
+                        }}
+                    />
                 </div>
             </div>
         </PageContainer>
