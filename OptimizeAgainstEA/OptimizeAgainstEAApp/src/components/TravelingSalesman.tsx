@@ -11,13 +11,14 @@ import {
 } from "recharts";
 
 const NODE_RADIUS = 20;
-const NODE_COUNT = 10;
+const NODE_COUNT = 20;
 
 export default function TravelingSalesman() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     const [nodes, setNodes] = useState<Node[]>([]);
     const [edges, setEdges] = useState<Edge[]>([]);
+    const [bestEdges, setBestEdges] = useState<Edge[]>([]);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
     const [undoStack, setUndoStack] = useState<Edge[][]>([]);
@@ -34,22 +35,47 @@ export default function TravelingSalesman() {
 
 
     /* ---------------------------------- */
-    /* Node generation                    */
+    /* Node generation with minimum distance */
     /* ---------------------------------- */
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
         const generated: Node[] = [];
-        for (let i = 0; i < NODE_COUNT; i++) {
-            generated.push({
-                id: i,
-                x: Math.random() * (canvas.width - NODE_RADIUS * 2) + NODE_RADIUS,
-                y: Math.random() * (canvas.height - NODE_RADIUS * 2) + NODE_RADIUS,
-            });
+        const MIN_DISTANCE = NODE_RADIUS * 4; // minimum distance between nodes
+
+        function isFarEnough(x: number, y: number) {
+            return generated.every(
+                n => Math.hypot(n.x - x, n.y - y) >= MIN_DISTANCE
+            );
         }
+
+        let attempts = 0;
+        while (generated.length < NODE_COUNT && attempts < NODE_COUNT * 50) {
+            const x = Math.random() * (canvas.width - NODE_RADIUS * 2) + NODE_RADIUS;
+            const y = Math.random() * (canvas.height - NODE_RADIUS * 2) + NODE_RADIUS;
+
+            if (isFarEnough(x, y)) {
+                generated.push({ id: generated.length, x, y });
+            } else {
+                attempts++;
+            }
+        }
+
         setNodes(generated);
     }, []);
+
+    /* ---------------------------------- */
+    /* Update bestEdges when a new iteration finishes */
+    /* ---------------------------------- */
+    useEffect(() => {
+        if (!isFinished) return;
+
+        if (!bestEdges.length || pathLength() < computePathLength(bestEdges)) {
+            setBestEdges(edges);
+        }
+    }, [isFinished]);
+
 
     /* ---------------------------------- */
     /* Drawing                            */
@@ -62,9 +88,21 @@ export default function TravelingSalesman() {
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // edges
-        ctx.strokeStyle = "black";
+        // Draw best edges first (lower opacity)
+        ctx.strokeStyle = "rgba(100,100,100,0.3)"; // semi-transparent gray
         ctx.lineWidth = 2;
+        bestEdges.forEach(e => {
+            const a = nodes.find(n => n.id === e.from);
+            const b = nodes.find(n => n.id === e.to);
+            if (!a || !b) return;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+        });
+
+        // Draw current edges
+        ctx.strokeStyle = "black";
         edges.forEach(e => {
             const a = nodes.find(n => n.id === e.from);
             const b = nodes.find(n => n.id === e.to);
@@ -75,7 +113,7 @@ export default function TravelingSalesman() {
             ctx.stroke();
         });
 
-        // nodes
+        // Draw nodes
         nodes.forEach(n => {
             const connections = edges.filter(
                 e => e.from === n.id || e.to === n.id
@@ -93,7 +131,7 @@ export default function TravelingSalesman() {
             ctx.fill();
             ctx.stroke();
         });
-    }, [nodes, edges, selectedNode]);
+    }, [nodes, edges, selectedNode, bestEdges]);
 
     /* ---------------------------------- */
     /* Helpers                            */
@@ -146,6 +184,15 @@ export default function TravelingSalesman() {
         return (
             nodes.find(n => (degree[n.id] ?? 0) < 2) ?? null
         );
+    }
+
+    function computePathLength(edgeArray: Edge[]) {
+        return edgeArray.reduce((sum, e) => {
+            const a = nodes.find(n => n.id === e.from);
+            const b = nodes.find(n => n.id === e.to);
+            if (!a || !b) return sum;
+            return sum + Math.hypot(a.x - b.x, a.y - b.y);
+        }, 0);
     }
 
 
@@ -345,15 +392,15 @@ export default function TravelingSalesman() {
                     }}
                 >
                     <div style={{ display: "flex", gap: 10 }}>
-                        <button onClick={undo} disabled={!undoStack.length || isFinished}>
+                        <button className={"button"} onClick={undo} disabled={!undoStack.length || isFinished}>
                             Undo
                         </button>
-                        <button onClick={redo} disabled={!redoStack.length || isFinished}>
+                        <button className={"button"} onClick={redo} disabled={!redoStack.length || isFinished}>
                             Redo
                         </button>
                     </div>
 
-                    <button onClick={newIteration}>New Iteration</button>
+                    <button className={"button"} onClick={newIteration}>New Iteration</button>
 
                     {showButton && (
                         <NavigatePageButton
