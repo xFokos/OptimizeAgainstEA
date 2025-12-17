@@ -2,27 +2,57 @@
     width: 100%;
     height: 100vh;
     display: flex;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
     text-align: center;
-    background-image: url('../assets/HomePageBG.jpg'); /* your image */
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
     position: relative;
+
+    background: linear-gradient(
+            120deg,
+            #0f2027,
+            #203a43,
+            #2c5364
+    );
+    background-size: 300% 300%;
+    animation: gradientMove 12s ease infinite;
+}
+
+@keyframes gradientMove {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
 .homepage-container::before {
     content: "";
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.3); /* overlay */
+    inset: 0;
+    background: rgba(0, 0, 0, 0.25);
     z-index: 0;
 }
+.homepage-container::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+
+    background-image: radial-gradient(
+            rgba(255,255,255,0.2) 1px,
+            transparent 1px
+    );
+    background-size: 6px 6px;
+
+    opacity: 0.35;
+
+    mask-image: radial-gradient(
+            circle at center,
+            black 40%,
+            transparent 75%
+    );
+
+    z-index: 0;
+    pointer-events: none;
+}
+
 
 .homepage-content {
     position: relative;

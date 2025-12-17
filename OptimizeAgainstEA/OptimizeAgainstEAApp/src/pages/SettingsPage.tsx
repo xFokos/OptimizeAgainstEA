@@ -1,15 +1,13 @@
-
 import SidePanelWrapper from "../components/SidePanelWrapper.tsx";
 import PageContainer from "../components/PageContainer.tsx";
-import ("../styles/Generic.css");
-import BG2 from "../assets/TestBG2.jpg";
+import "../styles/SettingsPage.css";
 
 export default function SettingsPage() {
-
-
     return (
-        <PageContainer backgroundImage={BG2}>
-            <SidePanelWrapper />
+        <PageContainer>
+            <div className={"settings-page-container"}>
+                <SidePanelWrapper />                
+            </div>
         </PageContainer>
     );
 }
