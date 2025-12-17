@@ -7,7 +7,7 @@ export default function HomePage() {
             <div className="homepage-content">
                 <h1>Optimize Against Evolutionary Algorithms</h1>
                 <p className="subtext">
-                    Do you have what it takes to outsmart evolutionary algorithms? Test your optimization strategies against some of the most popular EA methods, including Genetic Algorithms, Particle Swarm Optimization, and Differential Evolution.
+                    Do you have what it takes to outsmart evolutionary algorithms?
                 </p>
 
                 <NavigatePageButton
