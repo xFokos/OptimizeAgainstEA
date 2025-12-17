@@ -272,6 +272,7 @@ export default function TravelingSalesman() {
                 width: "100%",
                 height: "100%",
                 boxSizing: "border-box",
+                backgroundColor: "transparent",
             }}
         >
             {/* LEFT: GAME */}
@@ -285,7 +286,10 @@ export default function TravelingSalesman() {
                     ref={canvasRef}
                     width={800}
                     height={600}
-                    style={{ border: "1px solid black" }}
+                    style={{
+                        border: "1px solid black",
+                        backgroundColor: "rgba(254, 254, 254, 0.1)", // make canvas background transparent
+                    }}
                     onClick={handleClick}
                 />
             </div>
