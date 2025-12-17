@@ -1,6 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import type { Node, Edge } from "../types";
-import NavigatePageButton from "./NavigatePageButton.tsx";
+import NavigatePageButton from "./NavigatePageButton";
+import {
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+} from "recharts";
 
 const NODE_RADIUS = 20;
 const NODE_COUNT = 10;
@@ -11,103 +19,139 @@ export default function TravelingSalesman() {
     const [nodes, setNodes] = useState<Node[]>([]);
     const [edges, setEdges] = useState<Edge[]>([]);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+
+    const [undoStack, setUndoStack] = useState<Edge[][]>([]);
+    const [redoStack, setRedoStack] = useState<Edge[][]>([]);
+    const [isFinished, setIsFinished] = useState(false);
+
+    const [history, setHistory] = useState<number[]>([]);
     const [showButton, setShowButton] = useState(false);
 
-    // Generate random nodes on mount
+    const chartData = history.map((l, i) => ({
+        iteration: i + 1,
+        length: l,
+    }));
+
+
+    /* ---------------------------------- */
+    /* Node generation                    */
+    /* ---------------------------------- */
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const width = canvas.width;
-        const height = canvas.height;
-
-        const generatedNodes: Node[] = [];
+        const generated: Node[] = [];
         for (let i = 0; i < NODE_COUNT; i++) {
-            generatedNodes.push({
+            generated.push({
                 id: i,
-                x: Math.random() * (width - NODE_RADIUS * 2) + NODE_RADIUS,
-                y: Math.random() * (height - NODE_RADIUS * 2) + NODE_RADIUS,
-                radius: NODE_RADIUS,
+                x: Math.random() * (canvas.width - NODE_RADIUS * 2) + NODE_RADIUS,
+                y: Math.random() * (canvas.height - NODE_RADIUS * 2) + NODE_RADIUS,
             });
         }
-        setNodes(generatedNodes);
+        setNodes(generated);
     }, []);
 
-    // Draw nodes and edges
+    /* ---------------------------------- */
+    /* Drawing                            */
+    /* ---------------------------------- */
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Draw edges
+        // edges
         ctx.strokeStyle = "black";
         ctx.lineWidth = 2;
-        edges.forEach((edge) => {
-            const from = nodes.find((n) => n.id === edge.from);
-            const to = nodes.find((n) => n.id === edge.to);
-            if (!from || !to) return;
-
+        edges.forEach(e => {
+            const a = nodes.find(n => n.id === e.from);
+            const b = nodes.find(n => n.id === e.to);
+            if (!a || !b) return;
             ctx.beginPath();
-            ctx.moveTo(from.x, from.y);
-            ctx.lineTo(to.x, to.y);
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
             ctx.stroke();
         });
 
-        // Draw nodes
-        nodes.forEach((node) => {
+        // nodes
+        nodes.forEach(n => {
             const connections = edges.filter(
-                (e) => e.from === node.id || e.to === node.id
+                e => e.from === n.id || e.to === n.id
             ).length;
 
             ctx.fillStyle =
-                selectedNode?.id === node.id
+                selectedNode?.id === n.id
                     ? "orange"
                     : connections === 2
                         ? "green"
                         : "skyblue";
 
             ctx.beginPath();
-            ctx.arc(node.x, node.y, NODE_RADIUS, 0, Math.PI * 2);
+            ctx.arc(n.x, n.y, NODE_RADIUS, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = "black";
             ctx.stroke();
         });
     }, [nodes, edges, selectedNode]);
 
-    // Helper: check if adding an edge would form a cycle
+    /* ---------------------------------- */
+    /* Helpers                            */
+    /* ---------------------------------- */
     function wouldFormCycle(edges: Edge[], from: number, to: number): boolean {
-        // Build adjacency list
         const adj: Record<number, number[]> = {};
         edges.forEach(e => {
-            if (!adj[e.from]) adj[e.from] = [];
-            if (!adj[e.to]) adj[e.to] = [];
+            adj[e.from] ??= [];
+            adj[e.to] ??= [];
             adj[e.from].push(e.to);
             adj[e.to].push(e.from);
         });
 
-        // DFS to see if there is already a path from `from` to `to`
         const visited = new Set<number>();
-        function dfs(node: number): boolean {
-            if (node === to) return true;
-            visited.add(node);
-            const neighbors = adj[node] || [];
-            for (const n of neighbors) {
-                if (!visited.has(n)) {
-                    if (dfs(n)) return true;
-                }
-            }
-            return false;
+        function dfs(n: number): boolean {
+            if (n === to) return true;
+            visited.add(n);
+            return (adj[n] || []).some(x => !visited.has(x) && dfs(x));
         }
 
         return dfs(from);
     }
 
+    function pathLength(): number {
+        return edges.reduce((sum, e) => {
+            const a = nodes.find(n => n.id === e.from);
+            const b = nodes.find(n => n.id === e.to);
+            if (!a || !b) return sum;
+            return sum + Math.hypot(a.x - b.x, a.y - b.y);
+        }, 0);
+    }
 
-    // Handle canvas clicks
+    function selectGraphEnd(edges: Edge[], nodes: Node[]): Node | null {
+        if (edges.length === 0) return null;
+
+        // Count degrees
+        const degree: Record<number, number> = {};
+        edges.forEach(e => {
+            degree[e.from] = (degree[e.from] ?? 0) + 1;
+            degree[e.to] = (degree[e.to] ?? 0) + 1;
+        });
+
+        // Prefer last edge's endpoint if possible
+        const last = edges[edges.length - 1];
+        if ((degree[last.to] ?? 0) < 2) {
+            return nodes.find(n => n.id === last.to) ?? null;
+        }
+
+        // Otherwise find any open node
+        return (
+            nodes.find(n => (degree[n.id] ?? 0) < 2) ?? null
+        );
+    }
+
+
+    /* ---------------------------------- */
+    /* Click handling                     */
+    /* ---------------------------------- */
     const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -116,86 +160,208 @@ export default function TravelingSalesman() {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
-        // Find clicked node
-        const clickedNode = nodes.find(
-            (node) => Math.hypot(node.x - x, node.y - y) <= NODE_RADIUS
+        const clicked = nodes.find(
+            n => Math.hypot(n.x - x, n.y - y) <= NODE_RADIUS
         );
-        if (!clickedNode) return;
+        if (!clicked) return;
 
-        // Count connections of clicked node
-        const clickedConnections = edges.filter(
-            (e) => e.from === clickedNode.id || e.to === clickedNode.id
+        const conn = edges.filter(
+            e => e.from === clicked.id || e.to === clicked.id
         ).length;
-        if (clickedConnections >= 2) return; // max 2 connections
+        if (conn >= 2) return;
 
-        // If no node is selected yet
         if (!selectedNode) {
-            setSelectedNode(clickedNode);
+            setSelectedNode(clicked);
             return;
         }
 
-        // Count connections of selected node
-        const selectedConnections = edges.filter(
-            (e) => e.from === selectedNode.id || e.to === selectedNode.id
+        if (selectedNode.id === clicked.id) return;
+
+        const selectedConn = edges.filter(
+            e => e.from === selectedNode.id || e.to === selectedNode.id
         ).length;
-        if (selectedConnections >= 2) {
-            setSelectedNode(clickedNode);
+        if (selectedConn >= 2) {
+            setSelectedNode(clicked);
             return;
         }
 
-        // Prevent connecting node to itself
-        if (selectedNode.id === clickedNode.id) return;
+        if (
+            edges.some(
+                e =>
+                    (e.from === selectedNode.id && e.to === clicked.id) ||
+                    (e.from === clicked.id && e.to === selectedNode.id)
+            )
+        ) return;
 
-        // Prevent duplicate edges
-        const exists = edges.some(
-            (e) =>
-                (e.from === selectedNode.id && e.to === clickedNode.id) ||
-                (e.from === clickedNode.id && e.to === selectedNode.id)
-        );
-        if (exists) return;
-
-        // Prevent forming a cycle too early
-        const nodesRemaining = nodes.filter(
-            node => edges.filter(e => e.from === node.id || e.to === node.id).length < 2
+        const remaining = nodes.filter(
+            n => edges.filter(e => e.from === n.id || e.to === n.id).length < 2
         ).length;
 
-        if (nodesRemaining > 2 && wouldFormCycle(edges, selectedNode.id, clickedNode.id)) {
-            // Connecting would form a small cycle before completing the circle
-            return;
-        }
+        if (remaining > 2 && wouldFormCycle(edges, selectedNode.id, clicked.id)) return;
 
-        // Add edge
-        setEdges((prev) => [...prev, { from: selectedNode.id, to: clickedNode.id }]);
-
-        // Keep last clicked node selected
-        setSelectedNode(clickedNode);
-
-        // Keep last clicked node selected
-        setSelectedNode(clickedNode);
+        setUndoStack(u => [...u, edges]);
+        setRedoStack([]);
+        setEdges(e => [...e, { from: selectedNode.id, to: clicked.id }]);
+        setSelectedNode(clicked);
     };
 
-    // Show button when all nodes have 2 connections
+    /* ---------------------------------- */
+    /* Completion detection               */
+    /* ---------------------------------- */
     useEffect(() => {
-        const allHaveTwo = nodes.every(
-            (node) =>
-                edges.filter((e) => e.from === node.id || e.to === node.id).length === 2
-        );
-        setShowButton(allHaveTwo && nodes.length > 0);
-    }, [edges, nodes]);
+        const finished =
+            nodes.length > 0 &&
+            nodes.every(
+                n => edges.filter(e => e.from === n.id || e.to === n.id).length === 2
+            );
 
+        if (finished && !isFinished) {
+            setHistory(h => [...h, pathLength()]);
+            setShowButton(true);
+            setIsFinished(true); // 🔒 lock editing
+        }
+    }, [edges, nodes, isFinished]);
+
+
+    /* ---------------------------------- */
+    /* Controls                           */
+    /* ---------------------------------- */
+    const undo = () => {
+        if (!undoStack.length) return;
+
+        const prevEdges = undoStack.at(-1)!;
+
+        setRedoStack(r => [...r, edges]);
+        setEdges(prevEdges);
+        setUndoStack(u => u.slice(0, -1));
+
+        setSelectedNode(selectGraphEnd(prevEdges, nodes));
+    };
+
+
+    const redo = () => {
+        if (!redoStack.length) return;
+
+        const nextEdges = redoStack.at(-1)!;
+
+        setUndoStack(u => [...u, edges]);
+        setEdges(nextEdges);
+        setRedoStack(r => r.slice(0, -1));
+
+        setSelectedNode(selectGraphEnd(nextEdges, nodes));
+    };
+
+
+    const newIteration = () => {
+        setEdges([]);
+        setUndoStack([]);
+        setRedoStack([]);
+        setSelectedNode(null);
+        setShowButton(false);
+        setIsFinished(false); // 🔓 unlock editing
+    };
+
+
+    /* ---------------------------------- */
+    /* Render                             */
+    /* ---------------------------------- */
     return (
-        <div style={{ position: "relative", width: 800, height: 600 }}>
-            <canvas
-                ref={canvasRef}
-                width={800}
-                height={600}
-                style={{ border: "1px solid black" }}
-                onClick={handleClick}
-            />
+        <div
+            style={{
+                display: "flex",
+                width: "100%",
+                height: "100%",
+                boxSizing: "border-box",
+            }}
+        >
+            {/* LEFT: GAME */}
+            <div
+                style={{
+                    flex: "0 0 auto",
+                    padding: 20,
+                }}
+            >
+                <canvas
+                    ref={canvasRef}
+                    width={800}
+                    height={600}
+                    style={{ border: "1px solid black" }}
+                    onClick={handleClick}
+                />
+            </div>
 
-            {showButton && (
-                <NavigatePageButton to={"/Analytics"} text={"View Analytics"}/>
-            )}
+            {/* RIGHT: ANALYTICS */}
+            <div
+                style={{
+                    flex: "1 1 auto",
+                    padding: 20,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 20,
+                    alignItems: "center",
+
+                    /* 👇 SEPARATOR LINE */
+                    borderRight: "1px dashed rgba(0, 0, 0, 0.25)"
+                }}
+            >
+                {/* Current Length */}
+                <div
+                    style={{
+                        fontSize: 18,
+                        fontWeight: "bold",
+                    }}
+                >
+                    Current Path Length: {pathLength().toFixed(2)}
+                </div>
+
+                {/* Chart */}
+                <LineChart width={400} height={250} data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="iteration" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line
+                        dataKey="length"
+                        stroke="#8884d8"
+                        dot={{ r: 4 }}
+                        isAnimationActive={false}
+                    />
+                </LineChart>
+
+                {history.length === 0 && (
+                    <div style={{ fontSize: 12, opacity: 0.6 }}>
+                        No completed iterations yet
+                    </div>
+                )}
+
+                {/* Controls */}
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 12,
+                        alignItems: "center",
+                    }}
+                >
+                    <div style={{ display: "flex", gap: 10 }}>
+                        <button onClick={undo} disabled={!undoStack.length || isFinished}>
+                            Undo
+                        </button>
+                        <button onClick={redo} disabled={!redoStack.length || isFinished}>
+                            Redo
+                        </button>
+                    </div>
+
+                    <button onClick={newIteration}>New Iteration</button>
+
+                    {showButton && (
+                        <NavigatePageButton
+                            to="/Analytics"
+                            text="View Analytics"
+                        />
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
