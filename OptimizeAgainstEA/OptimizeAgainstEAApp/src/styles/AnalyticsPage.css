@@ -2,18 +2,32 @@
 .layout {
     display: flex;
     height: 100vh;
-    background: #eef1f4;
+    background: #2c5364;
     overflow: hidden;
 }
 
 /* Sidebar */
 .sidebar {
     width: 240px;
-    background: #1f2937;
     color: white;
     padding: 24px;
     display: flex;
     flex-direction: column;
+    box-shadow: inset -1px 0 0 rgba(255,255,255,0.05);
+
+    /* Statischer Gradient */
+    background: linear-gradient(
+            180deg,
+            #1f2937 0%,
+            #1c2833 45%,
+            #111827 100%
+    );
+}
+.sidebar-bottom {
+    margin-top: auto;          /* drückt den Block nach unten */
+    display: flex;
+    justify-content: center;   /* horizontal zentriert */
+    padding-top: 24px;
 }
 
 .logo {
@@ -42,6 +56,10 @@
 .menu button:hover {
     background: #4b5563;
 }
+.menu button:hover {
+    background: rgba(255,255,255,0.12);
+}
+
 
 /* Main connected window area */
 .main-window {

@@ -9,9 +9,15 @@ import NavigatePageButton from "../components/NavigatePageButton.tsx";
                 <aside className="sidebar">
                     <h2 className="logo">Analytics</h2>
 
-                    <nav className="menu">
-                        <NavigatePageButton to={"/"} text={"Home Page"}/>
-                    </nav>
+
+
+                    {/* Bottom centered button */}
+                    <div className="sidebar-bottom">
+                        <NavigatePageButton
+                            to={"/"}
+                            text={"Home Page"}
+                        />
+                    </div>
                 </aside>
 
                 {/* Main Window Area */}
