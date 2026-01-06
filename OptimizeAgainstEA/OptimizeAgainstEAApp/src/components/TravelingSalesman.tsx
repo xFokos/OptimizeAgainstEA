@@ -11,14 +11,15 @@ import {
 } from "recharts";
 
 const NODE_RADIUS = 20;
-const NODE_COUNT = 20;
+const NODE_COUNT = 30;
 
 export default function TravelingSalesman() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const workerRef = useRef<Worker | null>(null);
-
+    const historyRef = useRef<number[]>([]);
 
     const [eaHistory, setEaHistory] = useState<number[]>([]);
+    const [besteaEdges, setBesteaEdges] = useState<Edge[]>([]);
 
     const [nodes, setNodes] = useState<Node[]>([]);
     const [edges, setEdges] = useState<Edge[]>([]);
@@ -32,13 +33,20 @@ export default function TravelingSalesman() {
     const [history, setHistory] = useState<number[]>([]);
     const [showButton, setShowButton] = useState(false);
 
-    const chartData = history.map((userLength, i) => ({
-        iteration: i + 1,
-        user: userLength,
-        ea: eaHistory[i] ?? null,
-    }));
-
-
+    const chartData = history.map((userLength, i) => {
+        const ea = eaHistory[i] ?? null;
+        let eaBest: number | null = null;
+        if (eaHistory.length > 0) {
+            const upto = Math.min(i + 1, eaHistory.length);
+            eaBest = Math.min(...eaHistory.slice(0, upto));
+        }
+        return {
+            iteration: i + 1,
+            user: userLength,
+            ea,
+            eaBest,
+        };
+    });
 
     /* ---------------------------------- */
     /* Node generation with minimum distance */
@@ -89,14 +97,22 @@ export default function TravelingSalesman() {
         workerRef.current.onmessage = (e) => {
             if (e.data.type === "BEST") {
                 const eaEdges = convertPathToEdges(e.data.payload.path);
-                setBestEdges(eaEdges);
+                setBesteaEdges(eaEdges);
 
                 const eaLength = computePathLength(eaEdges);
 
-                // Only record once per user iteration
-                setEaHistory(h => {
-                    if (h.length === history.length) return h;
-                    return [...h, eaLength];
+                // Aktualisiere eaHistory sicher gegen stale closures via historyRef
+                setEaHistory(prev => {
+                    const completedIterations = historyRef.current.length;
+                    // wenn noch Einträge fehlen für abgeschlossene Iterationen -> anhängen
+                    if (prev.length < completedIterations) {
+                        return [...prev, eaLength];
+                    }
+                    // sonst aktualisiere den letzten Eintrag (EA verbessert sich während der Laufzeit)
+                    if (prev.length === 0) return [eaLength];
+                    const copy = [...prev];
+                    copy[copy.length - 1] = eaLength;
+                    return copy;
                 });
             }
         };
@@ -106,6 +122,9 @@ export default function TravelingSalesman() {
             workerRef.current?.terminate();
         };
     }, [nodes]);
+
+    // keep historyRef in sync mit history
+    useEffect(() => { historyRef.current = history; }, [history]);
 
     /* ---------------------------------- */
     /* Update bestEdges when a new iteration finishes */
@@ -118,7 +137,6 @@ export default function TravelingSalesman() {
         }
     }, [isFinished]);
 
-
     /* ---------------------------------- */
     /* Drawing                            */
     /* ---------------------------------- */
@@ -130,25 +148,11 @@ export default function TravelingSalesman() {
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Draw best edges first (lower opacity)
-        ctx.strokeStyle = "rgba(100,100,100,0.3)"; // semi-transparent gray
-        ctx.lineWidth = 2;
-        bestEdges.forEach(e => {
-            const a = nodes.find(n => n.id === e.from);
-            const b = nodes.find(n => n.id === e.to);
-            if (!a || !b) return;
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.stroke();
-        });
-
-        // --- Draw EA best path (background) ---
+        // --- Draw best path (background) ---
         if (bestEdges.length) {
             ctx.save();
-            ctx.strokeStyle = "rgba(160, 120, 255, 0.4)";
+            ctx.strokeStyle = "rgba(0, 205, 242, 1)";
             ctx.lineWidth = 2;
-            ctx.setLineDash([6, 6]); // dashed
             bestEdges.forEach(e => {
                 const a = nodes.find(n => n.id === e.from);
                 const b = nodes.find(n => n.id === e.to);
@@ -161,7 +165,24 @@ export default function TravelingSalesman() {
             ctx.restore();
         }
 
-// --- Draw user edges (foreground) ---
+        // --- Draw EA best path (background) ---
+        if (besteaEdges.length) {
+            ctx.save();
+            ctx.strokeStyle = "rgba(160, 120, 255, 0.4)";
+            ctx.lineWidth = 8;
+            besteaEdges.forEach(e => {
+                const a = nodes.find(n => n.id === e.from);
+                const b = nodes.find(n => n.id === e.to);
+                if (!a || !b) return;
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+            });
+            ctx.restore();
+        }
+
+        // --- Draw user edges (foreground) ---
         ctx.strokeStyle = "black";
         ctx.lineWidth = 2;
         ctx.setLineDash([]);
@@ -174,7 +195,6 @@ export default function TravelingSalesman() {
             ctx.lineTo(b.x, b.y);
             ctx.stroke();
         });
-
 
         // Draw nodes
         nodes.forEach(n => {
@@ -194,7 +214,7 @@ export default function TravelingSalesman() {
             ctx.fill();
             ctx.stroke();
         });
-    }, [nodes, edges, selectedNode, bestEdges]);
+    }, [nodes, edges, selectedNode, bestEdges, besteaEdges]);
 
     /* ---------------------------------- */
     /* Helpers                            */
@@ -326,6 +346,47 @@ export default function TravelingSalesman() {
     };
 
     /* ---------------------------------- */
+    /* Random connect (new)               */
+    /* ---------------------------------- */
+    const randomConnect = () => {
+        if (!nodes.length || isFinished) return;
+
+        // save current state for undo
+        setUndoStack(u => [...u, edges]);
+        setRedoStack([]);
+
+        // create shuffled tour
+        const ids = nodes.map(n => n.id);
+        for (let i = ids.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [ids[i], ids[j]] = [ids[j], ids[i]];
+        }
+
+        const newEdges: Edge[] = ids.map((id, idx) => ({
+            from: id,
+            to: ids[(idx + 1) % ids.length],
+        }));
+
+        setEdges(newEdges);
+        setSelectedNode(selectGraphEnd(newEdges, nodes));
+
+        // mark finished and register history immediately
+        setHistory(h => {
+            const next = [...h, computePathLength(newEdges)];
+            historyRef.current = next;
+            return next;
+        });
+        setShowButton(true);
+        setIsFinished(true);
+
+        // trigger EA run (same as normal completion)
+        workerRef.current?.postMessage({
+            type: "RUN",
+            payload: { generations: 5 },
+        });
+    };
+
+    /* ---------------------------------- */
     /* Completion detection               */
     /* ---------------------------------- */
     useEffect(() => {
@@ -336,20 +397,23 @@ export default function TravelingSalesman() {
             );
 
         if (finished && !isFinished) {
-            setHistory(h => [...h, pathLength()]);
+            setHistory(h => {
+                const next = [...h, pathLength()];
+                // update historyRef immediately so worker onmessage can see correct completed count
+                historyRef.current = next;
+                return next;
+            });
             setShowButton(true);
             setIsFinished(true);
 
             // evolve EA
             workerRef.current?.postMessage({
                 type: "RUN",
-                payload: { generations: 50 },
+                payload: { generations: 5 },
             });
         }
 
     }, [edges, nodes, isFinished]);
-
-
 
     /* ---------------------------------- */
     /* Controls                           */
@@ -386,7 +450,7 @@ export default function TravelingSalesman() {
         setRedoStack([]);
         setSelectedNode(null);
         setShowButton(false);
-        setIsFinished(false); // 🔓 unlock editing
+        setIsFinished(false); // unlock editing
     };
 
 
@@ -397,7 +461,7 @@ export default function TravelingSalesman() {
         <div
             style={{
                 display: "flex",
-                justifyContent: "center", // ⬅️ centers everything
+                justifyContent: "center",
                 width: "100%",
                 height: "100%",
                 backgroundColor: "transparent",
@@ -407,7 +471,7 @@ export default function TravelingSalesman() {
             <div
                 style={{
                     display: "flex",
-                    width: "1200px", // controls total layout width
+                    width: "1200px",
                     boxSizing: "border-box",
                 }}
             >
@@ -463,7 +527,7 @@ export default function TravelingSalesman() {
                             isAnimationActive={false}
                         />
 
-                        {/* EA */}
+                        {/* EA current */}
                         <Line
                             dataKey="ea"
                             stroke="#a078ff"
@@ -506,9 +570,18 @@ export default function TravelingSalesman() {
                             </button>
                         </div>
 
-                        <button className="button" onClick={newIteration}>
-                            New Iteration
-                        </button>
+                        <div style={{ display: "flex", gap: 10 }}>
+                            <button className="button" onClick={newIteration}>
+                                New Iteration
+                            </button>
+                            <button
+                                className="button"
+                                onClick={randomConnect}
+                                disabled={isFinished || nodes.length === 0}
+                            >
+                                Random Connect
+                            </button>
+                        </div>
 
                         {showButton && (
                             <NavigatePageButton
