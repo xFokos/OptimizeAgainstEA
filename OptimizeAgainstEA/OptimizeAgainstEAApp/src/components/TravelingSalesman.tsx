@@ -15,6 +15,10 @@ const NODE_COUNT = 20;
 
 export default function TravelingSalesman() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const workerRef = useRef<Worker | null>(null);
+
+
+    const [eaHistory, setEaHistory] = useState<number[]>([]);
 
     const [nodes, setNodes] = useState<Node[]>([]);
     const [edges, setEdges] = useState<Edge[]>([]);
@@ -28,10 +32,12 @@ export default function TravelingSalesman() {
     const [history, setHistory] = useState<number[]>([]);
     const [showButton, setShowButton] = useState(false);
 
-    const chartData = history.map((l, i) => ({
+    const chartData = history.map((userLength, i) => ({
         iteration: i + 1,
-        length: l,
+        user: userLength,
+        ea: eaHistory[i] ?? null,
     }));
+
 
 
     /* ---------------------------------- */
@@ -64,6 +70,42 @@ export default function TravelingSalesman() {
 
         setNodes(generated);
     }, []);
+
+    /* ---------------------------------- */
+    /* EA Worker */
+    /* ---------------------------------- */
+    useEffect(() => {
+        if (!nodes.length) return;
+
+        workerRef.current = new Worker(
+            new URL("../workers/tspWorker.ts", import.meta.url)
+        );
+
+        workerRef.current.postMessage({
+            type: "INIT",
+            payload: { nodes },
+        });
+
+        workerRef.current.onmessage = (e) => {
+            if (e.data.type === "BEST") {
+                const eaEdges = convertPathToEdges(e.data.payload.path);
+                setBestEdges(eaEdges);
+
+                const eaLength = computePathLength(eaEdges);
+
+                // Only record once per user iteration
+                setEaHistory(h => {
+                    if (h.length === history.length) return h;
+                    return [...h, eaLength];
+                });
+            }
+        };
+
+
+        return () => {
+            workerRef.current?.terminate();
+        };
+    }, [nodes]);
 
     /* ---------------------------------- */
     /* Update bestEdges when a new iteration finishes */
@@ -101,8 +143,28 @@ export default function TravelingSalesman() {
             ctx.stroke();
         });
 
-        // Draw current edges
+        // --- Draw EA best path (background) ---
+        if (bestEdges.length) {
+            ctx.save();
+            ctx.strokeStyle = "rgba(160, 120, 255, 0.4)";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 6]); // dashed
+            bestEdges.forEach(e => {
+                const a = nodes.find(n => n.id === e.from);
+                const b = nodes.find(n => n.id === e.to);
+                if (!a || !b) return;
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+            });
+            ctx.restore();
+        }
+
+// --- Draw user edges (foreground) ---
         ctx.strokeStyle = "black";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
         edges.forEach(e => {
             const a = nodes.find(n => n.id === e.from);
             const b = nodes.find(n => n.id === e.to);
@@ -112,6 +174,7 @@ export default function TravelingSalesman() {
             ctx.lineTo(b.x, b.y);
             ctx.stroke();
         });
+
 
         // Draw nodes
         nodes.forEach(n => {
@@ -195,6 +258,16 @@ export default function TravelingSalesman() {
         }, 0);
     }
 
+    function convertPathToEdges(path: number[]): Edge[] {
+        const edges: Edge[] = [];
+        for (let i = 0; i < path.length; i++) {
+            edges.push({
+                from: path[i],
+                to: path[(i + 1) % path.length],
+            });
+        }
+        return edges;
+    }
 
     /* ---------------------------------- */
     /* Click handling                     */
@@ -265,9 +338,17 @@ export default function TravelingSalesman() {
         if (finished && !isFinished) {
             setHistory(h => [...h, pathLength()]);
             setShowButton(true);
-            setIsFinished(true); // 🔒 lock editing
+            setIsFinished(true);
+
+            // evolve EA
+            workerRef.current?.postMessage({
+                type: "RUN",
+                payload: { generations: 50 },
+            });
         }
+
     }, [edges, nodes, isFinished]);
+
 
 
     /* ---------------------------------- */
@@ -316,98 +397,126 @@ export default function TravelingSalesman() {
         <div
             style={{
                 display: "flex",
+                justifyContent: "center", // ⬅️ centers everything
                 width: "100%",
                 height: "100%",
-                boxSizing: "border-box",
                 backgroundColor: "transparent",
             }}
         >
-            {/* LEFT: GAME */}
+            {/* MAIN CONTENT */}
             <div
                 style={{
-                    flex: "0 0 auto",
-                    padding: 20,
-                }}
-            >
-                <canvas
-                    ref={canvasRef}
-                    width={800}
-                    height={600}
-                    style={{
-                        border: "1px solid black",
-                        backgroundColor: "rgba(254, 254, 254, 0.1)", // make canvas background transparent
-                    }}
-                    onClick={handleClick}
-                />
-            </div>
-
-            {/* RIGHT: ANALYTICS */}
-            <div
-                style={{
-                    flex: "1 1 auto",
-                    padding: 20,
                     display: "flex",
-                    flexDirection: "column",
-                    gap: 20,
-                    alignItems: "center",
+                    width: "1200px", // controls total layout width
+                    boxSizing: "border-box",
                 }}
             >
-                {/* Current Length */}
+                {/* LEFT: GAME (CENTERED) */}
                 <div
                     style={{
-                        fontSize: 18,
-                        fontWeight: "bold",
+                        flex: 1,
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        padding: 20,
                     }}
                 >
-                    Current Path Length: {pathLength().toFixed(2)}
+                    <canvas
+                        ref={canvasRef}
+                        width={800}
+                        height={600}
+                        style={{
+                            border: "1px solid black",
+                            backgroundColor: "rgba(254, 254, 254, 0.1)",
+                        }}
+                        onClick={handleClick}
+                    />
                 </div>
 
-                {/* Chart */}
-                <LineChart width={400} height={250} data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="iteration" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line
-                        dataKey="length"
-                        stroke="#8884d8"
-                        dot={{ r: 4 }}
-                        isAnimationActive={false}
-                    />
-                </LineChart>
-
-                {history.length === 0 && (
-                    <div style={{ fontSize: 12, opacity: 0.6 }}>
-                        No completed iterations yet
-                    </div>
-                )}
-
-                {/* Controls */}
+                {/* RIGHT: ANALYTICS */}
                 <div
                     style={{
+                        width: 400,
+                        padding: 20,
                         display: "flex",
                         flexDirection: "column",
-                        gap: 12,
+                        gap: 20,
                         alignItems: "center",
                     }}
                 >
-                    <div style={{ display: "flex", gap: 10 }}>
-                        <button className={"button"} onClick={undo} disabled={!undoStack.length || isFinished}>
-                            Undo
-                        </button>
-                        <button className={"button"} onClick={redo} disabled={!redoStack.length || isFinished}>
-                            Redo
-                        </button>
+                    <div style={{ fontSize: 18, fontWeight: "bold" }}>
+                        Current Path Length: {pathLength().toFixed(2)}
                     </div>
 
-                    <button className={"button"} onClick={newIteration}>New Iteration</button>
+                    <LineChart width={400} height={250} data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="iteration" />
+                        <YAxis />
+                        <Tooltip />
 
-                    {showButton && (
-                        <NavigatePageButton
-                            to="/Analytics"
-                            text="View Analytics"
+                        {/* User */}
+                        <Line
+                            dataKey="user"
+                            stroke="#000000"
+                            name="User"
+                            dot={{ r: 4 }}
+                            isAnimationActive={false}
                         />
+
+                        {/* EA */}
+                        <Line
+                            dataKey="ea"
+                            stroke="#a078ff"
+                            name="Evolutionary Algorithm"
+                            strokeDasharray="5 5"
+                            dot={false}
+                            isAnimationActive={false}
+                        />
+                    </LineChart>
+
+
+                    {history.length === 0 && (
+                        <div style={{ fontSize: 12, opacity: 0.6 }}>
+                            No completed iterations yet
+                        </div>
                     )}
+
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 12,
+                            alignItems: "center",
+                        }}
+                    >
+                        <div style={{ display: "flex", gap: 10 }}>
+                            <button
+                                className="button"
+                                onClick={undo}
+                                disabled={!undoStack.length || isFinished}
+                            >
+                                Undo
+                            </button>
+                            <button
+                                className="button"
+                                onClick={redo}
+                                disabled={!redoStack.length || isFinished}
+                            >
+                                Redo
+                            </button>
+                        </div>
+
+                        <button className="button" onClick={newIteration}>
+                            New Iteration
+                        </button>
+
+                        {showButton && (
+                            <NavigatePageButton
+                                to="/Analytics"
+                                text="View Analytics"
+                            />
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

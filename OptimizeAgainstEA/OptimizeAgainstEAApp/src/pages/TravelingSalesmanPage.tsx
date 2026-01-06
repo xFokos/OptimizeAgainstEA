@@ -2,8 +2,6 @@ import TravelingSalesman from "../components/TravelingSalesman";
 import PageContainer from "../components/PageContainer.tsx";
 import ("../styles/Generic.css")
 
-import EAGif from "../assets/TSMEA2.gif";
-import FitnessGif from "../assets/TSMFitness.gif";
 
 export default function TravellingSalesmanPage() {
 
@@ -21,7 +19,7 @@ export default function TravellingSalesmanPage() {
                     {/* LEFT + CENTER: TravelingSalesman */}
                     <div
                         style={{
-                            flex: "0 0 70%", // ~70% width
+                            flex: "0 0 100%", // ~70% width
                             display: "flex",
                             flexDirection: "column",
                             backgroundColor: "rgba(0, 0, 0, 0.2)",
@@ -29,38 +27,6 @@ export default function TravellingSalesmanPage() {
                         }}
                     >
                         <TravelingSalesman />
-                    </div>
-
-                    {/* RIGHT: Placeholder / Extra Content */}
-                    <div
-                        style={{
-                            flex: "0 0 30%", // ~30% width
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            padding: 20,
-                            boxSizing: "border-box",
-                        }}
-                    >
-                        <img
-                            src={EAGif}
-                            alt="Animated GIF"
-                            style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "contain", // or "cover" if you want it to fill
-                            }}
-                        />
-                        <img
-                            src={FitnessGif}
-                            alt="Animated GIF"
-                            style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "contain", // or "cover" if you want it to fill
-                            }}
-                        />
                     </div>
                 </div>
             </div>
