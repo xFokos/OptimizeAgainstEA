@@ -17,9 +17,16 @@ export default function TravelingSalesman() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const workerRef = useRef<Worker | null>(null);
     const historyRef = useRef<number[]>([]);
+    const besteaAnimRef = useRef<number | null>(null);
 
     const [eaHistory, setEaHistory] = useState<number[]>([]);
     const [besteaEdges, setBesteaEdges] = useState<Edge[]>([]);
+    const [besteaDrawCount, setBesteaDrawCount] = useState<number>(0);
+
+    // Visibility toggles
+    const [showEAPath, setShowEAPath] = useState<boolean>(true);
+    const [showPlayerBest, setShowPlayerBest] = useState<boolean>(true);
+    const [showCurrent, setShowCurrent] = useState<boolean>(true);
 
     const [nodes, setNodes] = useState<Node[]>([]);
     const [edges, setEdges] = useState<Edge[]>([]);
@@ -123,8 +130,56 @@ export default function TravelingSalesman() {
         };
     }, [nodes]);
 
-    // keep historyRef in sync mit history
+    // clear animation interval on unmount
+    useEffect(() => {
+        return () => {
+            if (besteaAnimRef.current) {
+                clearInterval(besteaAnimRef.current);
+                besteaAnimRef.current = null;
+            }
+        };
+    }, []);
+
+    // keep historyRef in sync with history
     useEffect(() => { historyRef.current = history; }, [history]);
+
+    /* ---------------------------------- */
+    /* Animate EA edges when besteaEdges changes */
+    /* ---------------------------------- */
+    useEffect(() => {
+        // stop any existing animation
+        if (besteaAnimRef.current) {
+            clearInterval(besteaAnimRef.current);
+            besteaAnimRef.current = null;
+        }
+
+        if (!besteaEdges.length) {
+            setBesteaDrawCount(0);
+            return;
+        }
+
+        setBesteaDrawCount(0);
+        let i = 0;
+        const intervalMs = 60; // Zeit pro Kante (anpassen falls nötig)
+        const id = window.setInterval(() => {
+            i++;
+            setBesteaDrawCount(i);
+            if (i >= besteaEdges.length) {
+                if (besteaAnimRef.current) {
+                    clearInterval(besteaAnimRef.current);
+                    besteaAnimRef.current = null;
+                }
+            }
+        }, intervalMs);
+        besteaAnimRef.current = id;
+        // cleanup if besteaEdges changes again
+        return () => {
+            if (besteaAnimRef.current) {
+                clearInterval(besteaAnimRef.current);
+                besteaAnimRef.current = null;
+            }
+        };
+    }, [besteaEdges]);
 
     /* ---------------------------------- */
     /* Update bestEdges when a new iteration finishes */
@@ -149,7 +204,7 @@ export default function TravelingSalesman() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // --- Draw best path (background) ---
-        if (bestEdges.length) {
+        if (bestEdges.length && showPlayerBest) {
             ctx.save();
             ctx.strokeStyle = "rgba(0, 205, 242, 1)";
             ctx.lineWidth = 2;
@@ -165,12 +220,32 @@ export default function TravelingSalesman() {
             ctx.restore();
         }
 
-        // --- Draw EA best path (background) ---
-        if (besteaEdges.length) {
+        // --- Draw EA best path (animated) ---
+        if (showEAPath && besteaEdges.length && besteaDrawCount > 0) {
             ctx.save();
-            ctx.strokeStyle = "rgba(160, 120, 255, 0.4)";
-            ctx.lineWidth = 8;
-            besteaEdges.forEach(e => {
+            ctx.strokeStyle = "rgba(160, 120, 255, 0.6)";
+            ctx.lineWidth = 6;
+            ctx.lineCap = "round";
+            const count = Math.min(besteaDrawCount, besteaEdges.length);
+            for (let idx = 0; idx < count; idx++) {
+                const e = besteaEdges[idx];
+                const a = nodes.find(n => n.id === e.from);
+                const b = nodes.find(n => n.id === e.to);
+                if (!a || !b) continue;
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // --- Draw user edges (foreground) ---
+        if (showCurrent) {
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]);
+            edges.forEach(e => {
                 const a = nodes.find(n => n.id === e.from);
                 const b = nodes.find(n => n.id === e.to);
                 if (!a || !b) return;
@@ -179,22 +254,7 @@ export default function TravelingSalesman() {
                 ctx.lineTo(b.x, b.y);
                 ctx.stroke();
             });
-            ctx.restore();
         }
-
-        // --- Draw user edges (foreground) ---
-        ctx.strokeStyle = "black";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([]);
-        edges.forEach(e => {
-            const a = nodes.find(n => n.id === e.from);
-            const b = nodes.find(n => n.id === e.to);
-            if (!a || !b) return;
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.stroke();
-        });
 
         // Draw nodes
         nodes.forEach(n => {
@@ -214,7 +274,7 @@ export default function TravelingSalesman() {
             ctx.fill();
             ctx.stroke();
         });
-    }, [nodes, edges, selectedNode, bestEdges, besteaEdges]);
+    }, [nodes, edges, selectedNode, bestEdges, besteaEdges, besteaDrawCount, showEAPath, showPlayerBest, showCurrent]);
 
     /* ---------------------------------- */
     /* Helpers                            */
@@ -581,6 +641,37 @@ export default function TravelingSalesman() {
                             >
                                 Random Connect
                             </button>
+                        </div>
+
+                        {/* Visibility Toggles */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
+                            <label style={{ fontSize: 13 }}>
+                                <input
+                                    type="checkbox"
+                                    checked={showEAPath}
+                                    onChange={() => setShowEAPath(s => !s)}
+                                    style={{ marginRight: 8 }}
+                                />
+                                EA-Lösung anzeigen
+                            </label>
+                            <label style={{ fontSize: 13 }}>
+                                <input
+                                    type="checkbox"
+                                    checked={showPlayerBest}
+                                    onChange={() => setShowPlayerBest(s => !s)}
+                                    style={{ marginRight: 8 }}
+                                />
+                                Bester Spielpfad anzeigen
+                            </label>
+                            <label style={{ fontSize: 13 }}>
+                                <input
+                                    type="checkbox"
+                                    checked={showCurrent}
+                                    onChange={() => setShowCurrent(s => !s)}
+                                    style={{ marginRight: 8 }}
+                                />
+                                Aktuellen Pfad anzeigen
+                            </label>
                         </div>
 
                         {showButton && (

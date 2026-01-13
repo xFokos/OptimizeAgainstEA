@@ -54,7 +54,7 @@ function evolve(generations: number) {
 
         scored.sort((a, b) => a.score - b.score);
 
-        if (scored[0].score < bestLength) {
+        if (scored[0].score <= bestLength) {
             bestLength = scored[0].score;
             bestPath = scored[0].path;
             postMessage({
