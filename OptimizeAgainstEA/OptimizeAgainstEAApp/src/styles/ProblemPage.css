@@ -1,0 +1,85 @@
+.game-container{
+
+    flex: 1;
+    margin: 16px;
+    border-radius: 16px;
+    height: 85%;
+    width: 95%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    padding: 16px;
+    gap: 20px;
+}
+
+
+.game-window {
+
+    height: 100%;
+    width: 95%;
+    flex: 10;
+    background: white;
+    margin-top: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    color: black;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.game-bar-down {
+    flex: 1;
+    background: #fdfdfd;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 95%;
+
+    color: black;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.sidebar-left {
+    margin: 16px;
+    opacity: 100%;
+    width: 300px;
+    height: 90%;
+    color: black;
+    padding: 24px;
+    display: flex;
+    border-radius: 16px;
+    box-shadow: inset -1px 0 0 rgba(255,255,255,0.05);
+    flex-direction: column;
+
+
+    background: #fdfdfd
+
+}
+.sidebar-right {
+    margin: 16px;
+
+    width: 340px;
+    height: 90%;
+    color: white;
+    padding: 24px;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+
+    /* Statischer Gradient */
+    background: linear-gradient(
+            180deg,
+            #1f2937 0%,
+            #1c2833 45%,
+            #111827 100%
+    );
+
+
+
+}
