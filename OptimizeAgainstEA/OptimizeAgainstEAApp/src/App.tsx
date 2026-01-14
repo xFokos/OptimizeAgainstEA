@@ -8,6 +8,7 @@ import AnalyticsPage from "./pages/AnalyticsPage.tsx";
 import JumpGamePage from "./pages/JumpGamePage.tsx";
 import TravelingSalesmanPage from "./pages/TravelingSalesmanPage.tsx";
 import ProblemPage from "./pages/ProblemPage.tsx";
+import DashboardPage from "./pages/DashboardPage.tsx";
 
 export default function App() {
     return (
@@ -19,6 +20,7 @@ export default function App() {
             <Route path="/JumpGame" element={<JumpGamePage />} />
             <Route path="/TravelingSalesman" element={<TravelingSalesmanPage />} />
             <Route path="Problem" element={<ProblemPage />}/>
+            <Route path="Dashboard" element={<DashboardPage />}/>
         </Routes>
     );
 }
