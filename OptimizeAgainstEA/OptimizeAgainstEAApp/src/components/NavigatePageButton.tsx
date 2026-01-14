@@ -12,8 +12,8 @@ type NavigatePageButtonProps = {
 export default function NavigatePageButton({
                                            to,
                                            text,
-                                           width = "200px",
-                                           height = "48px",
+                                             width,
+                                             height,
                                        }: NavigatePageButtonProps) {
     const navigate = useNavigate();
 

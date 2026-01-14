@@ -28,6 +28,12 @@ export default function TravelingSalesman() {
     const [showPlayerBest, setShowPlayerBest] = useState<boolean>(true);
     const [showCurrent, setShowCurrent] = useState<boolean>(true);
 
+    // EA animation control
+    const [showEASolutionButton, setShowEASolutionButton] = useState<boolean>(false);
+    const [isEAAnimating, setIsEAAnimating] = useState<boolean>(false);
+    const prevShowPlayerBestRef = useRef<boolean | null>(null);
+    const prevShowCurrentRef = useRef<boolean | null>(null);
+
     const [nodes, setNodes] = useState<Node[]>([]);
     const [edges, setEdges] = useState<Edge[]>([]);
     const [bestEdges, setBestEdges] = useState<Edge[]>([]);
@@ -111,11 +117,9 @@ export default function TravelingSalesman() {
                 // Aktualisiere eaHistory sicher gegen stale closures via historyRef
                 setEaHistory(prev => {
                     const completedIterations = historyRef.current.length;
-                    // wenn noch Einträge fehlen für abgeschlossene Iterationen -> anhängen
                     if (prev.length < completedIterations) {
                         return [...prev, eaLength];
                     }
-                    // sonst aktualisiere den letzten Eintrag (EA verbessert sich während der Laufzeit)
                     if (prev.length === 0) return [eaLength];
                     const copy = [...prev];
                     copy[copy.length - 1] = eaLength;
@@ -144,9 +148,11 @@ export default function TravelingSalesman() {
     useEffect(() => { historyRef.current = history; }, [history]);
 
     /* ---------------------------------- */
-    /* Animate EA edges when besteaEdges changes */
+    /* EA animation (only when triggered) */
     /* ---------------------------------- */
     useEffect(() => {
+        if (!isEAAnimating) return;
+
         // stop any existing animation
         if (besteaAnimRef.current) {
             clearInterval(besteaAnimRef.current);
@@ -154,13 +160,17 @@ export default function TravelingSalesman() {
         }
 
         if (!besteaEdges.length) {
-            setBesteaDrawCount(0);
+            // nothing to animate, end animation immediately
+            setIsEAAnimating(false);
+            setShowEASolutionButton(false);
+            setShowPlayerBest(prevShowPlayerBestRef.current ?? true);
+            setShowCurrent(prevShowCurrentRef.current ?? true);
             return;
         }
 
         setBesteaDrawCount(0);
         let i = 0;
-        const intervalMs = 60; // Zeit pro Kante (anpassen falls nötig)
+        const intervalMs = 60; // Zeit pro Kante
         const id = window.setInterval(() => {
             i++;
             setBesteaDrawCount(i);
@@ -169,17 +179,23 @@ export default function TravelingSalesman() {
                     clearInterval(besteaAnimRef.current);
                     besteaAnimRef.current = null;
                 }
+                setIsEAAnimating(false);
+                // restore toggles
+                setShowPlayerBest(prevShowPlayerBestRef.current ?? true);
+                setShowCurrent(prevShowCurrentRef.current ?? true);
+                // switch to New Iteration
+                setShowEASolutionButton(false);
             }
         }, intervalMs);
         besteaAnimRef.current = id;
-        // cleanup if besteaEdges changes again
+
         return () => {
             if (besteaAnimRef.current) {
                 clearInterval(besteaAnimRef.current);
                 besteaAnimRef.current = null;
             }
         };
-    }, [besteaEdges]);
+    }, [besteaEdges, isEAAnimating]);
 
     /* ---------------------------------- */
     /* Update bestEdges when a new iteration finishes */
@@ -310,20 +326,17 @@ export default function TravelingSalesman() {
     function selectGraphEnd(edges: Edge[], nodes: Node[]): Node | null {
         if (edges.length === 0) return null;
 
-        // Count degrees
         const degree: Record<number, number> = {};
         edges.forEach(e => {
             degree[e.from] = (degree[e.from] ?? 0) + 1;
             degree[e.to] = (degree[e.to] ?? 0) + 1;
         });
 
-        // Prefer last edge's endpoint if possible
         const last = edges[edges.length - 1];
         if ((degree[last.to] ?? 0) < 2) {
             return nodes.find(n => n.id === last.to) ?? null;
         }
 
-        // Otherwise find any open node
         return (
             nodes.find(n => (degree[n.id] ?? 0) < 2) ?? null
         );
@@ -439,6 +452,9 @@ export default function TravelingSalesman() {
         setShowButton(true);
         setIsFinished(true);
 
+        // show EA solution button first
+        setShowEASolutionButton(true);
+
         // trigger EA run (same as normal completion)
         workerRef.current?.postMessage({
             type: "RUN",
@@ -459,12 +475,14 @@ export default function TravelingSalesman() {
         if (finished && !isFinished) {
             setHistory(h => {
                 const next = [...h, pathLength()];
-                // update historyRef immediately so worker onmessage can see correct completed count
                 historyRef.current = next;
                 return next;
             });
             setShowButton(true);
             setIsFinished(true);
+
+            // show EA solution button first
+            setShowEASolutionButton(true);
 
             // evolve EA
             workerRef.current?.postMessage({
@@ -511,8 +529,24 @@ export default function TravelingSalesman() {
         setSelectedNode(null);
         setShowButton(false);
         setIsFinished(false); // unlock editing
+        setShowEASolutionButton(false);
+        setBesteaDrawCount(0);
     };
 
+    const playEASolution = () => {
+        // don't start if no data
+        if (!besteaEdges.length || isEAAnimating) return;
+
+        // remember previous visibility to restore after animation
+        prevShowPlayerBestRef.current = showPlayerBest;
+        prevShowCurrentRef.current = showCurrent;
+
+        setShowPlayerBest(false);
+        setShowCurrent(false);
+
+        // start animation (effect will run)
+        setIsEAAnimating(true);
+    };
 
     /* ---------------------------------- */
     /* Render                             */
@@ -520,160 +554,99 @@ export default function TravelingSalesman() {
     return (
         <div
             style={{
-                display: "flex",
-                justifyContent: "center",
-                width: "100%",
-                height: "100%",
-                backgroundColor: "transparent",
+                display: "flex"
             }}
         >
-            {/* MAIN CONTENT */}
-            <div
-                style={{
-                    display: "flex",
-                    width: "1200px",
-                    boxSizing: "border-box",
-                }}
-            >
-                {/* LEFT: GAME (CENTERED) */}
-                <div
-                    style={{
-                        flex: 1,
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        padding: 20,
-                    }}
-                >
-                    <canvas
-                        ref={canvasRef}
-                        width={800}
-                        height={600}
-                        style={{
-                            border: "1px solid black",
-                            backgroundColor: "rgba(254, 254, 254, 0.1)",
-                        }}
-                        onClick={handleClick}
-                    />
+            <div className={"sidebar-left"}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
+                    <label style={{ fontSize: 13 }}>
+                        <input
+                            type="checkbox"
+                            checked={showEAPath}
+                            onChange={() => setShowEAPath(s => !s)}
+                            style={{ marginRight: 8 }}
+                        />
+                        EA-Lösung anzeigen
+                    </label>
+                    <label style={{ fontSize: 13 }}>
+                        <input
+                            type="checkbox"
+                            checked={showPlayerBest}
+                            onChange={() => setShowPlayerBest(s => !s)}
+                            style={{ marginRight: 8 }}
+                        />
+                        Bester Spielpfad anzeigen
+                    </label>
+                    <label style={{ fontSize: 13 }}>
+                        <input
+                            type="checkbox"
+                            checked={showCurrent}
+                            onChange={() => setShowCurrent(s => !s)}
+                            style={{ marginRight: 8 }}
+                        />
+                        Aktuellen Pfad anzeigen
+                    </label>
                 </div>
+            </div>
 
-                {/* RIGHT: ANALYTICS */}
-                <div
-                    style={{
-                        width: 400,
-                        padding: 20,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 20,
-                        alignItems: "center",
-                    }}
-                >
-                    <div style={{ fontSize: 18, fontWeight: "bold" }}>
-                        Current Path Length: {pathLength().toFixed(2)}
-                    </div>
+            <div className={"game-container"}>
 
-                    <LineChart width={400} height={250} data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="iteration" />
-                        <YAxis />
-                        <Tooltip />
-
-                        {/* User */}
-                        <Line
-                            dataKey="user"
-                            stroke="#000000"
-                            name="User"
-                            dot={{ r: 4 }}
-                            isAnimationActive={false}
+                <div className={"game-window"}>
+                        <canvas
+                            ref={canvasRef}
+                            width={800}
+                            height={600}
+                            style={{
+                                border: "1px solid black",
+                                backgroundColor: "rgba(254, 254, 254, 0.1)",
+                            }}
+                            onClick={handleClick}
                         />
-
-                        {/* EA current */}
-                        <Line
-                            dataKey="ea"
-                            stroke="#a078ff"
-                            name="Evolutionary Algorithm"
-                            strokeDasharray="5 5"
-                            dot={false}
-                            isAnimationActive={false}
-                        />
-                    </LineChart>
-
-
-                    {history.length === 0 && (
-                        <div style={{ fontSize: 12, opacity: 0.6 }}>
-                            No completed iterations yet
-                        </div>
-                    )}
-
-                    <div
-                        style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 12,
-                            alignItems: "center",
-                        }}
-                    >
-                        <div style={{ display: "flex", gap: 10 }}>
-                            <button
-                                className="button"
-                                onClick={undo}
-                                disabled={!undoStack.length || isFinished}
-                            >
-                                Undo
-                            </button>
-                            <button
-                                className="button"
-                                onClick={redo}
-                                disabled={!redoStack.length || isFinished}
-                            >
-                                Redo
-                            </button>
-                        </div>
-
-                        <div style={{ display: "flex", gap: 10 }}>
+                </div>
+                <div className={"game-bar-down"}>
+                    <div style={{ display: "flex", gap: 10 }}>
+                        <button
+                            className="button"
+                            onClick={undo}
+                            disabled={!undoStack.length || isFinished}
+                        >
+                            Undo
+                        </button>
+                        <button
+                            className="button"
+                            onClick={redo}
+                            disabled={!redoStack.length || isFinished}
+                        >
+                            Redo
+                        </button>
+                        {/* Replace New Iteration with EA Solution first when finished */}
+                        {isFinished ? (
+                            showEASolutionButton ? (
+                                <button
+                                    className="button"
+                                    onClick={playEASolution}
+                                    disabled={isEAAnimating || !besteaEdges.length}
+                                >
+                                    EA Lösung
+                                </button>
+                            ) : (
+                                <button className="button" onClick={newIteration}>
+                                    New Iteration
+                                </button>
+                            )
+                        ) : (
                             <button className="button" onClick={newIteration}>
-                                New Iteration
+                                Neue Iteration
                             </button>
-                            <button
-                                className="button"
-                                onClick={randomConnect}
-                                disabled={isFinished || nodes.length === 0}
-                            >
-                                Random Connect
-                            </button>
-                        </div>
+                        )}
 
-                        {/* Visibility Toggles */}
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
-                            <label style={{ fontSize: 13 }}>
-                                <input
-                                    type="checkbox"
-                                    checked={showEAPath}
-                                    onChange={() => setShowEAPath(s => !s)}
-                                    style={{ marginRight: 8 }}
-                                />
-                                EA-Lösung anzeigen
-                            </label>
-                            <label style={{ fontSize: 13 }}>
-                                <input
-                                    type="checkbox"
-                                    checked={showPlayerBest}
-                                    onChange={() => setShowPlayerBest(s => !s)}
-                                    style={{ marginRight: 8 }}
-                                />
-                                Bester Spielpfad anzeigen
-                            </label>
-                            <label style={{ fontSize: 13 }}>
-                                <input
-                                    type="checkbox"
-                                    checked={showCurrent}
-                                    onChange={() => setShowCurrent(s => !s)}
-                                    style={{ marginRight: 8 }}
-                                />
-                                Aktuellen Pfad anzeigen
-                            </label>
-                        </div>
-
+                        <button
+                            className="button"
+                            onClick={randomConnect}
+                            disabled={isFinished || nodes.length === 0}
+                        >
+                            Random Connect
+                        </button>
                         {showButton && (
                             <NavigatePageButton
                                 to="/Analytics"
@@ -682,7 +655,49 @@ export default function TravelingSalesman() {
                         )}
                     </div>
                 </div>
+
+            </div>
+
+            <div className={"sidebar-right"}>
+                {/* RIGHT: ANALYTICS */}
+                <div style={{ fontSize: 18, fontWeight: "bold" }}>
+                    Current Path Length: {pathLength().toFixed(2)}
+                </div>
+
+                <LineChart width={"90%"} height={250} data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="iteration" />
+                    <YAxis />
+                    <Tooltip />
+
+                    {/* User */}
+                    <Line
+                        dataKey="user"
+                        stroke="#000000"
+                        name="User"
+                        dot={{ r: 4 }}
+                        isAnimationActive={false}
+                    />
+
+                    {/* EA current */}
+                    <Line
+                        dataKey="ea"
+                        stroke="#a078ff"
+                        name="Evolutionary Algorithm"
+                        strokeDasharray="5 5"
+                        dot={false}
+                        isAnimationActive={false}
+                    />
+                </LineChart>
+
+
+                {history.length === 0 && (
+                    <div style={{ fontSize: 12, opacity: 0.6 }}>
+                        No completed iterations yet
+                    </div>
+                )}
             </div>
         </div>
+
     );
 }
