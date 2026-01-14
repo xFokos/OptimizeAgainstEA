@@ -1,5 +1,3 @@
-// TypeScript
-// File: OptimizeAgainstEAApp/src/components/TravelingSalesman.tsx
 import { useState, useRef, useEffect } from "react";
 import type { Node, Edge } from "../types";
 import NavigatePageButton from "./NavigatePageButton";
@@ -14,36 +12,16 @@ import {
 
 const NODE_RADIUS = 20;
 const NODE_COUNT = 30;
-const MAIN_W = 800;
-const MAIN_H = 600;
-const SMALL_W = 220;
-const SMALL_H = 165;
-const SMALL_SCALE_X = SMALL_W / MAIN_W;
-const SMALL_SCALE_Y = SMALL_H / MAIN_H;
 
 export default function TravelingSalesman() {
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
-    const parentARef = useRef<HTMLCanvasElement | null>(null);
-    const parentBRef = useRef<HTMLCanvasElement | null>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
     const workerRef = useRef<Worker | null>(null);
-
     const historyRef = useRef<number[]>([]);
     const besteaAnimRef = useRef<number | null>(null);
 
     const [eaHistory, setEaHistory] = useState<number[]>([]);
     const [besteaEdges, setBesteaEdges] = useState<Edge[]>([]);
     const [besteaDrawCount, setBesteaDrawCount] = useState<number>(0);
-
-    // parents & usage highlighting
-    const [parentAEdges, setParentAEdges] = useState<Edge[]>([]);
-    const [parentBEdges, setParentBEdges] = useState<Edge[]>([]);
-    const [parentAUsed, setParentAUsed] = useState<Set<string>>(new Set());
-    const [parentBUsed, setParentBUsed] = useState<Set<string>>(new Set());
-
-    // child before (used to compute diffs) - this is read and used
-    const [childBeforeEdges, setChildBeforeEdges] = useState<Edge[]>([]);
-    // mutation diff keys (edges that changed due to mutation) -> drawn red on main
-    const [mutationDiffEdges, setMutationDiffEdges] = useState<Set<string>>(new Set());
 
     // Visibility toggles
     const [showEAPath, setShowEAPath] = useState<boolean>(true);
@@ -77,136 +55,78 @@ export default function TravelingSalesman() {
         };
     });
 
-    /* Helpers */
-    function keyEdge(e: Edge) {
-        return e.from < e.to ? `${e.from}-${e.to}` : `${e.to}-${e.from}`;
-    }
-
-    function convertPathToEdges(path: number[]): Edge[] {
-        const out: Edge[] = [];
-        for (let i = 0; i < path.length; i++) {
-            out.push({ from: path[i], to: path[(i + 1) % path.length] });
-        }
-        return out;
-    }
-
-    function computePathLength(edgeArray: Edge[]) {
-        return edgeArray.reduce((sum, e) => {
-            const a = nodes.find(n => n.id === e.from);
-            const b = nodes.find(n => n.id === e.to);
-            if (!a || !b) return sum;
-            return sum + Math.hypot(a.x - b.x, a.y - b.y);
-        }, 0);
-    }
-
-    function pathLength(): number {
-        return edges.reduce((sum, e) => {
-            const a = nodes.find(n => n.id === e.from);
-            const b = nodes.find(n => n.id === e.to);
-            if (!a || !b) return sum;
-            return sum + Math.hypot(a.x - b.x, a.y - b.y);
-        }, 0);
-    }
-
-    function wouldFormCycle(edgesArr: Edge[], from: number, to: number): boolean {
-        const adj: Record<number, number[]> = {};
-        edgesArr.forEach(e => {
-            adj[e.from] ??= [];
-            adj[e.to] ??= [];
-            adj[e.from].push(e.to);
-            adj[e.to].push(e.from);
-        });
-
-        const visited = new Set<number>();
-        function dfs(n: number): boolean {
-            if (n === to) return true;
-            visited.add(n);
-            return (adj[n] || []).some(x => !visited.has(x) && dfs(x));
-        }
-
-        return dfs(from);
-    }
-
-    function selectGraphEnd(edgesArr: Edge[], nodesArr: Node[]): Node | null {
-        if (edgesArr.length === 0) return null;
-        const degree: Record<number, number> = {};
-        edgesArr.forEach(e => {
-            degree[e.from] = (degree[e.from] ?? 0) + 1;
-            degree[e.to] = (degree[e.to] ?? 0) + 1;
-        });
-        const last = edgesArr[edgesArr.length - 1];
-        if ((degree[last.to] ?? 0) < 2) {
-            return nodesArr.find(n => n.id === last.to) ?? null;
-        }
-        return nodesArr.find(n => (degree[n.id] ?? 0) < 2) ?? null;
-    }
-
-    /* Node generation */
+    /* ---------------------------------- */
+    /* Node generation with minimum distance */
+    /* ---------------------------------- */
     useEffect(() => {
-        // create a hidden canvas-size independent node placement
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
         const generated: Node[] = [];
-        const MIN_DISTANCE = NODE_RADIUS * 4;
+        const MIN_DISTANCE = NODE_RADIUS * 4; // minimum distance between nodes
+
         function isFarEnough(x: number, y: number) {
-            return generated.every(n => Math.hypot(n.x - x, n.y - y) >= MIN_DISTANCE);
+            return generated.every(
+                n => Math.hypot(n.x - x, n.y - y) >= MIN_DISTANCE
+            );
         }
+
         let attempts = 0;
         while (generated.length < NODE_COUNT && attempts < NODE_COUNT * 50) {
-            const x = Math.random() * (MAIN_W - NODE_RADIUS * 2) + NODE_RADIUS;
-            const y = Math.random() * (MAIN_H - NODE_RADIUS * 2) + NODE_RADIUS;
+            const x = Math.random() * (canvas.width - NODE_RADIUS * 2) + NODE_RADIUS;
+            const y = Math.random() * (canvas.height - NODE_RADIUS * 2) + NODE_RADIUS;
+
             if (isFarEnough(x, y)) {
                 generated.push({ id: generated.length, x, y });
             } else {
                 attempts++;
             }
         }
+
         setNodes(generated);
     }, []);
 
+    /* ---------------------------------- */
     /* EA Worker */
+    /* ---------------------------------- */
     useEffect(() => {
         if (!nodes.length) return;
-        workerRef.current = new Worker(new URL("../workers/tspWorker.ts", import.meta.url));
-        workerRef.current.postMessage({ type: "INIT", payload: { nodes } });
+
+        workerRef.current = new Worker(
+            new URL("../workers/tspWorker.ts", import.meta.url)
+        );
+
+        workerRef.current.postMessage({
+            type: "INIT",
+            payload: { nodes },
+        });
 
         workerRef.current.onmessage = (e) => {
-            const { type, payload } = e.data || {};
-            if (type === "BEST") {
-                // backward-compatible simple best (keep EA history)
-                setEaHistory(h => [...h, payload.length]);
-            } else if (type === "BEST_DETAILED") {
-                // payload: path, length, parentA, parentB, childBefore, childAfter, mutated, mutationSwap
-                const { parentA, parentB, childBefore, childAfter } = payload;
+            if (e.data.type === "BEST") {
+                const eaEdges = convertPathToEdges(e.data.payload.path);
+                setBesteaEdges(eaEdges);
 
-                // convert to edges
-                const pAedges = convertPathToEdges(parentA);
-                const pBedges = convertPathToEdges(parentB);
-                const cbEdges = convertPathToEdges(childBefore);
-                const caEdges = convertPathToEdges(childAfter);
+                const eaLength = computePathLength(eaEdges);
 
-                // mark parents & used edges
-                setParentAEdges(pAedges);
-                setParentBEdges(pBedges);
-                setChildBeforeEdges(cbEdges);
-
-                // used edges in parents = those parent edges that appear in childBefore
-                const cbSet = new Set(cbEdges.map(keyEdge));
-                setParentAUsed(new Set(pAedges.filter(e => cbSet.has(keyEdge(e))).map(keyEdge)));
-                setParentBUsed(new Set(pBedges.filter(e => cbSet.has(keyEdge(e))).map(keyEdge)));
-
-                // mutation diffs: edges that are in childAfter but not in childBefore
-                const caSet = new Set(caEdges.map(keyEdge));
-                const diff = new Set<string>([...caSet].filter(k => !cbSet.has(k)));
-                setMutationDiffEdges(diff);
-
-                // set besteaEdges to the child's edges (edit existing EA graph) and animate via besteaEdges -> besteaDrawCount effect
-                setBesteaEdges(caEdges);
-                setEaHistory(h => [...h, payload.length]);
+                // Aktualisiere eaHistory sicher gegen stale closures via historyRef
+                setEaHistory(prev => {
+                    const completedIterations = historyRef.current.length;
+                    // wenn noch Einträge fehlen für abgeschlossene Iterationen -> anhängen
+                    if (prev.length < completedIterations) {
+                        return [...prev, eaLength];
+                    }
+                    // sonst aktualisiere den letzten Eintrag (EA verbessert sich während der Laufzeit)
+                    if (prev.length === 0) return [eaLength];
+                    const copy = [...prev];
+                    copy[copy.length - 1] = eaLength;
+                    return copy;
+                });
             }
         };
 
+
         return () => {
             workerRef.current?.terminate();
-            workerRef.current = null;
         };
     }, [nodes]);
 
@@ -220,8 +140,14 @@ export default function TravelingSalesman() {
         };
     }, []);
 
-    // animate when besteaEdges changes (reused for offspring animation)
+    // keep historyRef in sync with history
+    useEffect(() => { historyRef.current = history; }, [history]);
+
+    /* ---------------------------------- */
+    /* Animate EA edges when besteaEdges changes */
+    /* ---------------------------------- */
     useEffect(() => {
+        // stop any existing animation
         if (besteaAnimRef.current) {
             clearInterval(besteaAnimRef.current);
             besteaAnimRef.current = null;
@@ -234,7 +160,7 @@ export default function TravelingSalesman() {
 
         setBesteaDrawCount(0);
         let i = 0;
-        const intervalMs = 60;
+        const intervalMs = 60; // Zeit pro Kante (anpassen falls nötig)
         const id = window.setInterval(() => {
             i++;
             setBesteaDrawCount(i);
@@ -246,6 +172,7 @@ export default function TravelingSalesman() {
             }
         }, intervalMs);
         besteaAnimRef.current = id;
+        // cleanup if besteaEdges changes again
         return () => {
             if (besteaAnimRef.current) {
                 clearInterval(besteaAnimRef.current);
@@ -254,22 +181,27 @@ export default function TravelingSalesman() {
         };
     }, [besteaEdges]);
 
+    /* ---------------------------------- */
     /* Update bestEdges when a new iteration finishes */
+    /* ---------------------------------- */
     useEffect(() => {
         if (!isFinished) return;
+
         if (!bestEdges.length || pathLength() < computePathLength(bestEdges)) {
             setBestEdges(edges);
         }
     }, [isFinished]);
 
-    /* Drawing - main canvas */
+    /* ---------------------------------- */
+    /* Drawing                            */
+    /* ---------------------------------- */
     useEffect(() => {
         const canvas = canvasRef.current;
-        if (!canvas || !nodes.length) return;
+        if (!canvas) return;
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        ctx.clearRect(0, 0, MAIN_W, MAIN_H);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // --- Draw best path (background) ---
         if (bestEdges.length && showPlayerBest) {
@@ -288,25 +220,18 @@ export default function TravelingSalesman() {
             ctx.restore();
         }
 
-        // --- Draw EA best path (besteaEdges) animated ---
+        // --- Draw EA best path (animated) ---
         if (showEAPath && besteaEdges.length && besteaDrawCount > 0) {
             ctx.save();
+            ctx.strokeStyle = "rgba(160, 120, 255, 0.6)";
+            ctx.lineWidth = 6;
+            ctx.lineCap = "round";
             const count = Math.min(besteaDrawCount, besteaEdges.length);
             for (let idx = 0; idx < count; idx++) {
                 const e = besteaEdges[idx];
                 const a = nodes.find(n => n.id === e.from);
                 const b = nodes.find(n => n.id === e.to);
                 if (!a || !b) continue;
-                const key = keyEdge(e);
-                // if edge is part of mutation diff -> highlight red
-                if (mutationDiffEdges.has(key)) {
-                    ctx.strokeStyle = "rgba(220, 30, 30, 1)";
-                    ctx.lineWidth = 5;
-                } else {
-                    ctx.strokeStyle = "rgba(160, 120, 255, 0.9)";
-                    ctx.lineWidth = 5;
-                }
-                ctx.lineCap = "round";
                 ctx.beginPath();
                 ctx.moveTo(a.x, a.y);
                 ctx.lineTo(b.x, b.y);
@@ -317,7 +242,6 @@ export default function TravelingSalesman() {
 
         // --- Draw user edges (foreground) ---
         if (showCurrent) {
-            ctx.save();
             ctx.strokeStyle = "black";
             ctx.lineWidth = 2;
             ctx.setLineDash([]);
@@ -330,107 +254,149 @@ export default function TravelingSalesman() {
                 ctx.lineTo(b.x, b.y);
                 ctx.stroke();
             });
-            ctx.restore();
         }
 
         // Draw nodes
         nodes.forEach(n => {
-            const connections = edges.filter(e => e.from === n.id || e.to === n.id).length;
-            ctx.fillStyle = selectedNode?.id === n.id ? "#ffea8a" : "#ffffff";
+            const connections = edges.filter(
+                e => e.from === n.id || e.to === n.id
+            ).length;
+
+            ctx.fillStyle =
+                selectedNode?.id === n.id
+                    ? "orange"
+                    : connections === 2
+                        ? "green"
+                        : "skyblue";
+
             ctx.beginPath();
             ctx.arc(n.x, n.y, NODE_RADIUS, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = "#333";
             ctx.stroke();
         });
-    }, [
-        nodes,
-        edges,
-        selectedNode,
-        bestEdges,
-        besteaEdges,
-        besteaDrawCount,
-        mutationDiffEdges,
-        showEAPath,
-        showPlayerBest,
-        showCurrent,
-    ]);
+    }, [nodes, edges, selectedNode, bestEdges, besteaEdges, besteaDrawCount, showEAPath, showPlayerBest, showCurrent]);
 
-    /* Draw parent canvases separately */
-    useEffect(() => {
-        const drawSmall = (ref: HTMLCanvasElement | null, edgesToDraw: Edge[], usedSet: Set<string>) => {
-            if (!ref || !nodes.length) return;
-            const ctx = ref.getContext("2d");
-            if (!ctx) return;
-            ctx.clearRect(0, 0, SMALL_W, SMALL_H);
+    /* ---------------------------------- */
+    /* Helpers                            */
+    /* ---------------------------------- */
+    function wouldFormCycle(edges: Edge[], from: number, to: number): boolean {
+        const adj: Record<number, number[]> = {};
+        edges.forEach(e => {
+            adj[e.from] ??= [];
+            adj[e.to] ??= [];
+            adj[e.from].push(e.to);
+            adj[e.to].push(e.from);
+        });
 
-            // draw edges: used in green, others grey
-            ctx.save();
-            edgesToDraw.forEach(e => {
-                const a = nodes.find(n => n.id === e.from);
-                const b = nodes.find(n => n.id === e.to);
-                if (!a || !b) return;
-                const key = keyEdge(e);
-                if (usedSet.has(key)) {
-                    ctx.strokeStyle = "rgba(50,180,80,0.95)"; // green
-                    ctx.lineWidth = 3;
-                } else {
-                    ctx.strokeStyle = "rgba(80,80,80,0.9)";
-                    ctx.lineWidth = 2;
-                }
-                ctx.beginPath();
-                ctx.moveTo(a.x * SMALL_SCALE_X, a.y * SMALL_SCALE_Y);
-                ctx.lineTo(b.x * SMALL_SCALE_X, b.y * SMALL_SCALE_Y);
-                ctx.stroke();
+        const visited = new Set<number>();
+        function dfs(n: number): boolean {
+            if (n === to) return true;
+            visited.add(n);
+            return (adj[n] || []).some(x => !visited.has(x) && dfs(x));
+        }
+
+        return dfs(from);
+    }
+
+    function pathLength(): number {
+        return edges.reduce((sum, e) => {
+            const a = nodes.find(n => n.id === e.from);
+            const b = nodes.find(n => n.id === e.to);
+            if (!a || !b) return sum;
+            return sum + Math.hypot(a.x - b.x, a.y - b.y);
+        }, 0);
+    }
+
+    function selectGraphEnd(edges: Edge[], nodes: Node[]): Node | null {
+        if (edges.length === 0) return null;
+
+        // Count degrees
+        const degree: Record<number, number> = {};
+        edges.forEach(e => {
+            degree[e.from] = (degree[e.from] ?? 0) + 1;
+            degree[e.to] = (degree[e.to] ?? 0) + 1;
+        });
+
+        // Prefer last edge's endpoint if possible
+        const last = edges[edges.length - 1];
+        if ((degree[last.to] ?? 0) < 2) {
+            return nodes.find(n => n.id === last.to) ?? null;
+        }
+
+        // Otherwise find any open node
+        return (
+            nodes.find(n => (degree[n.id] ?? 0) < 2) ?? null
+        );
+    }
+
+    function computePathLength(edgeArray: Edge[]) {
+        return edgeArray.reduce((sum, e) => {
+            const a = nodes.find(n => n.id === e.from);
+            const b = nodes.find(n => n.id === e.to);
+            if (!a || !b) return sum;
+            return sum + Math.hypot(a.x - b.x, a.y - b.y);
+        }, 0);
+    }
+
+    function convertPathToEdges(path: number[]): Edge[] {
+        const edges: Edge[] = [];
+        for (let i = 0; i < path.length; i++) {
+            edges.push({
+                from: path[i],
+                to: path[(i + 1) % path.length],
             });
-            ctx.restore();
+        }
+        return edges;
+    }
 
-            // draw nodes
-            nodes.forEach(n => {
-                ctx.fillStyle = "skyblue";
-                ctx.beginPath();
-                ctx.arc(n.x * SMALL_SCALE_X, n.y * SMALL_SCALE_Y, Math.max(3, NODE_RADIUS * SMALL_SCALE_X), 0, Math.PI * 2);
-                ctx.fill();
-                ctx.strokeStyle = "#333";
-                ctx.stroke();
-            });
-        };
-
-        drawSmall(parentARef.current, parentAEdges, parentAUsed);
-        drawSmall(parentBRef.current, parentBEdges, parentBUsed);
-    }, [parentAEdges, parentBEdges, parentAUsed, parentBUsed, nodes]);
-
-    /* Click handling */
+    /* ---------------------------------- */
+    /* Click handling                     */
+    /* ---------------------------------- */
     const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
+
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        const clicked = nodes.find(n => Math.hypot(n.x - x, n.y - y) <= NODE_RADIUS);
+
+        const clicked = nodes.find(
+            n => Math.hypot(n.x - x, n.y - y) <= NODE_RADIUS
+        );
         if (!clicked) return;
 
-        const conn = edges.filter(ed => ed.from === clicked.id || ed.to === clicked.id).length;
+        const conn = edges.filter(
+            e => e.from === clicked.id || e.to === clicked.id
+        ).length;
         if (conn >= 2) return;
 
         if (!selectedNode) {
             setSelectedNode(clicked);
             return;
         }
+
         if (selectedNode.id === clicked.id) return;
 
-        const selectedConn = edges.filter(ed => ed.from === selectedNode.id || ed.to === selectedNode.id).length;
+        const selectedConn = edges.filter(
+            e => e.from === selectedNode.id || e.to === selectedNode.id
+        ).length;
         if (selectedConn >= 2) {
             setSelectedNode(clicked);
             return;
         }
 
-        if (edges.some(ed =>
-            (ed.from === selectedNode.id && ed.to === clicked.id) ||
-            (ed.to === selectedNode.id && ed.from === clicked.id)
-        )) return;
+        if (
+            edges.some(
+                e =>
+                    (e.from === selectedNode.id && e.to === clicked.id) ||
+                    (e.from === clicked.id && e.to === selectedNode.id)
+            )
+        ) return;
 
-        const remaining = nodes.filter(n => edges.filter(ed => ed.from === n.id || ed.to === n.id).length < 2).length;
+        const remaining = nodes.filter(
+            n => edges.filter(e => e.from === n.id || e.to === n.id).length < 2
+        ).length;
+
         if (remaining > 2 && wouldFormCycle(edges, selectedNode.id, clicked.id)) return;
 
         setUndoStack(u => [...u, edges]);
@@ -439,19 +405,32 @@ export default function TravelingSalesman() {
         setSelectedNode(clicked);
     };
 
-    /* Random connect */
+    /* ---------------------------------- */
+    /* Random connect (new)               */
+    /* ---------------------------------- */
     const randomConnect = () => {
         if (!nodes.length || isFinished) return;
+
+        // save current state for undo
         setUndoStack(u => [...u, edges]);
         setRedoStack([]);
+
+        // create shuffled tour
         const ids = nodes.map(n => n.id);
         for (let i = ids.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [ids[i], ids[j]] = [ids[j], ids[i]];
         }
-        const newEdges: Edge[] = ids.map((id, idx) => ({ from: id, to: ids[(idx + 1) % ids.length] }));
+
+        const newEdges: Edge[] = ids.map((id, idx) => ({
+            from: id,
+            to: ids[(idx + 1) % ids.length],
+        }));
+
         setEdges(newEdges);
         setSelectedNode(selectGraphEnd(newEdges, nodes));
+
+        // mark finished and register history immediately
         setHistory(h => {
             const next = [...h, computePathLength(newEdges)];
             historyRef.current = next;
@@ -459,44 +438,71 @@ export default function TravelingSalesman() {
         });
         setShowButton(true);
         setIsFinished(true);
-        workerRef.current?.postMessage({ type: "RUN", payload: { generations: 5 } });
+
+        // trigger EA run (same as normal completion)
+        workerRef.current?.postMessage({
+            type: "RUN",
+            payload: { generations: 5 },
+        });
     };
 
-    /* Completion detection */
+    /* ---------------------------------- */
+    /* Completion detection               */
+    /* ---------------------------------- */
     useEffect(() => {
         const finished =
             nodes.length > 0 &&
-            nodes.every(n => edges.filter(e => e.from === n.id || e.to === n.id).length === 2);
+            nodes.every(
+                n => edges.filter(e => e.from === n.id || e.to === n.id).length === 2
+            );
+
         if (finished && !isFinished) {
             setHistory(h => {
                 const next = [...h, pathLength()];
+                // update historyRef immediately so worker onmessage can see correct completed count
                 historyRef.current = next;
                 return next;
             });
             setShowButton(true);
             setIsFinished(true);
-            workerRef.current?.postMessage({ type: "RUN", payload: { generations: 5 } });
+
+            // evolve EA
+            workerRef.current?.postMessage({
+                type: "RUN",
+                payload: { generations: 5 },
+            });
         }
+
     }, [edges, nodes, isFinished]);
 
-    /* Controls */
+    /* ---------------------------------- */
+    /* Controls                           */
+    /* ---------------------------------- */
     const undo = () => {
         if (!undoStack.length) return;
+
         const prevEdges = undoStack.at(-1)!;
+
         setRedoStack(r => [...r, edges]);
         setEdges(prevEdges);
         setUndoStack(u => u.slice(0, -1));
+
         setSelectedNode(selectGraphEnd(prevEdges, nodes));
     };
 
+
     const redo = () => {
         if (!redoStack.length) return;
+
         const nextEdges = redoStack.at(-1)!;
+
         setUndoStack(u => [...u, edges]);
         setEdges(nextEdges);
         setRedoStack(r => r.slice(0, -1));
+
         setSelectedNode(selectGraphEnd(nextEdges, nodes));
     };
+
 
     const newIteration = () => {
         setEdges([]);
@@ -504,10 +510,13 @@ export default function TravelingSalesman() {
         setRedoStack([]);
         setSelectedNode(null);
         setShowButton(false);
-        setIsFinished(false);
+        setIsFinished(false); // unlock editing
     };
 
-    /* Render */
+
+    /* ---------------------------------- */
+    /* Render                             */
+    /* ---------------------------------- */
     return (
         <div
             style={{
@@ -518,6 +527,7 @@ export default function TravelingSalesman() {
                 backgroundColor: "transparent",
             }}
         >
+            {/* MAIN CONTENT */}
             <div
                 style={{
                     display: "flex",
@@ -525,33 +535,29 @@ export default function TravelingSalesman() {
                     boxSizing: "border-box",
                 }}
             >
-                {/* LEFT: small parent canvases + MAIN canvas */}
+                {/* LEFT: GAME (CENTERED) */}
                 <div
                     style={{
                         flex: 1,
                         display: "flex",
+                        justifyContent: "center",
                         alignItems: "center",
                         padding: 20,
-                        gap: 12,
                     }}
                 >
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
-                        <div style={{ fontSize: 12 }}>Parent A</div>
-                        <canvas ref={parentARef} width={SMALL_W} height={SMALL_H} style={{ border: "1px solid #333", background: "#fafafa" }} />
-                        <div style={{ fontSize: 12 }}>Parent B</div>
-                        <canvas ref={parentBRef} width={SMALL_W} height={SMALL_H} style={{ border: "1px solid #333", background: "#fafafa" }} />
-                    </div>
-
                     <canvas
                         ref={canvasRef}
-                        width={MAIN_W}
-                        height={MAIN_H}
-                        style={{ border: "1px solid #ccc", background: "#fff" }}
+                        width={800}
+                        height={600}
+                        style={{
+                            border: "1px solid black",
+                            backgroundColor: "rgba(254, 254, 254, 0.1)",
+                        }}
                         onClick={handleClick}
                     />
                 </div>
 
-                {/* RIGHT: Analytics */}
+                {/* RIGHT: ANALYTICS */}
                 <div
                     style={{
                         width: 400,
@@ -571,28 +577,110 @@ export default function TravelingSalesman() {
                         <XAxis dataKey="iteration" />
                         <YAxis />
                         <Tooltip />
-                        <Line type="monotone" dataKey="user" stroke="#000" dot={false} />
-                        <Line type="monotone" dataKey="eaBest" stroke="#a078ff" dot={false} />
+
+                        {/* User */}
+                        <Line
+                            dataKey="user"
+                            stroke="#000000"
+                            name="User"
+                            dot={{ r: 4 }}
+                            isAnimationActive={false}
+                        />
+
+                        {/* EA current */}
+                        <Line
+                            dataKey="ea"
+                            stroke="#a078ff"
+                            name="Evolutionary Algorithm"
+                            strokeDasharray="5 5"
+                            dot={false}
+                            isAnimationActive={false}
+                        />
                     </LineChart>
 
-                    <div style={{ display: "flex", gap: 10 }}>
-                        <button onClick={randomConnect}>Random connect</button>
-                        <button onClick={undo} disabled={!undoStack.length}>Undo</button>
-                        <button onClick={redo} disabled={!redoStack.length}>Redo</button>
-                        <button onClick={newIteration}>New</button>
-                    </div>
 
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <label><input type="checkbox" checked={showEAPath} onChange={e => setShowEAPath(e.target.checked)} /> Show EA</label>
-                        <label><input type="checkbox" checked={showPlayerBest} onChange={e => setShowPlayerBest(e.target.checked)} /> Show Player Best</label>
-                        <label><input type="checkbox" checked={showCurrent} onChange={e => setShowCurrent(e.target.checked)} /> Show Current</label>
-                    </div>
-
-                    {showButton && (
-                        <div style={{ display: "flex", gap: 10 }}>
-                            <button onClick={() => workerRef.current?.postMessage({ type: "RUN", payload: { generations: 20 } })}>Run EA</button>
+                    {history.length === 0 && (
+                        <div style={{ fontSize: 12, opacity: 0.6 }}>
+                            No completed iterations yet
                         </div>
                     )}
+
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 12,
+                            alignItems: "center",
+                        }}
+                    >
+                        <div style={{ display: "flex", gap: 10 }}>
+                            <button
+                                className="button"
+                                onClick={undo}
+                                disabled={!undoStack.length || isFinished}
+                            >
+                                Undo
+                            </button>
+                            <button
+                                className="button"
+                                onClick={redo}
+                                disabled={!redoStack.length || isFinished}
+                            >
+                                Redo
+                            </button>
+                        </div>
+
+                        <div style={{ display: "flex", gap: 10 }}>
+                            <button className="button" onClick={newIteration}>
+                                New Iteration
+                            </button>
+                            <button
+                                className="button"
+                                onClick={randomConnect}
+                                disabled={isFinished || nodes.length === 0}
+                            >
+                                Random Connect
+                            </button>
+                        </div>
+
+                        {/* Visibility Toggles */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
+                            <label style={{ fontSize: 13 }}>
+                                <input
+                                    type="checkbox"
+                                    checked={showEAPath}
+                                    onChange={() => setShowEAPath(s => !s)}
+                                    style={{ marginRight: 8 }}
+                                />
+                                EA-Lösung anzeigen
+                            </label>
+                            <label style={{ fontSize: 13 }}>
+                                <input
+                                    type="checkbox"
+                                    checked={showPlayerBest}
+                                    onChange={() => setShowPlayerBest(s => !s)}
+                                    style={{ marginRight: 8 }}
+                                />
+                                Bester Spielpfad anzeigen
+                            </label>
+                            <label style={{ fontSize: 13 }}>
+                                <input
+                                    type="checkbox"
+                                    checked={showCurrent}
+                                    onChange={() => setShowCurrent(s => !s)}
+                                    style={{ marginRight: 8 }}
+                                />
+                                Aktuellen Pfad anzeigen
+                            </label>
+                        </div>
+
+                        {showButton && (
+                            <NavigatePageButton
+                                to="/Analytics"
+                                text="View Analytics"
+                            />
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
