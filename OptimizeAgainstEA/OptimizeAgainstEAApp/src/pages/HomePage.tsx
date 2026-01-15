@@ -11,7 +11,7 @@ export default function HomePage() {
                 </p>
 
                 <NavigatePageButton
-                    to="/Settings"
+                    to="/dashboard"
                     text="⇒ Configure Game"
                     width="220px"
                     height="50px"

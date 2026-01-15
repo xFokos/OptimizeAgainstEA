@@ -96,6 +96,7 @@
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 24px;
+    margin: 5%;
 }
 
 .block {
@@ -149,7 +150,7 @@
     transform: translateX(-4px);
 }
 .problem-card.active {
-    outline: 2px solid #3b82f6;
+    outline: 4px solid #fdc600;
 }
 
 /* Bildplatzhalter */
