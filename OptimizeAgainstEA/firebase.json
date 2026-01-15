@@ -1,0 +1,8 @@
+{
+  "hosting": {
+    "public": "OptimizeAgainstEAApp/dist",
+    "rewrites": [
+      { "source": "**", "destination": "/index.html" }
+    ]
+  }
+}

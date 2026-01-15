@@ -1,19 +1,28 @@
 import { useState } from "react";
 import "../styles/dashboard.css";
+import { ProblemSelection } from "../components/ProblemSelection";
+import SelectionOverview from "../components/SelectionOverview";
 
 type Section = "problemSelect" | "gameSettings" | "algorithmSettings" | "overview";
 
+// Typen exportieren, damit andere Dateien sie verwenden können
+export type ProblemId = "tsp" | "knapsack" | "placeHolder";
+export type GameConfig = {
+    problem?: ProblemId;
+};
+
 export default function DashboardPage() {
     const [active, setActive] = useState<Section>("problemSelect");
+
+    // <-- hier kommt der State für die Spielkonfiguration
+    const [config, setConfig] = useState<GameConfig>({ problem: undefined });
 
     return (
         <div className="layout">
             {/* Sidebar */}
             <aside className="sidebar">
-                <h2 className="sidebar-title">Game Configuration </h2>
-
+                <h2 className="sidebar-title">Game Configuration</h2>
                 <nav className="sidebar-menu">
-
                     <MenuItem
                         label="Optimization Problem"
                         active={active === "problemSelect"}
@@ -25,7 +34,7 @@ export default function DashboardPage() {
                         onClick={() => setActive("gameSettings")}
                     />
                     <MenuItem
-                        label="Algorithm  Settings"
+                        label="Algorithm Settings"
                         active={active === "algorithmSettings"}
                         onClick={() => setActive("algorithmSettings")}
                     />
@@ -37,13 +46,18 @@ export default function DashboardPage() {
                 </nav>
             </aside>
 
-
             {/* Content */}
             <main className="content">
-                {active === "problemSelect" && <ProblemSelection />}
+                {active === "problemSelect" && (
+                    <ProblemSelection
+                        value={config.problem}
+                        onChange={(p) => setConfig((prev) => ({ ...prev, problem: p }))}
+                    />
+                )}
+
+                {active === "overview" && <SelectionOverview config={config} />}
                 {active === "gameSettings" && <GameSettings />}
                 {active === "algorithmSettings" && <AlgorithmSettings />}
-                {active === "overview" && <Overview />}
             </main>
         </div>
     );
@@ -59,100 +73,27 @@ function MenuItem({
     onClick: () => void;
 }) {
     return (
-        <button
-            className={`menu-item ${active ? "active" : ""}`}
-            onClick={onClick}
-        >
+        <button className={`menu-item ${active ? "active" : ""}`} onClick={onClick}>
             {label}
         </button>
     );
 }
 
-/* ---------- Views ---------- */
-
-function ProblemSelection() {
-    return (
-        <>
-            <h1 className="page-title">Choose Optimization Problem</h1>
-
-            <div className="problem-list">
-                <ProblemCard
-                    title="Traveling Salesman"
-                    description="Find the shortest possible route visiting each city exactly once."
-                />
-                <ProblemCard
-                    title="Knapsack Problem"
-                    description="Maximize value while staying within a fixed weight limit."
-                />
-                <ProblemCard
-                    title="Job Scheduling"
-                    description="Optimize execution order under time constraints."
-                />
-                <ProblemCard
-                    title="Vehicle Routing"
-                    description="Plan optimal delivery routes for multiple vehicles."
-                />
-            </div>
-        </>
-    );
-}
-function ProblemCard({
-                         title,
-                         description,
-                     }: {
-    title: string;
-    description: string;
-}) {
-    return (
-        <div className="problem-card">
-            <div className="problem-image" />
-            <div className="problem-text">
-                <h3>{title}</h3>
-                <p>{description}</p>
-            </div>
-        </div>
-    );
-}
-
-
 function GameSettings() {
     return (
         <>
             <h1 className="page-title">Game Settings</h1>
-            <div className="centered">
-
-            </div>
+            <div className="centered"></div>
         </>
-
     );
 }
+
 function AlgorithmSettings() {
     return (
         <>
             <h1 className="page-title">Algorithm</h1>
-            <div className="centered">
-
-            </div>
-        </>
-
-    );
-}
-
-function Overview() {
-    return (
-        <>
-            <h1 className="page-title">Dashboard</h1>
-            <div className="blocks">
-                <Block title="Block A" />
-            </div>
+            <div className="centered"></div>
         </>
     );
 }
 
-function Block({ title, wide }: { title: string; wide?: boolean }) {
-    return (
-        <div className={`block ${wide ? "wide" : ""}`}>
-            <h3>{title}</h3>
-        </div>
-    );
-}
