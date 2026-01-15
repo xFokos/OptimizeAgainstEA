@@ -1,3 +1,4 @@
+// typescript
 import { useState, useRef, useEffect } from "react";
 import type { Node, Edge } from "../types";
 import NavigatePageButton from "./NavigatePageButton";
@@ -12,6 +13,9 @@ import {
 
 const NODE_RADIUS = 20;
 const NODE_COUNT = 30;
+
+const buttonWidth = 150;
+const buttonHeight = 65;
 
 export default function TravelingSalesman() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -33,6 +37,16 @@ export default function TravelingSalesman() {
     const [isEAAnimating, setIsEAAnimating] = useState<boolean>(false);
     const prevShowPlayerBestRef = useRef<boolean | null>(null);
     const prevShowCurrentRef = useRef<boolean | null>(null);
+
+    const buttonStyle: React.CSSProperties = {
+        width: buttonWidth,
+        height: buttonHeight,
+        minWidth: buttonWidth,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxSizing: "border-box",
+    };
 
     const [nodes, setNodes] = useState<Node[]>([]);
     const [edges, setEdges] = useState<Edge[]>([]);
@@ -592,16 +606,16 @@ export default function TravelingSalesman() {
             <div className={"game-container"}>
 
                 <div className={"game-window"}>
-                        <canvas
-                            ref={canvasRef}
-                            width={800}
-                            height={600}
-                            style={{
-                                border: "1px solid black",
-                                backgroundColor: "rgba(254, 254, 254, 0.1)",
-                            }}
-                            onClick={handleClick}
-                        />
+                    <canvas
+                        ref={canvasRef}
+                        width={800}
+                        height={600}
+                        style={{
+                            border: "1px solid black",
+                            backgroundColor: "rgba(254, 254, 254, 0.1)",
+                        }}
+                        onClick={handleClick}
+                    />
                 </div>
                 <div className={"game-bar-down"}>
                     <div style={{ display: "flex", gap: 10 }}>
@@ -609,6 +623,7 @@ export default function TravelingSalesman() {
                             className="button"
                             onClick={undo}
                             disabled={!undoStack.length || isFinished}
+                            style={buttonStyle}
                         >
                             Undo
                         </button>
@@ -616,6 +631,7 @@ export default function TravelingSalesman() {
                             className="button"
                             onClick={redo}
                             disabled={!redoStack.length || isFinished}
+                            style={buttonStyle}
                         >
                             Redo
                         </button>
@@ -626,16 +642,17 @@ export default function TravelingSalesman() {
                                     className="button"
                                     onClick={playEASolution}
                                     disabled={isEAAnimating || !besteaEdges.length}
+                                    style={buttonStyle}
                                 >
                                     EA Lösung
                                 </button>
                             ) : (
-                                <button className="button" onClick={newIteration}>
+                                <button className="button" onClick={newIteration} style={buttonStyle}>
                                     New Iteration
                                 </button>
                             )
                         ) : (
-                            <button className="button" onClick={newIteration}>
+                            <button className="button" onClick={newIteration} style={buttonStyle}>
                                 Neue Iteration
                             </button>
                         )}
@@ -644,15 +661,28 @@ export default function TravelingSalesman() {
                             className="button"
                             onClick={randomConnect}
                             disabled={isFinished || nodes.length === 0}
+                            style={buttonStyle}
                         >
                             Random Connect
                         </button>
-                        {showButton && (
+                        <div
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: buttonWidth,
+                                height: buttonHeight,
+                                opacity: showButton ? 1 : 0.4,
+                                pointerEvents: showButton ? "auto" : "none",
+                                transition: "opacity 0.2s ease",
+                            }}
+                        >
                             <NavigatePageButton
                                 to="/Analytics"
                                 text="View Analytics"
                             />
-                        )}
+                        </div>
+
                     </div>
                 </div>
 
