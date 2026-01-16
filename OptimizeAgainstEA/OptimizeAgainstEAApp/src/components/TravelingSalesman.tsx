@@ -14,7 +14,7 @@ import {
 const NODE_RADIUS = 20;
 const NODE_COUNT = 30;
 
-const buttonWidth = 150;
+const buttonWidth = "18%";
 const buttonHeight = 65;
 
 export default function TravelingSalesman() {

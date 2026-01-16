@@ -4,7 +4,7 @@
     margin: 16px;
     border-radius: 16px;
     height: 85%;
-    width: 95%;
+    width: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -47,7 +47,7 @@
 .sidebar-left {
     margin: 16px;
     opacity: 100%;
-    width: 300px;
+    width: 25%;
     height: 90%;
     color: black;
     padding: 24px;
@@ -63,7 +63,7 @@
 .sidebar-right {
     margin: 16px;
 
-    width: 340px;
+    width: 25%;
     height: 90%;
     color: white;
     padding: 24px;
