@@ -6,7 +6,7 @@ import SelectionOverview from "../components/SelectionOverview";
 type Section = "problemSelect" | "gameSettings" | "algorithmSettings" | "overview";
 
 // Typen exportieren, damit andere Dateien sie verwenden können
-export type ProblemId = "tsp" | "knapsack" | "placeHolder";
+export type ProblemId = "tsp" | "mapGame" | "knapsack" | "placeHolder";
 export type GameConfig = {
     problem?: ProblemId;
 };

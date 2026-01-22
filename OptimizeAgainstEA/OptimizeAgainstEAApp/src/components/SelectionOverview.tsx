@@ -4,6 +4,7 @@ import NavigatePageButton from "./NavigatePageButton";
 export default function SelectionOverview({ config }: { config: GameConfig }) {
     const routes: Record<string, string> = {
         tsp: "/TravelingSalesman",
+        mapGame: "/MapGame",
         knapsack: "/",
         placeHolder: "/Game",
         vrp: "/vrp",

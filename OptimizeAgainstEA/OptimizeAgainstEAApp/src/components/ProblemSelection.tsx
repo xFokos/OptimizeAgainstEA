@@ -12,16 +12,16 @@ export function ProblemSelection({ value, onChange }: ProblemSelectionProps) {
             <h1 className="page-title">Choose Optimization Problem</h1>
             <div className="problem-list">
                 <ProblemCard
+                    title="Map Game"
+                    description="Find the right place on the map."
+                    active={value === "mapGame"}
+                    onClick={() => onChange("mapGame")}
+                />
+                <ProblemCard
                     title="Traveling Salesman"
                     description="Find the shortest route."
                     active={value === "tsp"}
                     onClick={() => onChange("tsp")}
-                />
-                <ProblemCard
-                    title="Knapsack Problem"
-                    description="Maximize value."
-                    active={value === "knapsack"}
-                    onClick={() => onChange("knapsack")}
                 />
                 <ProblemCard
                     title="Placeholder"
