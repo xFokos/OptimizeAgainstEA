@@ -4,8 +4,9 @@ import { drawContourLine } from "../utils/marchingSquares";
 
 
 type Props = {
-    selectedPoint: { x: number; y: number } | null;
     points: { x: number; y: number }[];
+    selectedPoint: { x: number; y: number } | null;
+    hoveredPointIndex?: number | null;
     onSelect: (x: number, y: number) => void;
     showFunction: boolean;
     fn: MathFunction;
@@ -14,6 +15,7 @@ type Props = {
 
 export default function GameMap({
                                     selectedPoint,
+                                    hoveredPointIndex,
                                     points,
                                     onSelect,
                                     showFunction,
@@ -34,6 +36,28 @@ export default function GameMap({
         px: ((x - WORLD_MIN) / (WORLD_MAX - WORLD_MIN)) * w,
         py: ((WORLD_MAX - y) / (WORLD_MAX - WORLD_MIN)) * h,
     });
+
+    const getColorForValue = (value: number) => {
+        const levels = [0.1, 0.5, 1, 2, 5, 10, 13, 15, 20, 40];
+        const colors = [
+            "rgba(64,224,208,1)",   // helles Türkis → beste Punkte
+            "rgba(0,200,150,1)",    // sattes Grün
+            "rgba(50,205,50,1)",    // LimeGreen
+            "rgba(173,255,47,1)",   // gelbgrün
+            "rgb(220,220,14)",    // Gelb
+            "rgba(255,200,0,1)",    // Orange
+            "rgba(255,150,0,1)",    // dunkleres Orange
+            "rgba(255,100,50,1)",   // rötlich-orange
+            "rgba(255,50,0,1)",     // Rot
+            "rgba(200,0,0,1)",      // dunkelrot → schlechteste Punkte
+        ];
+
+        // Finde das erste Level, das größer als value ist
+        for (let i = 0; i < levels.length; i++) {
+            if (value <= levels[i]) return colors[i] ?? "rgba(200,0,0,0.4)";
+        }
+        return colors[colors.length - 1];
+    };
 
     useEffect(() => {
         const canvas = canvasRef.current!;
@@ -63,14 +87,21 @@ export default function GameMap({
         if (showFunction) {
             const levels = [0.1, 0.5, 1, 2, 5, 10, 13, 15, 20, 40];
             const colors = [
-                "rgba(0,150,0,0.8)",
-                "rgba(255,200,0,0.7)",
-                "rgba(255,150,0,0.6)",
-                "rgba(200,0,0,0.5)",
+                "rgba(64,224,208,1)",   // helles Türkis → beste Punkte
+                "rgba(0,200,150,1)",    // sattes Grün
+                "rgba(50,205,50,1)",    // LimeGreen
+                "rgba(173,255,47,1)",   // gelbgrün
+                "rgb(220,220,14)",    // Gelb
+                "rgba(255,200,0,1)",    // Orange
+                "rgba(255,150,0,1)",    // dunkleres Orange
+                "rgba(255,100,50,1)",   // rötlich-orange
+                "rgba(255,50,0,1)",     // Rot
+                "rgba(200,0,0,1)",      // dunkelrot → schlechteste Punkte
             ];
             levels.forEach((level, i) => {
                 ctx.strokeStyle = colors[i] ?? "rgba(200,0,0,0.4)";
-                ctx.lineWidth = i === 0 ? 2.5 : 1.5;
+                //ctx.lineWidth = i === 0 ? 2.5 : 1.5;
+                ctx.lineWidth = 2;
                 drawContourLine(
                     ctx,
                     fn,
@@ -78,18 +109,27 @@ export default function GameMap({
                     (px, py) => toWorld(px, py, width, height),
                     width,
                     height,
-                    { step: 2 }
+                    { step: 5 }
                 );
             });
         }
 
         // bestätigte Punkte
-        points.forEach(pt => {
+        points.forEach((pt, i) => {
             const { px, py } = toScreen(pt.x, pt.y, width, height);
+            const value = fn(pt.x, pt.y);
+
             ctx.beginPath();
             ctx.arc(px, py, 6, 0, Math.PI * 2);
-            ctx.fillStyle = "green";
+            ctx.fillStyle = getColorForValue(value);
             ctx.fill();
+
+            // Hover hervorheben
+            if (i === hoveredPointIndex) {
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = "blue";
+                ctx.stroke();
+            }
         });
 
         // aktueller Punkt
@@ -105,8 +145,8 @@ export default function GameMap({
     return (
         <canvas
             ref={canvasRef}
-            width={800}
-            height={500}
+            width={1000}
+            height={1000}
             style={{
                 width: "100%",
                 height: "100%",

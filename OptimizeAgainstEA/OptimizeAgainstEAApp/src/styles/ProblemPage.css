@@ -17,11 +17,10 @@
 .game-window {
 
     height: 100%;
-    width: 95%;
-    flex: 10;
+    width: 100%;
+    flex: 1;
     background: white;
-    margin-top: 8px;
-    padding: 16px;
+
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -29,10 +28,11 @@
     color: black;
     border-radius: 16px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+
+    aspect-ratio: 1 / 1;
 }
 
 .game-bar-down {
-    flex: 1;
     background: #fdfdfd;
     padding: 16px;
     display: flex;

@@ -2,7 +2,7 @@ import { useState } from "react";
 import PageContainer from "../components/PageContainer";
 import GameMap from "../components/GameMap";
 import AnalyticsPanel from "../components/AnalyticsPanel";
-import {bealeFunction} from "../utils/functions";
+import {bealeFunction, /*newFunction*/} from "../utils/functions";
 
 
 //const myFunc = newFunction(2, 3); // α = 2, β = 3
@@ -12,6 +12,8 @@ export default function MapGamePage() {
     const [currentPoint, setCurrentPoint] = useState<{ x: number; y: number } | null>(null);
     const [points, setPoints] = useState<{ x: number; y: number }[]>([]);
     const [showFunction, setShowFunction] = useState(false);
+
+    const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
 
     const confirmPoint = () => {
         if (currentPoint) {
@@ -32,6 +34,7 @@ export default function MapGamePage() {
                 <div className="game-window">
                     <GameMap
                         selectedPoint={currentPoint}
+                        hoveredPointIndex={hoveredPointIndex}
                         points={points}
                         onSelect={(x, y) => setCurrentPoint({ x, y })}
                         showFunction={showFunction}
@@ -59,6 +62,7 @@ export default function MapGamePage() {
                 <h3>Analytics</h3>
                 <AnalyticsPanel
                     history={points.map(pt => bealeFunction(pt.x, pt.y))}
+                    onHover={setHoveredPointIndex}
                 />
             </div>
         </PageContainer>
