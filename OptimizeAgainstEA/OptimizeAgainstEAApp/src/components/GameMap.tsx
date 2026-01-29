@@ -124,10 +124,9 @@ export default function GameMap({
             ctx.fillStyle = getColorForValue(value);
             ctx.fill();
 
-            // Hover hervorheben
             if (i === hoveredPointIndex) {
                 ctx.lineWidth = 3;
-                ctx.strokeStyle = "blue";
+                ctx.strokeStyle = "black";
                 ctx.stroke();
             }
         });
@@ -140,7 +139,7 @@ export default function GameMap({
             ctx.fillStyle = "blue";
             ctx.fill();
         }
-    }, [selectedPoint, points, showFunction, fn]);
+    }, [selectedPoint, points, showFunction, fn, hoveredPointIndex]);
 
     return (
         <canvas

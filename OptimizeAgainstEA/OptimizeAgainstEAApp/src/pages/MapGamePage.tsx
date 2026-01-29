@@ -4,15 +4,14 @@ import GameMap from "../components/GameMap";
 import AnalyticsPanel from "../components/AnalyticsPanel";
 import {bealeFunction, /*newFunction*/} from "../utils/functions";
 
-
 //const myFunc = newFunction(2, 3); // α = 2, β = 3
+
 
 
 export default function MapGamePage() {
     const [currentPoint, setCurrentPoint] = useState<{ x: number; y: number } | null>(null);
     const [points, setPoints] = useState<{ x: number; y: number }[]>([]);
     const [showFunction, setShowFunction] = useState(false);
-
     const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
 
     const confirmPoint = () => {
@@ -21,6 +20,7 @@ export default function MapGamePage() {
             setCurrentPoint(null);
         }
     };
+
 
     return (
         <PageContainer>
@@ -62,7 +62,7 @@ export default function MapGamePage() {
                 <h3>Analytics</h3>
                 <AnalyticsPanel
                     history={points.map(pt => bealeFunction(pt.x, pt.y))}
-                    onHover={setHoveredPointIndex}
+                    onHover={setHoveredPointIndex} // Nutzt direkt den existierenden Hover
                 />
             </div>
         </PageContainer>

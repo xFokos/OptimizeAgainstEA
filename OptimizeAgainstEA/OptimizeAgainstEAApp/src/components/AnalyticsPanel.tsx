@@ -4,7 +4,7 @@ type AnalyticsPanelProps = {
     history: number[];
     eaHistory?: number[];
     maxDisplayValue?: number;
-    onHover?: (index: number | null) => void;  // neu
+    onHover?: (index: number | null) => void;
 };
 
 export default function AnalyticsPanel({ history, eaHistory, onHover }: AnalyticsPanelProps) {
@@ -74,19 +74,30 @@ export default function AnalyticsPanel({ history, eaHistory, onHover }: Analytic
                         stroke="#ffffff"
                         dot={(props) => {
                             const { cx, cy, payload } = props;
-                            const index = payload.iteration - 1; // 0-basierter Index
+                            const index = payload.iteration - 1;
 
                             return (
-                                <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={4}
-                                    fill={getColorForValue(payload.userRaw)}
-                                    stroke="#000"
-                                    strokeWidth={1}
-                                    onMouseEnter={() => onHover?.(index)}
-                                    onMouseLeave={() => onHover?.(null)}
-                                />
+                                <g>
+
+                                    <circle
+                                        cx={cx}
+                                        cy={cy}
+                                        r={20} // große Hitbox
+                                        fill="transparent"
+                                        onMouseEnter={() => onHover?.(index)}
+                                        onMouseLeave={() => onHover?.(null)}
+                                        style={{ cursor: "pointer" }}
+                                    />
+
+                                    <circle
+                                        cx={cx}
+                                        cy={cy}
+                                        r={4} // sichtbarer Punkt
+                                        fill={getColorForValue(payload.userRaw)}
+                                        stroke="#000"
+                                        strokeWidth={1}
+                                    />
+                                </g>
                             );
                         }}
                     />

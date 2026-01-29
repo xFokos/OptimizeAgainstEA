@@ -16,9 +16,9 @@
 
 .game-window {
 
-    height: 100%;
     width: 100%;
-    flex: 1;
+    aspect-ratio: 1;
+    position: relative;
     background: white;
 
     display: flex;
@@ -28,8 +28,6 @@
     color: black;
     border-radius: 16px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-
-    aspect-ratio: 1 / 1;
 }
 
 .game-bar-down {
