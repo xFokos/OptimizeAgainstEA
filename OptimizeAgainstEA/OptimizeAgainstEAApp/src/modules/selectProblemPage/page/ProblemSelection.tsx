@@ -1,5 +1,5 @@
 // ProblemSelection.tsx
-import type { ProblemId } from "../pages/DashboardPage";
+import type { ProblemId } from "../../../pages/DashboardPage.tsx";
 
 export type ProblemSelectionProps = {
     value?: ProblemId;                  // Aktuell ausgewähltes Problem

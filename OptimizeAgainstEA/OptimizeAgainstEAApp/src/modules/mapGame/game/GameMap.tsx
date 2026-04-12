@@ -1,6 +1,6 @@
 import { useRef, useEffect } from "react";
-import type { MathFunction } from "../utils/functions";
-import { drawContourLine } from "../utils/marchingSquares";
+import type { MathFunction } from "../../../utils/functions.ts";
+import { drawContourLine } from "../../../utils/marchingSquares.ts";
 
 
 type Props = {

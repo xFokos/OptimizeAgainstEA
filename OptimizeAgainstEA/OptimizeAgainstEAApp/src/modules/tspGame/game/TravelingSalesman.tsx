@@ -1,7 +1,7 @@
 // typescript
 import { useState, useRef, useEffect } from "react";
-import type { Node, Edge } from "../types";
-import NavigatePageButton from "./NavigatePageButton";
+import type { Node, Edge } from "../../../types.ts";
+import NavigatePageButton from "../../../components/ui/NavigatePageButton.tsx";
 import {
     LineChart,
     Line,

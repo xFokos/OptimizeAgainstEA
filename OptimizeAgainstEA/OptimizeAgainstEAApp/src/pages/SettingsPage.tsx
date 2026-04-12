@@ -1,6 +1,6 @@
-import SidePanelWrapper from "../components/SidePanelWrapper.tsx";
-import PageContainer from "../components/PageContainer.tsx";
-import "../styles/SettingsPage.css";
+import SidePanelWrapper from "../modules/selectProblemPage/components/SidePanelWrapper.tsx";
+import PageContainer from "../components/layout/PageContainer.tsx";
+import "../styles/specific/SettingsPage.css";
 
 export default function SettingsPage() {
     return (

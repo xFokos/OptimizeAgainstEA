@@ -1,7 +1,7 @@
 import {useEffect, useState} from "react";
-import SidePanel from "./SidePanel.tsx";
-import {SidePanelData} from "./SidePanelData.ts";
-import NavigatePageButton from "./NavigatePageButton.tsx";
+import SidePanel from "../../../components/layout/SidePanel.tsx";
+import {SidePanelData} from "../data/SidePanelData.ts";
+import NavigatePageButton from "../../../components/ui/NavigatePageButton.tsx";
 
 /*
 Wrapper for the SidePanels

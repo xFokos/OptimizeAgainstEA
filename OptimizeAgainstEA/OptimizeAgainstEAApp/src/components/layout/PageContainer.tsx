@@ -1,6 +1,6 @@
 // PageContainer.tsx
 import React, {type ReactNode } from "react";
-import "../styles/Generic.css";
+import "../../styles/general/Generic.css";
 
 type PageContainerProps = {
     children: ReactNode;

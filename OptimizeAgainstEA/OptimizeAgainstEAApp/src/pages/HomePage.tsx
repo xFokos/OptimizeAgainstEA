@@ -1,5 +1,5 @@
-import NavigatePageButton from "../components/NavigatePageButton";
-import "../Styles/HomePage.css";
+import NavigatePageButton from "../components/ui/NavigatePageButton.tsx";
+import "../styles/specific/HomePage.css";
 
 export default function HomePage() {
     return (

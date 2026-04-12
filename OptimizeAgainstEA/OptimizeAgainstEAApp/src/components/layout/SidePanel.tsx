@@ -1,6 +1,6 @@
-import ButtonGroup from "./ButtonGroup.tsx";
-import "../styles/Generic.css";
-import type {ButtonConfig} from "../types.ts";
+import ButtonGroup from "../ui/ButtonGroup.tsx";
+import "../../styles/general/Generic.css";
+import type {ButtonConfig} from "../../types.ts";
 
 export type SidePanelProps = {
     width?: number | string;

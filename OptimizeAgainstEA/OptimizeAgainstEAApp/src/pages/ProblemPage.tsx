@@ -1,6 +1,6 @@
 //import NavigatePageButton from "../components/NavigatePageButton";
-import PageContainer from "../components/PageContainer.tsx";
-import "../styles/ProblemPage.css";
+import PageContainer from "../components/layout/PageContainer.tsx";
+import "../styles/specific/ProblemPage.css";
 
 
 

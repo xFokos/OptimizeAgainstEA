@@ -1,0 +1,74 @@
+.wrapper {
+    position: relative;
+    width: 800px;
+    height: 600px;
+    border-radius: 8px;
+    overflow: hidden;
+    /* Verhindert dass der Browser Pfeiltasten als Scroll-Input nimmt */
+    outline: none;
+}
+
+.canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+}
+
+/* Overlay für idle/roundEnd – sitzt über dem Canvas */
+.overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: rgba(10, 10, 15, 0.82);
+    backdrop-filter: blur(4px);
+}
+
+.title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+    letter-spacing: 0.04em;
+}
+
+.subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.4);
+    margin: 0;
+    letter-spacing: 0.06em;
+}
+
+.stats {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.startBtn {
+    margin-top: 8px;
+    padding: 12px 32px;
+    background: transparent;
+    border: 1px solid rgba(79, 195, 247, 0.5);
+    border-radius: 6px;
+    color: #4fc3f7;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.startBtn:hover {
+    background: rgba(79, 195, 247, 0.08);
+    border-color: rgba(79, 195, 247, 0.9);
+}

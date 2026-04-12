@@ -1,5 +1,5 @@
 import React from "react";
-import "../styles/Button.css";
+import "../../styles/general/Button.css";
 
 export type ImageButtonProps = {
     hoverImage?: string;

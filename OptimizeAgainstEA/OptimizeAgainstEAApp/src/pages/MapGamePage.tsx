@@ -1,7 +1,7 @@
 import { useState } from "react";
-import PageContainer from "../components/PageContainer";
-import GameMap from "../components/GameMap";
-import AnalyticsPanel from "../components/AnalyticsPanel";
+import PageContainer from "../components/layout/PageContainer.tsx";
+import GameMap from "../modules/mapGame/game/GameMap.tsx";
+import AnalyticsPanel from "../modules/mapGame/components/AnalyticsPanel.tsx";
 import {bealeFunction, /*newFunction*/} from "../utils/functions";
 
 //const myFunc = newFunction(2, 3); // α = 2, β = 3

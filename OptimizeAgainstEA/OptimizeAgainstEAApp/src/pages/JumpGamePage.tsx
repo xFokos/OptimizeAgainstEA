@@ -1,7 +1,7 @@
 // src/pages/JumpGame.tsx
 import React, { useState, useEffect } from "react";
-import "../styles/JumpGame.css";
-import NavigatePageButton from "../components/NavigatePageButton.tsx";
+import "../styles/specific/JumpGame.css";
+import NavigatePageButton from "../components/ui/NavigatePageButton.tsx";
 
 
 const JumpGame: React.FC = () => {

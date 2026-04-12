@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ButtonConfig } from "../types";
+import type { ButtonConfig } from "../../types.ts";
 
 type ButtonGroupProps = {
     buttons: ButtonConfig[];

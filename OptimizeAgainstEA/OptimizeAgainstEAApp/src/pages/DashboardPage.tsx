@@ -1,7 +1,7 @@
 import { useState } from "react";
-import "../styles/dashboard.css";
-import { ProblemSelection } from "../components/ProblemSelection";
-import SelectionOverview from "../components/SelectionOverview";
+import "../styles/specific/dashboard.css";
+import { ProblemSelection } from "../modules/selectProblemPage/page/ProblemSelection.tsx";
+import SelectionOverview from "../modules/selectProblemPage/components/SelectionOverview.tsx";
 
 type Section = "problemSelect" | "gameSettings" | "algorithmSettings" | "overview";
 

@@ -1,5 +1,5 @@
-import type {SidePanelProps} from "./SidePanel";
-import {ButtonData} from "./ButtonData.ts";
+import type {SidePanelProps} from "../../../components/layout/SidePanel.tsx";
+import {ButtonData} from "../../../components/ButtonData.ts";
 
 
 

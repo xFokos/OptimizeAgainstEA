@@ -10,6 +10,7 @@ import TravelingSalesmanPage from "./pages/TravelingSalesmanPage.tsx";
 import ProblemPage from "./pages/ProblemPage.tsx";
 import DashboardPage from "./pages/DashboardPage.tsx";
 import MapGamePage from "./pages/MapGamePage.tsx";
+import ShooterGamePage from "./pages/ShooterGamePage.tsx";
 
 export default function App() {
     return (
@@ -23,6 +24,7 @@ export default function App() {
             <Route path="Problem" element={<ProblemPage />}/>
             <Route path="Dashboard" element={<DashboardPage />}/>
             <Route path="MapGame" element={<MapGamePage/>}/>
+            <Route path="ShooterGame" element={ <ShooterGamePage/>}/>
         </Routes>
     );
 }

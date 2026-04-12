@@ -1,10 +1,10 @@
 import JGBG from "../assets/JumpGameBG.jpg";
 import TSBG from "../assets/TravelingSalesmanBG.png";
 
-import ImageButton from "../components/ImageButton";
-import NavigatePageButton from "../components/NavigatePageButton";
+import ImageButton from "./ui/ImageButton.tsx";
+import NavigatePageButton from "./ui/NavigatePageButton.tsx";
 
-import type { ButtonConfig } from "../types";
+import type { ButtonConfig } from "../types.ts";
 
 const widthValue: number | string = "60%";
 const heightValue: number | string = "10%";

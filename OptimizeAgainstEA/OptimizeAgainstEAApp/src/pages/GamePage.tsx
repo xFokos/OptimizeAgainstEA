@@ -1,4 +1,4 @@
-import "../styles/App2.css";
+import "../styles/general/App2.css";
 //import myGif from "../assets/animation.gif";
 
 export default function GamePage(){

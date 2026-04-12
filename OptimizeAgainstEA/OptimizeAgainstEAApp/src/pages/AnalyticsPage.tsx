@@ -1,5 +1,5 @@
-import "../styles/AnalyticsPage.css";
-import NavigatePageButton from "../components/NavigatePageButton.tsx";
+import "../styles/specific/AnalyticsPage.css";
+import NavigatePageButton from "../components/ui/NavigatePageButton.tsx";
 
 
     const AnalyticsPage: React.FC = () => {

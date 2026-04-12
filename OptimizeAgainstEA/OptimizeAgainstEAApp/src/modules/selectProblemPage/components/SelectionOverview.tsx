@@ -1,5 +1,5 @@
-import type { GameConfig } from "../pages/DashboardPage";
-import NavigatePageButton from "./NavigatePageButton";
+import type { GameConfig } from "../../../pages/DashboardPage.tsx";
+import NavigatePageButton from "../../../components/ui/NavigatePageButton.tsx";
 
 export default function SelectionOverview({ config }: { config: GameConfig }) {
     const routes: Record<string, string> = {

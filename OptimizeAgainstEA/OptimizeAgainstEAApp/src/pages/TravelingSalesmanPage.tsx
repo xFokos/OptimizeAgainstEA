@@ -1,6 +1,6 @@
-import TravelingSalesman from "../components/TravelingSalesman";
-import PageContainer from "../components/PageContainer.tsx";
-import ("../styles/Generic.css")
+import TravelingSalesman from "../modules/tspGame/game/TravelingSalesman.tsx";
+import PageContainer from "../components/layout/PageContainer.tsx";
+import ("../styles/general/Generic.css")
 
 
 export default function TravellingSalesmanPage() {
