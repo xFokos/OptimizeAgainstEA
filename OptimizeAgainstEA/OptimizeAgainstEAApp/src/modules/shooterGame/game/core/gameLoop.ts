@@ -13,7 +13,7 @@ let bulletIdCounter    = 0;
 let playerShootCooldown = 0;
 let agentShootCooldown  = 0;
 
-// Pure(ish) update-Funktion – kriegt alten State, gibt neuen zurück
+// Update-Funktion – kriegt alten State, gibt neuen zurück
 export function update(
     state: GameState,
     dt:    number,
