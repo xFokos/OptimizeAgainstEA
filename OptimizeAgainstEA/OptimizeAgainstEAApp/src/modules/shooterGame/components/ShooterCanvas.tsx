@@ -39,6 +39,10 @@ const initialGameState = (): GameState => ({
     },
 });
 
+export const gameStore = {
+    state: initialGameState(),
+};
+
 // ---- Komponente ----
 
 export const ShooterCanvas = () => {
@@ -60,6 +64,10 @@ export const ShooterCanvas = () => {
         if (next.phase !== state.phase) {
             setPhase(next.phase);
         }
+
+        //Export GameState
+        gameStore.state = next;
+
 
         return next;
     }, []);

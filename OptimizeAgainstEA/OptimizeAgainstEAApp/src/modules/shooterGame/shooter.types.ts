@@ -21,6 +21,9 @@ export const DNA_INDEX = {
     FIRE_RATE:      6, // 0-1: Wie schnell der Agent schießt
 } as const;
 
+
+export const DNA_NAMES = Object.keys(DNA_INDEX) as (keyof typeof DNA_INDEX)[];
+
 export const DNA_LENGTH = Object.keys(DNA_INDEX).length; // = 7
 
 export type DNA = number[]; // Float-Array der Länge DNA_LENGTH
