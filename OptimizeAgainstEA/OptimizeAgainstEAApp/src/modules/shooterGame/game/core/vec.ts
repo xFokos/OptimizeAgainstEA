@@ -52,6 +52,12 @@ export const vec = {
         y: v.x,
     }),
 
+    // Dreht den Vector 180 Grad
+    flip: (v: Vector2D) : Vector2D => ({
+       x: -v.x,
+       y: -v.y,
+    }),
+
     // Lineares Interpolieren zwischen zwei Punkten
     lerp: (a: Vector2D, b: Vector2D, t: number): Vector2D => ({
         x: a.x + (b.x - a.x) * t,

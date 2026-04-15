@@ -34,6 +34,8 @@ const initialGameState = (): GameState => ({
         health:   100,
         dna:      randomDNA(),
         stats:    emptyStats(),
+        dodgeSide:      1,
+        dodgeSideTimer: 0,
     },
 });
 
@@ -44,6 +46,7 @@ export const ShooterCanvas = () => {
     const gameStateRef = useRef<GameState>(initialGameState());
     const inputRef    = useKeyboard();
     const [phase, setPhase] = useState<GamePhase>('idle');
+
 
     // onUpdate: Spiellogik – gibt neuen State zurück
     const onUpdate = useCallback((

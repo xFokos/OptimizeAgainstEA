@@ -3,8 +3,8 @@ import type {Vector2D} from './game/core/vec';
 // ---- Spielfeld ----
 
 export const ARENA = {
-    WIDTH:  800,
-    HEIGHT: 600,
+    WIDTH:  1600,
+    HEIGHT: 1200,
     PADDING: 20, // Abstand von den Wänden
 } as const;
 
@@ -17,10 +17,11 @@ export const DNA_INDEX = {
     SHOOT_ACCURACY: 2, // 0–1: Zielgenauigkeit (1 = perfekt)
     PREFERRED_RANGE:3, // 0–1: bevorzugter Kampfabstand (× 300px)
     MOVEMENT_SPEED: 4, // 0–1: Bewegungsgeschwindigkeit (× 200px/s)
-    PREDICT_LEAD:   5, // 0–1: wie stark er den Spieler "leaded" beim Zielen
+    PREDICT_LEAD:   5, // 0–1: wie stark er den Spieler "predicted" beim Zielen
+    FIRE_RATE:      6, // 0-1: Wie schnell der Agent schießt
 } as const;
 
-export const DNA_LENGTH = Object.keys(DNA_INDEX).length; // = 6
+export const DNA_LENGTH = Object.keys(DNA_INDEX).length; // = 7
 
 export type DNA = number[]; // Float-Array der Länge DNA_LENGTH
 
@@ -55,6 +56,8 @@ export interface AgentState extends Entity {
     dna:   DNA;
     stats: RoundStats; // live stats während der Runde
     pendingBullet?: Bullet;
+    dodgeSide: 1 | -1;
+    dodgeSideTimer: number;
 }
 
 export interface Bullet {
@@ -124,10 +127,14 @@ export const GAME_CONFIG = {
     ELITE_COUNT:       4,    // Top-N die direkt überleben
     MUTATION_RATE:     0.1,  // 10% Chance pro Gen-Wert
     MUTATION_STRENGTH: 0.2,  // wie stark ein Wert sich ändert
-    BULLET_SPEED:      400,  // px/s
+    BULLET_SPEED:      500,  // px/s
     BULLET_LIFETIME:   2,    // Sekunden
     SHOOT_COOLDOWN:    0.4,  // Sekunden zwischen Schüssen
-    PLAYER_SPEED:      220,  // px/s
+    SHOOT_COOLDOWN_MIN: 0.3,  // minimal so schnell möglich
+    SHOOT_COOLDOWN_MAX: 1.5,  // maximal so schnell möglich
+    AGENT_SPEED_BASE:   40,  // Der Agent hat mindestens diesen Speed
+    AGENT_SPEED_BONUS:   80,  //Der Agent bekommt je nach DNA Teil von diesem Wert als Bonus
+    PLAYER_SPEED:      320,  // px/s
     PLAYER_RADIUS:     18,
     AGENT_RADIUS:      18,
     BULLET_RADIUS:     5,

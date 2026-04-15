@@ -1,4 +1,11 @@
-import type { GameState, InputState, AgentState, PlayerState, Bullet } from '../../shooter.types';
+import {
+    type GameState,
+    type InputState,
+    type AgentState,
+    type PlayerState,
+    type Bullet,
+    DNA_INDEX,
+} from '../../shooter.types';
 import { GAME_CONFIG, ARENA } from '../../shooter.types';
 import { vec } from './vec';
 
@@ -11,6 +18,7 @@ export function update(
     state: GameState,
     dt:    number,
     input: InputState,
+    //mouseCordinates: { x: number; y: number },
 ): GameState {
     if (state.phase !== 'playing') return state;
 
@@ -36,6 +44,7 @@ export function update(
 
     const normalizedMove = vec.normalize(moveDir);
     player.velocity = vec.scale(normalizedMove, GAME_CONFIG.PLAYER_SPEED);
+
 
     // Rotation = Richtung der Bewegung (oder bleibt wenn stillstehend)
     if (vec.length(normalizedMove) > 0) {
@@ -65,7 +74,9 @@ export function update(
 
     // ---- Agent bewegen (KI) ----
     agentShootCooldown = Math.max(0, agentShootCooldown - dt);
-    agent = updateAgent(agent, player, bullets, dt);
+    const [updatedAgent, agentBullet] = updateAgent(agent, player, bullets, dt);
+    agent = updatedAgent;
+    if (agentBullet) bullets.push(agentBullet);
 
     // ---- Bullets bewegen & Lifetime ----
     bullets = bullets
@@ -130,31 +141,43 @@ function updateAgent(
     player:  PlayerState,
     bullets: Bullet[],
     dt:      number,
-): AgentState {
+): [AgentState, Bullet | null] {
     const dna = agent.dna;
 
     // 1. Auf Spieler zubewegen
     const toPlayer  = vec.normalize(vec.sub(player.position, agent.position));
-    const chaseForce = vec.scale(toPlayer, dna[0]); // AGGRESSION
+    let chaseForce = vec.scale(toPlayer, (0.5 - dna[DNA_INDEX.AGGRESSION]) * 2); // AGGRESSION
+
 
     // 2. Eingehende Bullets ausweichen
+    agent.dodgeSideTimer -= dt;
+    if (agent.dodgeSideTimer <= 0) {
+        agent.dodgeSide      = Math.random() > 0.5 ? 1 : -1;
+        agent.dodgeSideTimer = 1 + Math.random(); // 1–2 Sekunden
+    }
+
     const nearBullet = bullets
         .filter(b => b.ownerId === 'player' && vec.distance(b.position, agent.position) < 180)
         .sort((a, b) => vec.distance(a.position, agent.position) - vec.distance(b.position, agent.position))[0];
 
     const dodgeForce = nearBullet
-        ? vec.scale(vec.perpendicular(vec.normalize(nearBullet.velocity)), dna[1]) // DODGE_WEIGHT
+        ? vec.scale(
+            vec.scale(vec.perpendicular(vec.normalize(nearBullet.velocity)), agent.dodgeSide),
+            dna[DNA_INDEX.DODGE_WEIGHT]
+        )
         : vec.zero();
 
     // 3. Abstand zum Spieler regulieren
     const dist          = vec.distance(agent.position, player.position);
-    const preferredDist = dna[3] * 300; // PREFERRED_RANGE × 300px
+    const preferredDist = dna[DNA_INDEX.PREFERRED_RANGE] * 300 + 100; // PREFERRED_RANGE × 300px + 100px
     const rangeFactor   = (dist - preferredDist) / (preferredDist + 1);
     const rangeForce    = vec.scale(toPlayer, rangeFactor * 0.5);
 
+
     // Kräfte kombinieren
+    if(preferredDist > dist) chaseForce = vec.zero();
     const combined = vec.add(vec.add(chaseForce, dodgeForce), rangeForce);
-    const speed    = 80 + dna[4] * 180; // MOVEMENT_SPEED: 80–260 px/s
+    const speed    = GAME_CONFIG.AGENT_SPEED_BASE + dna[DNA_INDEX.MOVEMENT_SPEED] * GAME_CONFIG.AGENT_SPEED_BONUS; // MOVEMENT_SPEED: 40 +  0 - 120 px/s
     const movement = vec.scale(vec.normalize(combined), speed);
 
     // Dämpfen für flüssigere Bewegung
@@ -167,17 +190,20 @@ function updateAgent(
     );
 
     // 4. Zielen – Spieler "leaden"
-    const leadAmount    = dna[5]; // PREDICT_LEAD
+    const leadAmount    = dna[DNA_INDEX.PREDICT_LEAD]; // PREDICT_LEAD
     const predictedPos  = vec.add(player.position, vec.scale(player.velocity, leadAmount * 0.4));
-    const aimAngle      = vec.angle(agent.position, predictedPos);
-    const scatter       = (Math.random() - 0.5) * (1 - dna[2]) * 1.2; // SHOOT_ACCURACY
-    agent.rotation      = aimAngle + scatter;
+    agent.rotation      = vec.angle(agent.position, predictedPos);
 
     // 5. Schießen (cooldown wird außerhalb verwaltet)
-    if (agentShootCooldown === 0) {
-        agentShootCooldown = GAME_CONFIG.SHOOT_COOLDOWN * (0.8 + (1 - dna[0]) * 0.8);
-        const bulletVel = vec.scale(vec.fromAngle(agent.rotation), GAME_CONFIG.BULLET_SPEED);
-        agent.pendingBullet = {
+    let newBullet: Bullet | null = null;
+
+    if (agentShootCooldown <= 0) {
+        const scatter = (Math.random() - 0.5) * (1 - dna[DNA_INDEX.SHOOT_ACCURACY]) * 1.2;
+        const bulletVel = vec.scale(
+            vec.fromAngle(agent.rotation + scatter),
+            GAME_CONFIG.BULLET_SPEED
+        );
+        newBullet = {
             id:       `a_${bulletIdCounter++}`,
             position: { ...agent.position },
             velocity: bulletVel,
@@ -186,7 +212,10 @@ function updateAgent(
             radius:   GAME_CONFIG.BULLET_RADIUS,
         };
         agent.stats = { ...agent.stats, bulletsFired: agent.stats.bulletsFired + 1 };
+
+        agentShootCooldown = GAME_CONFIG.SHOOT_COOLDOWN_MIN +
+            (1 - dna[DNA_INDEX.FIRE_RATE]) * GAME_CONFIG.SHOOT_COOLDOWN_MAX;
     }
 
-    return agent;
+    return [agent, newBullet];
 }
