@@ -45,7 +45,11 @@ export const gameStore = {
 
 // ---- Komponente ----
 
-export const ShooterCanvas = () => {
+interface ShooterCanvasProps {
+    scale?: number;
+}
+
+export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) =>  {
     const canvasRef   = useRef<HTMLCanvasElement>(null);
     const gameStateRef = useRef<GameState>(initialGameState());
     const inputRef    = useKeyboard();
@@ -101,15 +105,27 @@ export const ShooterCanvas = () => {
     };
 
     return (
-        <div className={styles.wrapper}>
+    <div style={{
+        width:    ARENA.WIDTH  * scale,
+        height:   ARENA.HEIGHT * scale,
+        position: 'relative',
+    }}>
+        <div
+            className={styles.wrapper}
+            style={{
+                transform:       `scale(${scale})`,
+                transformOrigin: 'top left',
+                position:        'absolute',
+                top:  0,
+                left: 0,
+            }}
+        >
             <canvas
                 ref={canvasRef}
-                width={ARENA.WIDTH}
-                height={ARENA.HEIGHT}
+                width={ARENA.WIDTH}   // immer fix – nie skalieren!
+                height={ARENA.HEIGHT} // immer fix – nie skalieren!
                 className={styles.canvas}
             />
-
-            {/* Overlay-Schichten für UI (pointer-events: none damit Input durchgeht) */}
 
             {phase === 'idle' && (
                 <div className={styles.overlay}>
@@ -135,5 +151,6 @@ export const ShooterCanvas = () => {
                 </div>
             )}
         </div>
-    );
+    </div>
+);
 };

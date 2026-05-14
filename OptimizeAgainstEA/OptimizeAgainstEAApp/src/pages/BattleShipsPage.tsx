@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type {GameMode} from '../modules/BattleShips/types/game';
+import type {GameMode} from "../modules/BattleShips/types/game";
 import { ModeSelector } from '../modules/BattleShips/components/game/shared/ModeSelector';
 import { CreateMode } from '../modules/BattleShips/components/game/create/CreateMode';
 import { PlayMode } from '../modules/BattleShips/components/game/play/PlayMode';

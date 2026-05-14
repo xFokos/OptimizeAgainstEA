@@ -1,12 +1,12 @@
 .wrapper {
-    position: relative;
+    position: absolute;
     width: 1600px;
     height: 1200px;
     border-radius: 8px;
     overflow: hidden;
-    /* Verhindert dass der Browser Pfeiltasten als Scroll-Input nimmt */
     outline: none;
 }
+
 
 .canvas {
     position: absolute;
