@@ -13,7 +13,7 @@ function valueToColor(value: number): string {
   return `rgb(${r},${g},60)`;
 }
 
-export function ProbeMarker({ probe, index, isBest }: ProbeMarkerProps) {
+export function ProbeMarker({ probe, isBest }: ProbeMarkerProps) {
   const color = valueToColor(probe.value);
 
   return (

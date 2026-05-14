@@ -21,8 +21,8 @@ export function createMapProblem(config: MapConfig): ProblemInstance {
       const dist = euclideanDistance({ x, y }, minimum.position);
 
       // Global minimum has a sharper, deeper well (×0.6 scaling factor)
-      const wellDepth = minimum.isGlobal ? 0.6 : 1.0;
-      const val = dist * wellDepth;
+      const floor = minimum.isGlobal ? 0.0 : 0.1;
+      const val = dist + floor;
 
       if (val < minVal) minVal = val;
     }

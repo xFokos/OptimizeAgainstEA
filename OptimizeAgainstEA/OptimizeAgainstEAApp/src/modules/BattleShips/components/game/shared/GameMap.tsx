@@ -1,10 +1,20 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import type { Coordinate, Minimum } from '../../../types/map';
+import {type ContourConfig, ContourLayer} from "./ContourLayer.tsx";
+import {type HeatmapConfig, HeatmapLayer} from "./HeatMapPlayer.tsx";
+
+type EvalFn = (x: number, y: number) => number;
+export type VizMode = 'contour' | 'heatmap';
 
 interface GameMapProps {
     minima?: Minimum[];
     showMinima?: boolean;
-    /** When set, draws an exclusion ring of this radius (normalized) around each dot */
+    evaluateFn?: EvalFn;
+    /** Starting visualization mode. Defaults to 'contour'. */
+    defaultVizMode?: VizMode;
+    contourConfig?: Partial<ContourConfig>;
+    heatmapConfig?: Partial<HeatmapConfig>;
+    revealPoints?: Coordinate[];
     exclusionRadius?: number;
     highlightGlobal?: boolean;
     onMapClick?: (coord: Coordinate) => void;
@@ -18,6 +28,11 @@ interface GameMapProps {
 export function GameMap({
                             minima = [],
                             showMinima = false,
+                            evaluateFn,
+                            defaultVizMode = 'contour',
+                            contourConfig,
+                            heatmapConfig,
+                            revealPoints,
                             exclusionRadius,
                             highlightGlobal = false,
                             onMapClick,
@@ -28,6 +43,7 @@ export function GameMap({
                             children,
                         }: GameMapProps) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const [vizMode, setVizMode] = useState<VizMode>(defaultVizMode);
 
     const toNormalized = useCallback((e: React.MouseEvent): Coordinate => {
         const rect = containerRef.current!.getBoundingClientRect();
@@ -46,7 +62,6 @@ export function GameMap({
         [onMapClick, toNormalized]
     );
 
-    // exclusionRadius is in normalized [0,1] space; SVG viewBox is 0–100
     const ringR = exclusionRadius != null ? exclusionRadius * 100 : null;
 
     return (
@@ -65,13 +80,28 @@ export function GameMap({
                 userSelect: 'none',
             }}
         >
-            {/* Grid lines + exclusion rings — all in one SVG so rings sit below dots */}
+            {/* ── Visualization layer ── */}
+            {evaluateFn && vizMode === 'contour' && (
+                <ContourLayer
+                    evaluate={evaluateFn}
+                    config={contourConfig}
+                    revealPoints={revealPoints}
+                />
+            )}
+            {evaluateFn && vizMode === 'heatmap' && (
+                <HeatmapLayer
+                    evaluate={evaluateFn}
+                    config={heatmapConfig}
+                    revealPoints={revealPoints}
+                />
+            )}
+
+            {/* ── Grid + exclusion rings ── */}
             <svg
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
                 viewBox="0 0 100 100"
                 preserveAspectRatio="none"
             >
-                {/* Grid */}
                 {[10, 20, 30, 40, 50, 60, 70, 80, 90].map((v) => (
                     <React.Fragment key={v}>
                         <line x1={v} y1={0} x2={v} y2={100} stroke="var(--map-grid)" strokeWidth="0.3" />
@@ -79,7 +109,6 @@ export function GameMap({
                     </React.Fragment>
                 ))}
 
-                {/* Exclusion rings */}
                 {showMinima && ringR != null &&
                     minima.map((m) => (
                         <circle
@@ -96,26 +125,22 @@ export function GameMap({
                 }
             </svg>
 
-            {/* Minima dots */}
+            {/* ── Minima dots ── */}
             {showMinima &&
                 minima.map((m) => {
                     const isSelected = m.id === selectedId;
-                    const isGlobal = m.isGlobal && highlightGlobal;
-
+                    const isGlobal   = m.isGlobal && highlightGlobal;
                     return (
                         <div
                             key={m.id}
                             data-minimum="true"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onMinimumClick?.(m.id);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); onMinimumClick?.(m.id); }}
                             style={{
                                 position: 'absolute',
                                 left: `${m.position.x * 100}%`,
-                                top: `${m.position.y * 100}%`,
+                                top:  `${m.position.y * 100}%`,
                                 transform: 'translate(-50%, -50%)',
-                                width: isGlobal ? 18 : 12,
+                                width:  isGlobal ? 18 : 12,
                                 height: isGlobal ? 18 : 12,
                                 borderRadius: '50%',
                                 background: isGlobal
@@ -123,7 +148,9 @@ export function GameMap({
                                     : isSelected
                                         ? 'var(--accent-selected)'
                                         : 'var(--accent-min)',
-                                border: isSelected ? '2px solid var(--accent-selected-border)' : '2px solid var(--map-dot-border)',
+                                border: isSelected
+                                    ? '2px solid var(--accent-selected-border)'
+                                    : '2px solid var(--map-dot-border)',
                                 boxShadow: isGlobal
                                     ? '0 0 12px var(--accent-global-glow)'
                                     : isSelected
@@ -137,24 +164,53 @@ export function GameMap({
                     );
                 })}
 
-            {/* Overlay label */}
+            {/* ── Overlay label ── */}
             {overlayLabel && (
-                <div
-                    style={{
-                        position: 'absolute',
-                        inset: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--map-overlay-text)',
-                        fontSize: '0.85rem',
-                        letterSpacing: '0.08em',
-                        pointerEvents: 'none',
-                        fontFamily: 'var(--font-mono)',
-                    }}
-                >
+                <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--map-overlay-text)',
+                    fontSize: '0.85rem',
+                    letterSpacing: '0.08em',
+                    pointerEvents: 'none',
+                    fontFamily: 'var(--font-mono)',
+                }}>
                     {overlayLabel}
                 </div>
+            )}
+
+            {/* ── Viz toggle button — only shown when evaluateFn is present ── */}
+            {evaluateFn && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setVizMode((m) => m === 'contour' ? 'heatmap' : 'contour');
+                    }}
+                    style={{
+                        position: 'absolute',
+                        bottom: 8,
+                        right: 8,
+                        zIndex: 10,
+                        padding: '3px 8px',
+                        background: 'rgba(13,15,18,0.82)',
+                        border: '1px solid var(--border-bright)',
+                        borderRadius: 3,
+                        color: 'var(--text-secondary)',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.65rem',
+                        letterSpacing: '0.06em',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                        backdropFilter: 'blur(4px)',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+                >
+                    {vizMode === 'contour' ? 'HEATMAP' : 'CONTOUR'}
+                </button>
             )}
 
             {children}
