@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { ProblemInstance, ProbeResult, Coordinate } from '../types/map';
+import type { ProblemInstance, ProbeResult, Coordinate } from '../types/map.ts';
 
 export type PlayStatus = 'idle' | 'playing' | 'won';
 

@@ -1,4 +1,4 @@
-import type {MapConfig, ProblemInstance} from '../types/map';
+import type {MapConfig, ProblemInstance} from '../types/map.ts';
 import { euclideanDistance, isWithinRadius } from './geometry';
 
 /**

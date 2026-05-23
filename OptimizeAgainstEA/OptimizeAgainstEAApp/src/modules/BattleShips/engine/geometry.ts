@@ -1,4 +1,4 @@
-import type {Coordinate} from '../types/map';
+import type {Coordinate} from '../types/map.ts';
 
 export function euclideanDistance(a: Coordinate, b: Coordinate): number {
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { MapConfig } from '../../../types/map';
+import type { MapConfig } from '../../../types/map.ts';
 import { decodeMap, generateRandomMap } from '../../../engine/mapCodec';
 
 interface MapLoaderProps {

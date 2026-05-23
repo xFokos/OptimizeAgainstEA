@@ -1,4 +1,4 @@
-import type {MapConfig, Minimum} from '../types/map';
+import type {MapConfig, Minimum} from '../types/map.ts';
 
 const DEFAULT_WIN_RADIUS = 0.04;
 const DEFAULT_BOUNDS = { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };

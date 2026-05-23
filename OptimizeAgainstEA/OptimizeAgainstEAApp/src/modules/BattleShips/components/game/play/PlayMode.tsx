@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import type { MapConfig } from '../../../types/map';
+import type { MapConfig } from '../../../types/map.ts';
 import { createMapProblem } from '../../../engine/functionSurface';
 import { usePlaySession } from '../../../hooks/usePlaySession';
 import { GameMap } from '../shared/GameMap';

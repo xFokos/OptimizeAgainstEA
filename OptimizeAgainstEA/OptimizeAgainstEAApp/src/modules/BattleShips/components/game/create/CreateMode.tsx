@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CreateStep } from '../../../types/game';
+import type { CreateStep } from '../../../types/game.ts';
 import { useGameMap } from '../../../hooks/useGameMap';
 import { MinimumPlacer } from './MinimumPlacer';
 import { GlobalMinimumPicker } from './GlobalMinimumPicker';

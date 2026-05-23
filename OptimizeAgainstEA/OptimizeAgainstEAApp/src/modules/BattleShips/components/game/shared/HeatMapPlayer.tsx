@@ -1,5 +1,5 @@
 import { useRef, useEffect} from 'react';
-import type { Coordinate } from '../../../types/map';
+import type { Coordinate } from '../../../types/map.ts';
 
 type EvalFn = (x: number, y: number) => number;
 
@@ -22,7 +22,7 @@ export interface HeatmapConfig {
 }
 
 export const DEFAULT_HEATMAP_CONFIG: HeatmapConfig = {
-    resolution:    360,
+    resolution:    1000,
     opacity:       1,
     revealRadius:  0.1,
     valueExponent: 0.3,
@@ -30,26 +30,20 @@ export const DEFAULT_HEATMAP_CONFIG: HeatmapConfig = {
 
 /** Maps a curved value [0,1] to an RGBA colour */
 function valueToRgba(v: number): [number, number, number, number] {
-    // Same 3-stop ramp as contours: blue → teal → yellow → red
-    const lerp = (a: number, b: number, s: number) => a + (b - a) * s;
-    let r: number, g: number, b: number;
-    if (v < 0.33) {
-        const s = v / 0.33;
-        r = lerp(20,  80,  s);
-        g = lerp(60,  200, s);
-        b = lerp(220, 180, s);
-    } else if (v < 0.66) {
-        const s = (v - 0.33) / 0.33;
-        r = lerp(80,  230, s);
-        g = lerp(200, 200, s);
-        b = lerp(180, 60,  s);
-    } else {
-        const s = (v - 0.66) / 0.34;
-        r = lerp(230, 215, s);
-        g = lerp(200, 35,  s);
-        b = lerp(60,  35,  s);
-    }
-    return [r, g, b, 255];
+  const lerp = (a: number, b: number, s: number) => a + (b - a) * s;
+  let r: number, g: number, b: number;
+  if (v < 0.5) {
+    const s = v / 0.5;
+    r = lerp(0,   255, s);
+    g = lerp(80,  220, s);
+    b = lerp(255, 0,   s);
+  } else {
+    const s = (v - 0.5) / 0.5;
+    r = lerp(255, 180, s);
+    g = lerp(220, 0,   s);
+    b = lerp(0,   0,   s);
+  }
+  return [r, g, b, 255];
 }
 
 interface HeatmapLayerProps {

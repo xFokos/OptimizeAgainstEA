@@ -1,4 +1,4 @@
-import type {GameMode} from '../../../types/game';
+import type {GameMode} from '../../../types/game.ts';
 
 interface ModeSelectorProps {
   onSelect: (mode: GameMode) => void;

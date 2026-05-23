@@ -1,4 +1,4 @@
-import type { ProbeResult } from '../../../types/map';
+import type { ProbeResult } from '../../../types/map.ts';
 
 interface ProbeMarkerProps {
   probe: ProbeResult;

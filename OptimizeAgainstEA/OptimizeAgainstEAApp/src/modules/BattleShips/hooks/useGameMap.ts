@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { Minimum, MapConfig, Coordinate } from '../types/map';
+import type { Minimum, MapConfig, Coordinate } from '../types/map.ts';
 import { encodeMap } from '../engine/mapCodec';
 
 const WIN_RADIUS = 0.04;

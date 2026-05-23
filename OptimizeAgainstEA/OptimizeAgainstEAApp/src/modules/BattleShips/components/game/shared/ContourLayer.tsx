@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { buildContours } from '../../../engine/contours';
-import type { Coordinate } from '../../../types/map';
+import type { Coordinate } from '../../../types/map.ts';
 
 type EvalFn = (x: number, y: number) => number;
 
@@ -42,17 +42,14 @@ const LABEL_TARGETS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
 const MAJOR_THRESHOLD = 0.06; // levels within this of a label target get a label
 
 function levelToColor(t: number): string {
-    const lerp = (a: number, b: number, s: number) => Math.round(a + (b - a) * s);
-    if (t < 0.33) {
-        const s = t / 0.33;
-        return `rgb(${lerp(30,80,s)},${lerp(80,200,s)},${lerp(220,180,s)})`;
-    } else if (t < 0.66) {
-        const s = (t - 0.33) / 0.33;
-        return `rgb(${lerp(80,230,s)},${lerp(200,200,s)},${lerp(180,60,s)})`;
-    } else {
-        const s = (t - 0.66) / 0.34;
-        return `rgb(${lerp(230,220,s)},${lerp(200,40,s)},${lerp(60,40,s)})`;
-    }
+  const lerp = (a: number, b: number, s: number) => Math.round(a + (b - a) * s);
+  if (t < 0.5) {
+    const s = t / 0.5;
+    return `rgb(${lerp(0, 255, s)},${lerp(80, 220, s)},${lerp(255, 0, s)})`;
+  } else {
+    const s = (t - 0.5) / 0.5;
+    return `rgb(${lerp(255, 180, s)},${lerp(220, 0, s)},${lerp(0, 0, s)})`;
+  }
 }
 
 function isMajorLevel(level: number): boolean {

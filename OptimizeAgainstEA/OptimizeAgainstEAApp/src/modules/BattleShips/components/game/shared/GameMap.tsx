@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useState } from 'react';
-import type { Coordinate, Minimum } from '../../../types/map';
+import type { Coordinate, Minimum } from '../../../types/map.ts';
 import {type ContourConfig, ContourLayer} from "./ContourLayer.tsx";
 import {type HeatmapConfig, HeatmapLayer} from "./HeatMapPlayer.tsx";
 

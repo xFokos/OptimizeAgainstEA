@@ -3,8 +3,8 @@ import type {Vector2D} from './game/core/vec';
 // ---- Spielfeld ----
 
 export const ARENA = {
-    WIDTH:  1600,
-    HEIGHT: 1200,
+    WIDTH:  800,
+    HEIGHT: 800,
     PADDING: 20, // Abstand von den Wänden
 } as const;
 

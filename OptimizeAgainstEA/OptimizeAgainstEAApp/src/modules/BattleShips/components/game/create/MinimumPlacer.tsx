@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Minimum, Coordinate, MapConfig } from '../../../types/map';
+import type { Minimum, Coordinate, MapConfig } from '../../../types/map.ts';
 import { createMapProblem } from '../../../engine/functionSurface';
 import { GameMap } from '../shared/GameMap';
 
