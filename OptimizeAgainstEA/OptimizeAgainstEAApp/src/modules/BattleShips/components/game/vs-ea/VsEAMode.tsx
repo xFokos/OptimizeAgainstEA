@@ -9,6 +9,7 @@ import { GameMap } from '../shared/GameMap';
 import { ProbeMarker } from '../play/ProbeMarker';
 import { WinOverlay } from '../play/WinOverlay';
 import { EASettingsPanel } from './EASettingsPanel';
+import { FitnessChart, type FitnessSeries } from '../shared/FitnessChart';
 
 interface VsEAModeProps {
   onBack: () => void;
@@ -196,6 +197,23 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
     ea.step(gensPerProbe);
   }, [play, ea, gensPerProbe]);
 
+  // Build running-best series — must be before any early return
+  const chartSeries = useMemo((): FitnessSeries[] => {
+    const playerData = play.probes.map((_, i) =>
+        Math.min(...play.probes.slice(0, i + 1).map((p) => p.value))
+    );
+    const eaData = ea.generations
+        .filter((_, i) => (i + 1) % gensPerProbe === 0)
+        .map((_, i, arr) => Math.min(...arr.slice(0, i + 1).map((g) => g.best.fitness)));
+    const series: FitnessSeries[] = [
+      { label: 'You', data: playerData, color: '#4af0a0' },
+    ];
+    if (eaData.length > 0) {
+      series.push({ label: 'EA', data: eaData, color: '#f0c44a' });
+    }
+    return series;
+  }, [play.probes, ea.generations, gensPerProbe]);
+
   // ── Loader (includes settings) ────────────────────────────────────────────
   if (!playerMap || !eaMap) {
     return (
@@ -241,26 +259,34 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
             </span>
             </div>
 
-            <div style={{ position: 'relative' }}>
-              <GameMap
-                  evaluateFn={playerProblem?.evaluate}
-                  revealPoints={revealPoints}
-                  onMapClick={!playerWon ? handleProbe : undefined}
-              >
-                {play.probes.map((p, i) => (
-                    <ProbeMarker key={i} probe={p} index={i} isBest={p === play.bestProbe} />
-                ))}
-              </GameMap>
+            {/* Chart + map row */}
+            <div className="vsea-panel__map-row">
+              <div className="vsea-chart-col">
+                {chartSeries[0].data.length > 0 && (
+                    <FitnessChart series={chartSeries} compact />
+                )}
+              </div>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <GameMap
+                    evaluateFn={playerProblem?.evaluate}
+                    revealPoints={revealPoints}
+                    onMapClick={!playerWon ? handleProbe : undefined}
+                >
+                  {play.probes.map((p, i) => (
+                      <ProbeMarker key={i} probe={p} index={i} isBest={p === play.bestProbe} />
+                  ))}
+                </GameMap>
 
-              {playerWon && play.bestProbe && (
-                  <WinOverlay
-                      probeCount={play.probes.length}
-                      bestProbe={play.bestProbe}
-                      mapId={playerMap.id}
-                      onPlayAgain={handleReset}
-                      onHome={onBack}
-                  />
-              )}
+                {playerWon && play.bestProbe && (
+                    <WinOverlay
+                        probeCount={play.probes.length}
+                        bestProbe={play.bestProbe}
+                        mapId={playerMap.id}
+                        onPlayAgain={handleReset}
+                        onHome={onBack}
+                    />
+                )}
+              </div>
             </div>
 
             {play.probes.length > 0 && (

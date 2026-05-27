@@ -647,13 +647,24 @@ html, body, #root {
 
 .play-layout {
 	display: grid;
-	grid-template-columns: 200px 1fr;
-	gap: var(--sp-5);
+	grid-template-columns: 200px 100px 1fr;
+	gap: var(--sp-4);
 	align-items: start;
 }
 
 @media (max-width: 640px) {
 	.play-layout { grid-template-columns: 1fr; }
+}
+
+/* Chart column — fixed width, stretches to map height */
+.play-chart-col {
+	display: flex;
+	flex-direction: column;
+}
+
+.play-chart-col .fitness-chart {
+	flex: 1;
+	min-height: 0;
 }
 
 /* ── Sidebar ── */
@@ -1276,4 +1287,62 @@ html, body, #root {
 @keyframes slideInRight {
 	from { transform: translateX(100%); opacity: 0; }
 	to   { transform: translateX(0);    opacity: 1; }
+}
+
+/* ─────────────────────────────────────────────
+   FITNESS CHART
+───────────────────────────────────────────── */
+.fitness-chart {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sp-2);
+	background: var(--bg-surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-sm);
+	padding: var(--sp-3) var(--sp-3) var(--sp-2);
+}
+
+.fitness-chart__legend {
+	display: flex;
+	gap: var(--sp-4);
+	padding-left: 2px;
+}
+
+.fitness-chart__legend-item {
+	display: flex;
+	align-items: center;
+	gap: var(--sp-2);
+}
+
+.fitness-chart__legend-swatch {
+	width: 20px;
+	height: 2px;
+	border-radius: 1px;
+	flex-shrink: 0;
+}
+
+.fitness-chart__legend-label {
+	font-family: var(--font-mono);
+	font-size: 0.7rem;
+	color: var(--text-secondary);
+}
+
+/* ── VsEA player panel: chart-col | map row ── */
+.vsea-panel__map-row {
+	display: flex;
+	flex-direction: row;
+	gap: var(--sp-3);
+	align-items: stretch;
+}
+
+.vsea-chart-col {
+	width: 100px;
+	flex-shrink: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.vsea-chart-col .fitness-chart {
+	flex: 1;
+	min-height: 0;
 }

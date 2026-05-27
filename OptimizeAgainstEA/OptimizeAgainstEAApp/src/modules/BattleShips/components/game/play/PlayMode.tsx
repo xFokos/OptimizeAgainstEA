@@ -1,18 +1,19 @@
 import { useState, useMemo } from 'react';
-import type { MapConfig } from '../../../types/map.ts';
+import type { MapConfig } from '../../../types/map';
 import { createMapProblem } from '../../../engine/functionSurface';
 import { usePlaySession } from '../../../hooks/usePlaySession';
 import { GameMap } from '../shared/GameMap';
 import { MapLoader } from './MapLoader';
 import { ProbeMarker } from './ProbeMarker';
 import { WinOverlay } from './WinOverlay';
+import { FitnessChart } from '../shared/FitnessChart';
 
 interface PlayModeProps {
   onBack: () => void;
 }
 
 /** Reveal radius around each probe in normalized [0,1] units */
-//const PROBE_REVEAL_RADIUS = 0.1;
+const PROBE_REVEAL_RADIUS = 0.1;
 
 export function PlayMode({ onBack }: PlayModeProps) {
   const [mapConfig, setMapConfig] = useState<MapConfig | null>(null);
@@ -34,6 +35,12 @@ export function PlayMode({ onBack }: PlayModeProps) {
     reset();
   };
 
+  // Running best fitness per probe step — must be before any early return
+  const playerBestSeries = useMemo(() =>
+          probes.map((_, i) => Math.min(...probes.slice(0, i + 1).map((p) => p.value))),
+      [probes],
+  );
+
   if (!mapConfig || !problem) {
     return <MapLoader onLoad={handleLoad} onBack={onBack} />;
   }
@@ -44,6 +51,7 @@ export function PlayMode({ onBack }: PlayModeProps) {
   // During play: clip contours to circles around each probe.
   // On win: remove the clip so the full landscape is revealed.
   const revealPoints = hasWon ? undefined : probes.map((p) => p.position);
+
 
   return (
       <div className="play-mode">
@@ -107,6 +115,17 @@ export function PlayMode({ onBack }: PlayModeProps) {
             )}
           </div>
 
+          {/* Chart — vertical strip left of the map */}
+          <div className="play-chart-col">
+            {playerBestSeries.length > 0 && (
+                <FitnessChart
+                    series={[{ label: 'You', data: playerBestSeries, color: '#4af0a0' }]}
+                    compact
+                />
+            )}
+          </div>
+
+          {/* Map */}
           <div className="play-map-wrap" style={{ position: 'relative' }}>
             <GameMap
                 evaluateFn={problem.evaluate}
