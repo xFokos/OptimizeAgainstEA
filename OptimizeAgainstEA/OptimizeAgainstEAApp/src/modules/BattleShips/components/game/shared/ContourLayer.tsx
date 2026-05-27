@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { buildContours } from '../../../engine/contours';
-import type { Coordinate } from '../../../types/map.ts';
+import { sampleGradientRgb } from '../../../engine/colorScale.ts';
+import type { Coordinate } from '../../../types/map';
 
 type EvalFn = (x: number, y: number) => number;
 
@@ -25,7 +26,7 @@ export interface ContourConfig {
 
 export const DEFAULT_CONTOUR_CONFIG: ContourConfig = {
     lineCount:       24,
-    spacingExponent: 1,
+    spacingExponent: 2.5,
     resolution:      100,
     revealRadius:    0.1,
 };
@@ -34,23 +35,12 @@ export const DEFAULT_CONTOUR_CONFIG: ContourConfig = {
 function buildLevels(count: number, exponent: number): number[] {
     return Array.from({ length: count }, (_, i) => {
         const t = (i + 1) / (count + 1); // skip 0 and 1 themselves
-        return parseFloat((1 - Math.pow(1 - t, 1 / exponent)).toFixed(4));
+        return parseFloat(Math.pow(t, 1 / exponent).toFixed(4));
     });
 }
 
 const LABEL_TARGETS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
 const MAJOR_THRESHOLD = 0.06; // levels within this of a label target get a label
-
-function levelToColor(t: number): string {
-  const lerp = (a: number, b: number, s: number) => Math.round(a + (b - a) * s);
-  if (t < 0.5) {
-    const s = t / 0.5;
-    return `rgb(${lerp(0, 255, s)},${lerp(80, 220, s)},${lerp(255, 0, s)})`;
-  } else {
-    const s = (t - 0.5) / 0.5;
-    return `rgb(${lerp(255, 180, s)},${lerp(220, 0, s)},${lerp(0, 0, s)})`;
-  }
-}
 
 function isMajorLevel(level: number): boolean {
     return LABEL_TARGETS.some((t) => Math.abs(t - level) < MAJOR_THRESHOLD);
@@ -101,7 +91,7 @@ export function ContourLayer({
             <g clipPath={hasReveal ? `url(#${clipId})` : undefined}>
                 {contours.map(({ level, segments }) => {
                     const major   = isMajorLevel(level);
-                    const color   = levelToColor(Math.pow(level, 0.3));
+                    const color   = sampleGradientRgb(level);
                     const opacity = major ? 0.85 : 0.38;
                     const width   = major ? 0.6  : 0.25;
 

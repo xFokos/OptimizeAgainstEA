@@ -1,7 +1,7 @@
 import React, { useRef, useCallback, useState } from 'react';
-import type { Coordinate, Minimum } from '../../../types/map.ts';
-import {type ContourConfig, ContourLayer} from "./ContourLayer.tsx";
-import {type HeatmapConfig, HeatmapLayer} from "./HeatMapPlayer.tsx";
+import type { Coordinate, Minimum } from '../../../types/map';
+import { ContourLayer, type ContourConfig } from './ContourLayer';
+import { HeatmapLayer, type HeatmapConfig } from './HeatMapLayer.tsx';
 
 type EvalFn = (x: number, y: number) => number;
 export type VizMode = 'contour' | 'heatmap';
@@ -29,7 +29,7 @@ export function GameMap({
                             minima = [],
                             showMinima = false,
                             evaluateFn,
-                            defaultVizMode = 'contour',
+                            defaultVizMode = 'heatmap',
                             contourConfig,
                             heatmapConfig,
                             revealPoints,

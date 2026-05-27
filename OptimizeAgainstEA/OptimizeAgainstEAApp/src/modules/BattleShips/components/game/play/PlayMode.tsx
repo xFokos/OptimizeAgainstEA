@@ -12,7 +12,7 @@ interface PlayModeProps {
 }
 
 /** Reveal radius around each probe in normalized [0,1] units */
-const PROBE_REVEAL_RADIUS = 0.1;
+//const PROBE_REVEAL_RADIUS = 0.1;
 
 export function PlayMode({ onBack }: PlayModeProps) {
   const [mapConfig, setMapConfig] = useState<MapConfig | null>(null);
@@ -111,7 +111,6 @@ export function PlayMode({ onBack }: PlayModeProps) {
             <GameMap
                 evaluateFn={problem.evaluate}
                 revealPoints={revealPoints}
-                revealRadius={PROBE_REVEAL_RADIUS}
                 onMapClick={!hasWon ? probe : undefined}
             >
               {probes.map((p, i) => (

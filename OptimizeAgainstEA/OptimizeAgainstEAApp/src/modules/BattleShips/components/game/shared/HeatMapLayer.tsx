@@ -1,5 +1,6 @@
 import { useRef, useEffect} from 'react';
-import type { Coordinate } from '../../../types/map.ts';
+import type { Coordinate } from '../../../types/map';
+import { sampleGradient } from '../../../engine/colorScale.ts';
 
 type EvalFn = (x: number, y: number) => number;
 
@@ -22,29 +23,11 @@ export interface HeatmapConfig {
 }
 
 export const DEFAULT_HEATMAP_CONFIG: HeatmapConfig = {
-    resolution:    1000,
-    opacity:       1,
-    revealRadius:  0.1,
-    valueExponent: 0.3,
+    resolution:    1080,
+    opacity:       0.82,
+    revealRadius:  0.05,
+    valueExponent: 0.55,
 };
-
-/** Maps a curved value [0,1] to an RGBA colour */
-function valueToRgba(v: number): [number, number, number, number] {
-  const lerp = (a: number, b: number, s: number) => a + (b - a) * s;
-  let r: number, g: number, b: number;
-  if (v < 0.5) {
-    const s = v / 0.5;
-    r = lerp(0,   255, s);
-    g = lerp(80,  220, s);
-    b = lerp(255, 0,   s);
-  } else {
-    const s = (v - 0.5) / 0.5;
-    r = lerp(255, 180, s);
-    g = lerp(220, 0,   s);
-    b = lerp(0,   0,   s);
-  }
-  return [r, g, b, 255];
-}
 
 interface HeatmapLayerProps {
     evaluate: EvalFn;
@@ -89,7 +72,8 @@ export function HeatmapLayer({ evaluate, config: configOverride, revealPoints }:
 
                 const raw    = evaluate(nx, ny);
                 const curved = Math.pow(Math.max(0, Math.min(1, raw)), cfg.valueExponent);
-                const [r, g, b, a] = valueToRgba(curved);
+                const [r, g, b] = sampleGradient(curved);
+                const a = 255;
 
                 const idx = (py * res + px) * 4;
                 data[idx]     = r;
