@@ -4,6 +4,9 @@ import { useKeyboard }  from '../hooks/useKeyboard';
 import { useGameLoop }  from '../hooks/useGameLoop';
 import { update }       from '../game/core/gameLoop';
 import { renderer }     from '../game/core/renderer';
+import { evolve, getNextAgent } from '../game/ga/evolution';
+import { initPopulation } from '../game/ga/population';
+import { calculateFitness } from '../game/ga/fitness';
 import styles           from './ShooterCanvas.module.css';
 
 // ---- Hilfsfunktionen ----
@@ -90,15 +93,27 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) =>  {
     });
 
     const startRound = () => {
+        const currentState = gameStateRef.current;
+
+        // Population initialisieren falls erste Runde
+        const population = currentState.population ?? initPopulation();
+
+        // Fitness des letzten Agenten berechnen (außer erste Runde)
+        const evolvedPopulation = currentState.roundNumber > 1
+            ? evolve(population, calculateFitness(currentState.agent.stats))
+            : population;
+
+        // Nächste DNA holen
+        const nextDna = getNextAgent(evolvedPopulation, currentState.roundNumber);
+
         gameStateRef.current = {
             ...initialGameState(),
             phase:       'playing',
-            roundNumber: gameStateRef.current.roundNumber,
-            population:  gameStateRef.current.population,
-            // DNA vom letzten Agenten übernehmen (wird später von GA befüllt)
+            roundNumber: currentState.roundNumber + 1,
+            population:  evolvedPopulation,
             agent: {
                 ...initialGameState().agent,
-                dna: gameStateRef.current.agent.dna,
+                dna: nextDna,
             },
         };
         setPhase('playing');
