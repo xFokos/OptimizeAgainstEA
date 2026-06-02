@@ -47,9 +47,10 @@ export function update(
 
 
     // Rotation = Richtung der Bewegung (oder bleibt wenn stillstehend)
-    if (vec.length(normalizedMove) > 0) {
-        player.rotation = Math.atan2(normalizedMove.y, normalizedMove.x);
-    }
+    player.rotation = vec.angle(player.position, {
+        x: input.mouseX,
+        y: input.mouseY,
+    });
 
     player.position = vec.clamp(
         vec.add(player.position, vec.scale(player.velocity, dt)),

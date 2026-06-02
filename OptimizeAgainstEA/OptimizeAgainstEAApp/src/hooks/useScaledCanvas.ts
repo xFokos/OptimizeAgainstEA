@@ -27,7 +27,7 @@ export const useScaledCanvas = ({
             const scaleX = availW / baseWidth;
             const scaleY = availH / baseHeight;
 
-            setScale(Math.min(scaleX, scaleY, 1));
+            setScale(Math.min(scaleX, scaleY));
         };
 
         updateScale();

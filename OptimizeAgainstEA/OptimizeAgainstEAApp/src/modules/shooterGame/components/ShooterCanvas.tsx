@@ -1,13 +1,16 @@
 import { useRef, useCallback, useState } from 'react';
 import { ARENA, GAME_CONFIG, DNA_LENGTH, emptyStats , type GameState, type GamePhase, type InputState} from '../shooter.types';
-import { useKeyboard }  from '../hooks/useKeyboard';
+import { useInput }  from '../hooks/useInput';
 import { useGameLoop }  from '../hooks/useGameLoop';
 import { update }       from '../game/core/gameLoop';
 import { renderer }     from '../game/core/renderer';
 import { evolve, getNextAgent } from '../game/ga/evolution';
 import { initPopulation } from '../game/ga/population';
 import { calculateFitness } from '../game/ga/fitness';
+import { gameStore } from '../game/gameStore';
 import styles           from './ShooterCanvas.module.css';
+
+
 
 // ---- Hilfsfunktionen ----
 
@@ -42,10 +45,7 @@ const initialGameState = (): GameState => ({
     },
 });
 
-export const gameStore = {
-    state: initialGameState(),
-};
-
+gameStore.state = initialGameState();
 // ---- Komponente ----
 
 interface ShooterCanvasProps {
@@ -55,7 +55,7 @@ interface ShooterCanvasProps {
 export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) =>  {
     const canvasRef   = useRef<HTMLCanvasElement>(null);
     const gameStateRef = useRef<GameState>(initialGameState());
-    const inputRef    = useKeyboard();
+    const inputRef    = useInput();
     const [phase, setPhase] = useState<GamePhase>('idle');
 
 
@@ -93,6 +93,11 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) =>  {
     });
 
     const startRound = () => {
+
+        gameStore.state = gameStateRef.current;
+        gameStore.notify();
+        console.log('notify called, dna:', gameStateRef.current.agent.dna);
+
         const currentState = gameStateRef.current;
 
         // Population initialisieren falls erste Runde

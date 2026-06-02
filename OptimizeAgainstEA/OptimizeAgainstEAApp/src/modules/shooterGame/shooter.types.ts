@@ -115,20 +115,22 @@ export interface GameState {
 // ---- Input ----
 
 export interface InputState {
-    up:    boolean;
-    down:  boolean;
-    left:  boolean;
-    right: boolean;
-    shoot: boolean; // Leertaste oder Mouse-Click
+    up:     boolean;
+    down:   boolean;
+    left:   boolean;
+    right:  boolean;
+    shoot:  boolean;
+    mouseX: number;
+    mouseY: number;
 }
 
 // ---- Konfiguration ----
 
 export const GAME_CONFIG = {
-    ROUND_DURATION:    60,   // Sekunden
+    ROUND_DURATION:    20,   // Sekunden
     POPULATION_SIZE:   20,
     ELITE_COUNT:       4,    // Top-N die direkt überleben
-    MUTATION_RATE:     0.1,  // 10% Chance pro Gen-Wert
+    MUTATION_RATE:     0.1,  // 10 % Chance pro Gen-Wert
     MUTATION_STRENGTH: 0.2,  // wie stark ein Wert sich ändert
     BULLET_SPEED:      500,  // px/s
     BULLET_LIFETIME:   2,    // Sekunden
