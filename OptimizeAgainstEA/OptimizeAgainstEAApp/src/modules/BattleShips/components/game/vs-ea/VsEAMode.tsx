@@ -26,12 +26,12 @@ interface DualLoaderState {
 }
 
 interface DualLoaderProps {
-  eaConfig:            EAConfig;
-  gensPerProbe:        number;
-  onConfigChange:      (patch: Partial<EAConfig>) => void;
-  onGensPerProbeChange:(n: number) => void;
-  onStart:             (playerMap: MapConfig, eaMap: MapConfig) => void;
-  onBack:              () => void;
+  eaConfig:             EAConfig;
+  gensPerProbe:         number;
+  onConfigChange:       (patch: Partial<EAConfig>) => void;
+  onGensPerProbeChange: (n: number) => void;
+  onStart:              (playerMap: MapConfig, eaMap: MapConfig) => void;
+  onBack:               () => void;
 }
 
 function DualMapLoader({
@@ -78,7 +78,6 @@ function DualMapLoader({
         and paste the same code into both.
       </p>
 
-      {/* Generate + copyable code box */}
       <div className="dual-loader__generate-row">
         <button className="btn btn--ghost" onClick={handleGenerate}>
           Generate Random Map
@@ -101,7 +100,6 @@ function DualMapLoader({
         )}
       </div>
 
-      {/* Map code inputs */}
       <div className="dual-loader__grid">
         <div className="dual-loader__col">
           <div className="dual-loader__col-label">Your Map</div>
@@ -130,13 +128,9 @@ function DualMapLoader({
         </div>
       </div>
 
-      {/* Actions row */}
       <div className="dual-loader__actions">
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
-        <button
-          className="btn btn--ghost btn--sm"
-          onClick={() => setShowSettings((v) => !v)}
-        >
+        <button className="btn btn--ghost btn--sm" onClick={() => setShowSettings((v) => !v)}>
           ⚙ EA Settings
         </button>
         <button className="btn btn--primary" disabled={!canStart} onClick={handleStart}>
@@ -144,7 +138,6 @@ function DualMapLoader({
         </button>
       </div>
 
-      {/* Settings panel — opens as a side drawer */}
       {showSettings && (
         <EASettingsPanel
           config={eaConfig}
@@ -165,6 +158,7 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
   const [eaMap,        setEaMap]        = useState<MapConfig | null>(null);
   const [eaConfig,     setEaConfig]     = useState<EAConfig>(DEFAULT_EA_CONFIG);
   const [gensPerProbe, setGensPerProbe] = useState(1);
+  const [hoveredIndex, setHoveredIndex] = useState(-1);
 
   const playerProblem = useMemo(
     () => (playerMap ? createMapProblem(playerMap) : null),
@@ -186,6 +180,7 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
     ea.reset();
     setPlayerMap(null);
     setEaMap(null);
+    setHoveredIndex(-1);
   };
 
   const handleConfigChange = useCallback((patch: Partial<EAConfig>) => {
@@ -197,26 +192,26 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
     ea.step(gensPerProbe);
   }, [play, ea, gensPerProbe]);
 
-  // Build per-probe series — must be before any early return
-  const chartSeries = useMemo((): FitnessSeries[] => {
-    // Player: value of each probe as placed (not running best)
-    const playerData = play.probes.map((p) => p.value);
+  const handleHover = useCallback((i: number) => setHoveredIndex(i), []);
 
-    // EA: best fitness of the generation that ran after each player probe
-    const eaData = ea.generations
-      .filter((_, i) => (i + 1) % gensPerProbe === 0)
-      .map((g) => g.best.fitness);
+  // Must be before early return
+  const chartSeries = useMemo((): FitnessSeries[] => {
+    const playerData = play.probes.map((p) => p.value);
+    const sampledGens = ea.generations.filter((_, i) => (i + 1) % gensPerProbe === 0);
+    const eaMeanData = sampledGens.map((g) => g.meanFitness);
+    const eaBestData = sampledGens.map((g) => g.best.fitness);
 
     const series: FitnessSeries[] = [
-      { label: 'You', data: playerData, color: '#4af0a0' },
+      { label: 'You',      data: playerData, color: '#4af0a0' },
     ];
-    if (eaData.length > 0) {
-      series.push({ label: 'EA', data: eaData, color: '#f0c44a' });
+    if (sampledGens.length > 0) {
+      series.push({ label: 'EA mean', data: eaMeanData, color: '#f0c44a' });
+      series.push({ label: 'EA best', data: eaBestData, color: '#f07a4a' });
     }
     return series;
   }, [play.probes, ea.generations, gensPerProbe]);
 
-  // ── Loader (includes settings) ────────────────────────────────────────────
+  // ── Loader ────────────────────────────────────────────────────────────────
   if (!playerMap || !eaMap) {
     return (
       <DualMapLoader
@@ -236,7 +231,6 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
 
   return (
     <div className="vsea-race">
-      {/* Top bar — no settings button here anymore */}
       <div className="vsea-race__topbar">
         <button className="btn btn--ghost btn--sm" onClick={handleReset}>← Change Maps</button>
         <div className="vsea-race__title">
@@ -248,125 +242,110 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
         <button className="btn btn--ghost btn--sm btn--danger" onClick={handleReset}>Reset</button>
       </div>
 
-      {/* Chart + panels row */}
       <div className="vsea-race__panels">
 
-        {/* ── Player panel ── */
-          <div className="vsea-panel">
-            <div className="vsea-panel__header">
-              <span className="vsea-panel__label">You</span>
-              <span className="vsea-panel__meta">
+        {/* ── Player panel ── */}
+        <div className="vsea-panel">
+          <div className="vsea-panel__header">
+            <span className="vsea-panel__label">You</span>
+            <span className="vsea-panel__meta">
               {play.probes.length} probe{play.probes.length !== 1 ? 's' : ''}
-                {play.bestProbe && ` · best ${play.bestProbe.value.toFixed(4)}`}
+              {play.bestProbe && ` · best ${play.bestProbe.value.toFixed(4)}`}
             </span>
-            </div>
+          </div>
 
-            <div style={{ position: 'relative' }}>
-              <GameMap
-                evaluateFn={playerProblem?.evaluate}
-                revealPoints={revealPoints}
-                onMapClick={!playerWon ? handleProbe : undefined}
-              >
-                {play.probes.map((p, i) => (
-                  <ProbeMarker key={i} probe={p} index={i} isBest={p === play.bestProbe} />
-                ))}
-              </GameMap>
-
-              {playerWon && play.bestProbe && (
-                <WinOverlay
-                  probeCount={play.probes.length}
-                  bestProbe={play.bestProbe}
-                  mapId={playerMap.id}
-                  onPlayAgain={handleReset}
-                  onHome={onBack}
+          <div style={{ position: 'relative' }}>
+            <GameMap
+              evaluateFn={playerProblem?.evaluate}
+              revealPoints={revealPoints}
+              onMapClick={!playerWon ? handleProbe : undefined}
+            >
+              {play.probes.map((p, i) => (
+                <ProbeMarker
+                  key={i}
+                  probe={p}
+                  index={i}
+                  isBest={p === play.bestProbe}
+                  isHovered={i === hoveredIndex}
+                  onHover={handleHover}
                 />
-              )}
-            </div>
+              ))}
+            </GameMap>
 
-            {play.probes.length > 0 && (
-              <div className="probe-history" style={{ marginTop: 8 }}>
-                <div className="probe-history__label">History</div>
-                <div className="probe-history__list">
-                  {[...play.probes].reverse().slice(0, 6).map((p, i) => (
-                    <div key={i} className={`probe-row${p === play.bestProbe ? ' probe-row--best' : ''}`}>
-                      <span className="probe-row__idx">#{play.probes.length - i}</span>
-                      <div className="probe-row__swatch" style={{ background: swatchColor(p.value) }} />
-                      <span className="probe-row__val">{p.value.toFixed(4)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {playerWon && play.bestProbe && (
+              <WinOverlay
+                probeCount={play.probes.length}
+                bestProbe={play.bestProbe}
+                mapId={playerMap.id}
+                onPlayAgain={handleReset}
+                onHome={onBack}
+              />
             )}
           </div>
-        }
+        </div>
 
         {/* ── EA panel ── */}
-          <div className="vsea-panel">
+        <div className="vsea-panel">
           <div className="vsea-panel__header">
-          <span className="vsea-panel__label">EA</span>
-          <span className="vsea-panel__meta">
-          gen {ea.totalGenerations}
-        {ea.best && ` · best ${ea.best.fitness.toFixed(4)}`}
-      </span>
-    </div>
+            <span className="vsea-panel__label">EA</span>
+            <span className="vsea-panel__meta">
+              gen {ea.totalGenerations}
+              {ea.best && ` · best ${ea.best.fitness.toFixed(4)}`}
+            </span>
+          </div>
 
-  <div className="vsea-banner" style={{ marginBottom: 8 }}>
-    {ea.status === 'running'   && <span className="vsea-banner__text vsea-banner__text--running">● Waiting for your move…</span>}
-    {ea.status === 'solved'    && <span className="vsea-banner__text vsea-banner__text--solved">✓ Solved in {ea.totalGenerations} generations</span>}
-    {ea.status === 'exhausted' && <span className="vsea-banner__text vsea-banner__text--exhausted">✗ Exhausted — no solution found</span>}
-    {ea.status === 'idle'      && <span className="vsea-banner__text">Initialising…</span>}
-    {ea.status === 'error'     && <span className="vsea-banner__text vsea-banner__text--error">Error: {ea.errorMessage}</span>}
-  </div>
+          <div className="vsea-banner">
+            {ea.status === 'running'   && <span className="vsea-banner__text vsea-banner__text--running">● Waiting for your move…</span>}
+            {ea.status === 'solved'    && <span className="vsea-banner__text vsea-banner__text--solved">✓ Solved in {ea.totalGenerations} generations</span>}
+            {ea.status === 'exhausted' && <span className="vsea-banner__text vsea-banner__text--exhausted">✗ Exhausted — no solution found</span>}
+            {ea.status === 'idle'      && <span className="vsea-banner__text">Initialising…</span>}
+            {ea.status === 'error'     && <span className="vsea-banner__text vsea-banner__text--error">Error: {ea.errorMessage}</span>}
+          </div>
 
-{ea.currentGeneration && (
-    <div className="vsea-stats" style={{ gridTemplateColumns: 'repeat(2,1fr)' }}>
-      <div className="vsea-stat">
-        <div className="vsea-stat__label">Generation</div>
-        <div className="vsea-stat__value">{ea.currentGeneration.index + 1}</div>
-      </div>
-      <div className="vsea-stat">
-        <div className="vsea-stat__label">Best fitness</div>
-        <div className="vsea-stat__value vsea-stat__value--accent">
-          {ea.currentGeneration.best.fitness.toFixed(5)}
-        </div>
-      </div>
-      <div className="vsea-stat">
-        <div className="vsea-stat__label">Mean fitness</div>
-        <div className="vsea-stat__value">{ea.currentGeneration.meanFitness.toFixed(5)}</div>
-      </div>
-      <div className="vsea-stat">
-        <div className="vsea-stat__label">Best position</div>
-        <div className="vsea-stat__value vsea-stat__value--mono">
-          ({ea.currentGeneration.best.position.x.toFixed(3)},&nbsp;
-          {ea.currentGeneration.best.position.y.toFixed(3)})
-        </div>
-      </div>
-    </div>
-  )}
+          {ea.currentGeneration && (
+            <div className="vsea-stats" style={{ gridTemplateColumns: 'repeat(2,1fr)' }}>
+              <div className="vsea-stat">
+                <div className="vsea-stat__label">Generation</div>
+                <div className="vsea-stat__value">{ea.currentGeneration.index + 1}</div>
+              </div>
+              <div className="vsea-stat">
+                <div className="vsea-stat__label">Best fitness</div>
+                <div className="vsea-stat__value vsea-stat__value--accent">
+                  {ea.currentGeneration.best.fitness.toFixed(5)}
+                </div>
+              </div>
+              <div className="vsea-stat">
+                <div className="vsea-stat__label">Mean fitness</div>
+                <div className="vsea-stat__value">{ea.currentGeneration.meanFitness.toFixed(5)}</div>
+              </div>
+              <div className="vsea-stat">
+                <div className="vsea-stat__label">Best position</div>
+                <div className="vsea-stat__value vsea-stat__value--mono">
+                  ({ea.currentGeneration.best.position.x.toFixed(3)},&nbsp;
+                  {ea.currentGeneration.best.position.y.toFixed(3)})
+                </div>
+              </div>
+            </div>
+          )}
 
-{chartSeries[0].data.length > 0 && (
-    <div style={{ marginTop: 8 }}>
-      <FitnessChart series={chartSeries} />
-    </div>
-  )}
+          {/* Chart — always shown, empty axes until first probe */}
+          <FitnessChart
+            series={chartSeries}
+            hoveredIndex={hoveredIndex}
+            onHover={handleHover}
+          />
 
-{ea.best && (
-    <div className="vsea-best" style={{ marginTop: 8 }}>
-      <span className="vsea-best__label">All-time best</span>
-      <span className="vsea-best__value">
+          {ea.best && (
+            <div className="vsea-best">
+              <span className="vsea-best__label">All-time best</span>
+              <span className="vsea-best__value">
                 {ea.best.fitness.toFixed(5)} @ ({ea.best.position.x.toFixed(3)}, {ea.best.position.y.toFixed(3)})
               </span>
-      {ea.best.isSolution && <span className="vsea-best__badge">SOLUTION</span>}
+              {ea.best.isSolution && <span className="vsea-best__badge">SOLUTION</span>}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
-  )}
-</div>
-</div>
-</div>
-);
-}
-
-function swatchColor(value: number): string {
-  const r = Math.round(Math.min(255, value * 2 * 255));
-  const g = Math.round(Math.min(255, (1 - value) * 2 * 255));
-  return `rgb(${r},${g},60)`;
+  );
 }

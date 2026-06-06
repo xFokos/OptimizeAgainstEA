@@ -7,6 +7,19 @@ import {
   MUTATION_STRATEGIES,
 } from './operators';
 
+/**
+ * Fraction of the population that must be inside the win radius
+ * simultaneously for the EA to be considered solved.
+ * Scales automatically with populationSize so the difficulty stays
+ * consistent regardless of how many individuals are in the population.
+ *
+ * 0.10 = 10% -- e.g. 4 out of 40, near-impossible by chance but
+ *               achieved quickly once the EA has genuinely converged.
+ * Raise toward 0.25 for a stricter win condition.
+ * Lower toward 0.05 for a looser one.
+ */
+const WIN_POPULATION_FRACTION = 0.10;
+
 export interface EACallbacks {
   onGeneration: (generation: Generation) => void;
   onSolved:     (generation: Generation, totalGenerations: number) => void;
@@ -108,8 +121,9 @@ export function createEAStepper(
       population.sort((a, b) => a.fitness - b.fitness);
       const generation = summarise(population, genIndex);
 
-      const solution = population.find((ind) => ind.isSolution);
-      if (solution) {
+      const solutionCount = population.filter((ind) => ind.isSolution).length;
+      const solutionThreshold = Math.max(2, Math.ceil(config.populationSize * WIN_POPULATION_FRACTION));
+      if (solutionCount >= solutionThreshold) {
         return { type: 'solved', generation, totalGenerations: genIndex + 1 };
       }
 
