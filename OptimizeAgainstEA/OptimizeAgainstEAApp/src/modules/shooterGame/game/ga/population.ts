@@ -1,16 +1,20 @@
 import type { Population, Individual } from '../../shooter.types';
-import { DNA_LENGTH, GAME_CONFIG } from '../../shooter.types';
+import { DNA_LENGTH, GAME_CONFIG, STARTER_DNA } from '../../shooter.types';
 
 // Zufällige DNA generieren – alle Werte zwischen 0 und 1
 export function randomDNA(): number[] {
     return Array.from({ length: DNA_LENGTH }, () => Math.random());
 }
 
-// Erste Generation – komplett zufällig
+// Erste Generation
 export function initPopulation(): Population {
     const individuals: Individual[] = Array.from(
         { length: GAME_CONFIG.POPULATION_SIZE },
-        () => ({ dna: randomDNA(), fitness: 0 })
+        () => ({ dna: STARTER_DNA.map(v =>
+                Math.max(0, Math.min(1, v + (Math.random() - 0.5) * 0.1))
+            ),
+            fitness: 0
+        })
     );
 
     return {

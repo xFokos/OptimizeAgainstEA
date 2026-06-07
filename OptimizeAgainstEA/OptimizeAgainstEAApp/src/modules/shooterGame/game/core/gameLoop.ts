@@ -4,6 +4,7 @@ import {
     type AgentState,
     type PlayerState,
     type Bullet,
+    type PlayerGhostFrame, // neu
     DNA_INDEX,
 } from '../../shooter.types';
 import { GAME_CONFIG, ARENA } from '../../shooter.types';
@@ -127,12 +128,21 @@ export function update(
 
     agent = { ...agent, stats: newStats };
 
+    const ghostFrame: PlayerGhostFrame = {
+        position: { ...player.position },
+        velocity: { ...player.velocity },
+        rotation: player.rotation,
+        shot:     input.shoot && playerShootCooldown === 0,
+        time:     state.roundTimer,
+    };
+
     return {
         ...state,
         roundTimer,
         player,
         agent,
-        bullets: newBullets,
+        bullets:     newBullets,
+        ghostFrames: [...state.ghostFrames, ghostFrame], // neu
     };
 }
 

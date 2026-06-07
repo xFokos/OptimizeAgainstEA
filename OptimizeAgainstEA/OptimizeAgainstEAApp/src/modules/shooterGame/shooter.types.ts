@@ -104,12 +104,13 @@ export type GamePhase =
 
 export interface GameState {
     phase:       GamePhase;
-    roundTimer:  number;        // Sekunden verbleibend
+    roundTimer:  number;
     roundNumber: number;
     player:      PlayerState;
     agent:       AgentState;
     bullets:     Bullet[];
     population:  Population | null;
+    ghostFrames: PlayerGhostFrame[];
 }
 
 // ---- Input ----
@@ -145,3 +146,27 @@ export const GAME_CONFIG = {
     BULLET_RADIUS:     5,
     NEAR_MISS_RADIUS:  40,   // px – ab hier zählt's als "ausgewichen"
 } as const;
+
+export const STARTER_DNA: DNA = [
+    0.1,  // AGGRESSION     – sehr passiv
+    0.1,  // DODGE_WEIGHT   – weicht kaum aus
+    0.1,  // SHOOT_ACCURACY – sehr ungenau
+    0.3 ,  // PREFERRED_RANGE – bleibt nah
+    0.1,  // MOVEMENT_SPEED – sehr langsam
+    0.1,  // PREDICT_LEAD   – kein Vorauszielen
+    0.1,  // FIRE_RATE      – schießt sehr langsam
+];
+
+// ---- Player Ghosting ----
+export interface PlayerGhostFrame {
+    position: Vector2D;
+    velocity: Vector2D;
+    rotation: number;
+    shot:     boolean;
+    time:     number;
+}
+
+export interface PlayerGhost {
+    frames:        PlayerGhostFrame[];
+    roundDuration: number;
+}
