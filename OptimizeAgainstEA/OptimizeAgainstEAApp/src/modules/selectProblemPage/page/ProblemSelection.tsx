@@ -24,10 +24,10 @@ export function ProblemSelection({ value, onChange }: ProblemSelectionProps) {
                     onClick={() => onChange("tsp")}
                 />
                 <ProblemCard
-                    title="Placeholder"
-                    description="Example problem."
-                    active={value === "placeHolder"}
-                    onClick={() => onChange("placeHolder")}
+                    title="Battleships"
+                    description="Creates and Play maps"
+                    active={value === "battleShips"}
+                    onClick={() => onChange("battleShips")}
                 />
             </div>
         </>

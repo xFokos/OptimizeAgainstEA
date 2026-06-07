@@ -1,14 +1,15 @@
 import type { ProbeResult } from '../../../types/map.ts';
 
 interface WinOverlayProps {
-  probeCount: number;
-  bestProbe: ProbeResult;
-  mapId: string;
-  onPlayAgain: () => void;
-  onHome: () => void;
+  probeCount:    number;
+  bestProbe:     ProbeResult;
+  mapId:         string;
+  onPlayAgain:   () => void;
+  onHome:        () => void;
+  onKeepPlaying?: () => void;
 }
 
-export function WinOverlay({ probeCount, bestProbe, mapId, onPlayAgain, onHome }: WinOverlayProps) {
+export function WinOverlay({ probeCount, bestProbe, mapId, onPlayAgain, onHome, onKeepPlaying }: WinOverlayProps) {
   return (
     <div className="win-overlay">
       <div className="win-card">
@@ -31,6 +32,11 @@ export function WinOverlay({ probeCount, bestProbe, mapId, onPlayAgain, onHome }
           <button className="btn btn--primary" onClick={onPlayAgain}>
             Play Again
           </button>
+          {onKeepPlaying && (
+            <button className="btn btn--ghost" onClick={onKeepPlaying}>
+              Keep Playing
+            </button>
+          )}
           <button className="btn btn--ghost" onClick={onHome}>
             ← Home
           </button>

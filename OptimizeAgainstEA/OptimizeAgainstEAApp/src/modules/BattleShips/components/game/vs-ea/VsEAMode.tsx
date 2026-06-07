@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { MapConfig, Coordinate } from '../../../types/map';
 import type { EAConfig} from '../../../types/ea';
 import { DEFAULT_EA_CONFIG } from '../../../types/ea';
@@ -13,6 +13,8 @@ import { EASettingsPanel } from './EASettingsPanel';
 import { FitnessChart } from '../shared/FitnessChart';
 import type { FitnessSeries } from '../shared/FitnessChart';
 import { EAReplayOverlay } from './EAReplayOverlay';
+import { EAWinOverlay } from './EAWinOverlay';
+import { GenerationReplayOverlay } from './GenerationReplayOverlay';
 
 interface VsEAModeProps {
   onBack: () => void;
@@ -162,7 +164,10 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
   const [eaConfig,     setEaConfig]     = useState<EAConfig>(DEFAULT_EA_CONFIG);
   const [gensPerProbe, setGensPerProbe] = useState(1);
   const [hoveredIndex, setHoveredIndex] = useState(-1);
-  const [showReplay,   setShowReplay]   = useState(false);
+  const [showReplay,      setShowReplay]      = useState(false);
+  const [showEAWin,       setShowEAWin]       = useState(false);
+  const [showGenReplay,   setShowGenReplay]   = useState(false);
+  const [dismissedWin,    setDismissedWin]    = useState(false);
 
   const playerProblem = useMemo(
     () => (playerMap ? createMapProblem(playerMap) : null),
@@ -179,6 +184,10 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
     ea.init(em, eaConfig);
   };
 
+  useEffect(() => {
+    if (ea.status === 'solved') setShowEAWin(true);
+  }, [ea.status]);
+
   const handleReset = () => {
     play.reset();
     ea.reset();
@@ -186,6 +195,9 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
     setEaMap(null);
     setHoveredIndex(-1);
     setShowReplay(false);
+    setShowEAWin(false);
+    setShowGenReplay(false);
+    setDismissedWin(false);
   };
 
   const handleConfigChange = useCallback((patch: Partial<EAConfig>) => {
@@ -232,6 +244,7 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
 
   const playerWon    = play.status === 'won';
   const eaWon        = ea.status === 'solved';
+  const showOverlay  = playerWon && !dismissedWin;
   const revealPoints = playerWon ? undefined : play.probes.map((p) => p.position);
 
   return (
@@ -263,7 +276,7 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
             <GameMap
               evaluateFn={playerProblem?.evaluate}
               revealPoints={revealPoints}
-              onMapClick={!playerWon ? handleProbe : undefined}
+              onMapClick={!showOverlay ? handleProbe : undefined}
             >
               {play.probes.map((p, i) => (
                 <ProbeMarker
@@ -277,13 +290,14 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
               ))}
             </GameMap>
 
-            {playerWon && play.bestProbe && (
+            {showOverlay && play.bestProbe && (
               <WinOverlay
                 probeCount={play.probes.length}
                 bestProbe={play.bestProbe}
                 mapId={playerMap.id}
                 onPlayAgain={handleReset}
                 onHome={onBack}
+                onKeepPlaying={() => setDismissedWin(true)}
               />
             )}
           </div>
@@ -293,10 +307,7 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
         <div className="vsea-panel">
           <div className="vsea-panel__header">
             <span className="vsea-panel__label">EA</span>
-            <span className="vsea-panel__meta">
-              gen {ea.totalGenerations}
-              {ea.best && ` · best ${ea.best.fitness.toFixed(4)}`}
-            </span>
+            <span className="vsea-panel__meta">gen {ea.totalGenerations}</span>
           </div>
 
           <div className="vsea-banner">
@@ -307,32 +318,6 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
             {ea.status === 'error'     && <span className="vsea-banner__text vsea-banner__text--error">Error: {ea.errorMessage}</span>}
           </div>
 
-          {ea.currentGeneration && (
-            <div className="vsea-stats" style={{ gridTemplateColumns: 'repeat(2,1fr)' }}>
-              <div className="vsea-stat">
-                <div className="vsea-stat__label">Generation</div>
-                <div className="vsea-stat__value">{ea.currentGeneration.index + 1}</div>
-              </div>
-              <div className="vsea-stat">
-                <div className="vsea-stat__label">Best fitness</div>
-                <div className="vsea-stat__value vsea-stat__value--accent">
-                  {ea.currentGeneration.best.fitness.toFixed(5)}
-                </div>
-              </div>
-              <div className="vsea-stat">
-                <div className="vsea-stat__label">Mean fitness</div>
-                <div className="vsea-stat__value">{ea.currentGeneration.meanFitness.toFixed(5)}</div>
-              </div>
-              <div className="vsea-stat">
-                <div className="vsea-stat__label">Best position</div>
-                <div className="vsea-stat__value vsea-stat__value--mono">
-                  ({ea.currentGeneration.best.position.x.toFixed(3)},&nbsp;
-                  {ea.currentGeneration.best.position.y.toFixed(3)})
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Chart — always shown, empty axes until first probe */}
           <FitnessChart
             series={chartSeries}
@@ -340,26 +325,28 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
             onHover={handleHover}
           />
 
-          {/* Watch Replay button — appears after first probe */}
-          {ea.latestReplay && ea.latestReplay.length > 0 && (
-            <button
-              className="btn btn--ghost btn--sm"
-              style={{ alignSelf: 'flex-start' }}
-              onClick={() => setShowReplay(true)}
-            >
-              ▶ Watch Last Replay
-            </button>
-          )}
-
-          {ea.best && (
-            <div className="vsea-best">
-              <span className="vsea-best__label">All-time best</span>
-              <span className="vsea-best__value">
-                {ea.best.fitness.toFixed(5)} @ ({ea.best.position.x.toFixed(3)}, {ea.best.position.y.toFixed(3)})
-              </span>
-              {ea.best.isSolution && <span className="vsea-best__badge">SOLUTION</span>}
+          {/* Replay buttons */}
+          {(ea.latestReplay && ea.latestReplay.length > 0 || ea.status === 'solved') && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {ea.latestReplay && ea.latestReplay.length > 0 && (
+                <button
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => setShowReplay(true)}
+                >
+                  ▶ Watch Last Replay
+                </button>
+              )}
+              {ea.status === 'solved' && ea.generations.length > 0 && (
+                <button
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => setShowGenReplay(true)}
+                >
+                  ▶ Watch Full Replay
+                </button>
+              )}
             </div>
           )}
+
         </div>
       </div>
 
@@ -368,6 +355,24 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
         <EAReplayOverlay
           frames={ea.latestReplay}
           onClose={() => setShowReplay(false)}
+        />
+      )}
+
+      {showEAWin && eaMap && (
+        <EAWinOverlay
+          generationCount={ea.totalGenerations}
+          best={ea.best}
+          mapId={eaMap.id}
+          onWatchReplay={() => { setShowEAWin(false); setShowGenReplay(true); }}
+          onDismiss={() => setShowEAWin(false)}
+        />
+      )}
+
+      {showGenReplay && eaMap && (
+        <GenerationReplayOverlay
+          generations={ea.generations}
+          eaMap={eaMap}
+          onClose={() => setShowGenReplay(false)}
         />
       )}
     </div>

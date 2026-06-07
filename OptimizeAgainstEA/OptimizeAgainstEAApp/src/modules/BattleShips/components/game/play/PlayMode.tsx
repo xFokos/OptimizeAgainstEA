@@ -13,8 +13,9 @@ interface PlayModeProps {
 }
 
 export function PlayMode({ onBack }: PlayModeProps) {
-  const [mapConfig, setMapConfig] = useState<MapConfig | null>(null);
+  const [mapConfig,    setMapConfig]    = useState<MapConfig | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState(-1);
+  const [dismissedWin, setDismissedWin] = useState(false);
 
   const problem = useMemo(
     () => (mapConfig ? createMapProblem(mapConfig) : null),
@@ -23,8 +24,8 @@ export function PlayMode({ onBack }: PlayModeProps) {
 
   const { probes, status, bestProbe, probe, reset } = usePlaySession(problem);
 
-  const handleLoad      = (config: MapConfig) => { setMapConfig(config); reset(); };
-  const handlePlayAgain = () => { setMapConfig(null); reset(); };
+  const handleLoad      = (config: MapConfig) => { setMapConfig(config); reset(); setDismissedWin(false); };
+  const handlePlayAgain = () => { setMapConfig(null); reset(); setDismissedWin(false); };
 
   // Must be before early return
   const playerSeries = useMemo(() => probes.map((p) => p.value), [probes]);
@@ -35,6 +36,7 @@ export function PlayMode({ onBack }: PlayModeProps) {
   }
 
   const hasWon       = status === 'won';
+  const showOverlay  = hasWon && !dismissedWin;
   const revealPoints = hasWon ? undefined : probes.map((p) => p.position);
 
   return (
@@ -84,7 +86,7 @@ export function PlayMode({ onBack }: PlayModeProps) {
           <GameMap
             evaluateFn={problem.evaluate}
             revealPoints={revealPoints}
-            onMapClick={!hasWon ? probe : undefined}
+            onMapClick={!showOverlay ? probe : undefined}
           >
             {probes.map((p, i) => (
               <ProbeMarker
@@ -98,13 +100,14 @@ export function PlayMode({ onBack }: PlayModeProps) {
             ))}
           </GameMap>
 
-          {hasWon && bestProbe && (
+          {showOverlay && bestProbe && (
             <WinOverlay
               probeCount={probes.length}
               bestProbe={bestProbe}
               mapId={mapConfig.id}
               onPlayAgain={handlePlayAgain}
               onHome={onBack}
+              onKeepPlaying={() => setDismissedWin(true)}
             />
           )}
         </div>

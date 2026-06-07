@@ -43,7 +43,7 @@ export function useEARunner() {
         case 'GENERATION':
           setState((prev) => ({
             ...prev,
-            status:            'running',
+            status:            prev.status === 'solved' ? 'solved' : 'running',
             currentGeneration: msg.generation,
             generations:       [...prev.generations, msg.generation],
             best:

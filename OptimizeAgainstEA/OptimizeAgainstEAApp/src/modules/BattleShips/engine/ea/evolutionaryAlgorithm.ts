@@ -103,7 +103,8 @@ export function createEAStepper(
     { length: config.populationSize },
     () => createRandom(problem, rng),
   );
-  let genIndex = 0;
+  let genIndex  = 0;
+  let hasSolved = false;
 
   const step = (n: number): StepResult => {
     // n = 0 just returns current state without advancing
@@ -122,18 +123,19 @@ export function createEAStepper(
       population.sort((a, b) => a.fitness - b.fitness);
       const generation = summarise(population, genIndex);
 
-      const solutionCount = population.filter((ind) => ind.isSolution).length;
-      const solutionThreshold = Math.max(2, Math.ceil(config.populationSize * WIN_POPULATION_FRACTION));
-      if (solutionCount >= solutionThreshold) {
-        return { type: 'solved', generation, totalGenerations: genIndex + 1 };
-      }
-
       const eliteCount = Math.max(1, Math.floor(config.populationSize * 0.05));
       const threshold  = Math.max(2, Math.ceil(config.populationSize * WIN_POPULATION_FRACTION));
       const nextPop    = breedNext(population, config, genIndex, select, crossover, mutate, problem, rng);
       const replay     = buildReplayFrames(population, nextPop, eliteCount, config, threshold);
       population = nextPop;
       genIndex++;
+
+      const solutionCount = generation.individuals.filter((ind) => ind.isSolution).length;
+      if (solutionCount >= threshold && !hasSolved) {
+        hasSolved = true;
+        return { type: 'solved', generation, totalGenerations: genIndex, replay };
+      }
+
       lastResult = { type: 'generation', generation, replay };
     }
 
