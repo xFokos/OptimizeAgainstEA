@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { MapConfig, Coordinate } from '../../../types/map';
-import { type EAConfig, DEFAULT_EA_CONFIG } from '../../../types/ea';
+import type { EAConfig} from '../../../types/ea';
+import { DEFAULT_EA_CONFIG } from '../../../types/ea';
 import { createMapProblem } from '../../../engine/functionSurface';
 import { decodeMap, encodeMap, generateRandomMap } from '../../../engine/mapCodec';
 import { usePlaySession } from '../../../hooks/usePlaySession';
@@ -9,7 +10,9 @@ import { GameMap } from '../shared/GameMap';
 import { ProbeMarker } from '../play/ProbeMarker';
 import { WinOverlay } from '../play/WinOverlay';
 import { EASettingsPanel } from './EASettingsPanel';
-import { FitnessChart, type FitnessSeries } from '../shared/FitnessChart';
+import { FitnessChart } from '../shared/FitnessChart';
+import type { FitnessSeries } from '../shared/FitnessChart';
+import { EAReplayOverlay } from './EAReplayOverlay';
 
 interface VsEAModeProps {
   onBack: () => void;
@@ -159,6 +162,7 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
   const [eaConfig,     setEaConfig]     = useState<EAConfig>(DEFAULT_EA_CONFIG);
   const [gensPerProbe, setGensPerProbe] = useState(1);
   const [hoveredIndex, setHoveredIndex] = useState(-1);
+  const [showReplay,   setShowReplay]   = useState(false);
 
   const playerProblem = useMemo(
     () => (playerMap ? createMapProblem(playerMap) : null),
@@ -181,6 +185,7 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
     setPlayerMap(null);
     setEaMap(null);
     setHoveredIndex(-1);
+    setShowReplay(false);
   };
 
   const handleConfigChange = useCallback((patch: Partial<EAConfig>) => {
@@ -196,13 +201,13 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
 
   // Must be before early return
   const chartSeries = useMemo((): FitnessSeries[] => {
-    const playerData = play.probes.map((p) => p.value);
-    const sampledGens = ea.generations.filter((_, i) => (i + 1) % gensPerProbe === 0);
-    const eaMeanData = sampledGens.map((g) => g.meanFitness);
-    const eaBestData = sampledGens.map((g) => g.best.fitness);
+    const playerData  = play.probes.map((p) => p.value);
+    const sampledGens = ea.generations.filter((_g, i: number) => (i + 1) % gensPerProbe === 0);
+    const eaMeanData  = sampledGens.map((g) => g.meanFitness);
+    const eaBestData  = sampledGens.map((g) => g.best.fitness);
 
     const series: FitnessSeries[] = [
-      { label: 'You',      data: playerData, color: '#4af0a0' },
+      { label: 'You',      data: playerData,  color: '#4af0a0' },
     ];
     if (sampledGens.length > 0) {
       series.push({ label: 'EA mean', data: eaMeanData, color: '#f0c44a' });
@@ -335,6 +340,17 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
             onHover={handleHover}
           />
 
+          {/* Watch Replay button — appears after first probe */}
+          {ea.latestReplay && ea.latestReplay.length > 0 && (
+            <button
+              className="btn btn--ghost btn--sm"
+              style={{ alignSelf: 'flex-start' }}
+              onClick={() => setShowReplay(true)}
+            >
+              ▶ Watch Last Replay
+            </button>
+          )}
+
           {ea.best && (
             <div className="vsea-best">
               <span className="vsea-best__label">All-time best</span>
@@ -346,6 +362,14 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
           )}
         </div>
       </div>
+
+      {/* Replay overlay — rendered outside panels so it covers everything */}
+      {showReplay && ea.latestReplay && (
+        <EAReplayOverlay
+          frames={ea.latestReplay}
+          onClose={() => setShowReplay(false)}
+        />
+      )}
     </div>
   );
 }

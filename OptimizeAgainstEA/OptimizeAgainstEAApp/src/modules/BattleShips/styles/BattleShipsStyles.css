@@ -574,3 +574,115 @@ html, body, #root {
 /* Chart column in play mode */
 .play-chart-col { display: flex; flex-direction: column; }
 .play-chart-col .fitness-chart { flex: 1; min-height: 0; }
+
+/* ─────────────────────────────────────────────
+   EA REPLAY OVERLAY
+───────────────────────────────────────────── */
+.replay-backdrop {
+	position: fixed; inset: 0; z-index: 200;
+	background: rgba(0, 0, 0, 0.82);
+	backdrop-filter: blur(4px);
+	display: flex; align-items: center; justify-content: center;
+	padding: var(--sp-4);
+	animation: fadeIn 0.15s ease;
+}
+
+.replay-modal {
+	/* map col (--map-max-width) + gap (16px) + panel col (320px) + side padding (24px×2) */
+	width: calc(var(--map-max-width) + 384px);
+	/* map height + header + description + controls chrome (~200px) */
+	height: calc(var(--map-max-width) + 200px);
+	max-width: 96vw;
+	max-height: 94vh;
+	background: var(--bg-elevated);
+	border: 1px solid var(--border-bright);
+	border-radius: var(--r-lg);
+	display: flex; flex-direction: column;
+	overflow: hidden;
+	animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+	from { opacity: 0; transform: translateY(16px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Header */
+.replay-header {
+	display: flex; align-items: center; justify-content: space-between;
+	padding: var(--sp-3) var(--sp-5);
+	border-bottom: 1px solid var(--border);
+	flex-shrink: 0; gap: var(--sp-3);
+}
+.replay-header__left  { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.replay-phase-tag     { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); letter-spacing: 0.08em; white-space: nowrap; flex-shrink: 0; }
+.replay-headline      { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--accent); letter-spacing: 0.04em; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.replay-close         { background: none; border: none; color: var(--text-muted); font-size: 1rem; cursor: pointer; padding: 4px 8px; border-radius: var(--r-sm); transition: color 0.15s; flex-shrink: 0; }
+.replay-close:hover   { color: var(--text-primary); }
+
+/* Description line */
+.replay-description {
+	font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5;
+	padding: var(--sp-2) var(--sp-5) 0;
+	flex-shrink: 0; margin: 0;
+}
+
+/* Body: map col (left) + panel col (right) */
+.replay-body {
+	display: flex; gap: var(--sp-4);
+	padding: var(--sp-4) var(--sp-5);
+	flex: 1; min-height: 0; overflow: hidden;
+}
+
+.replay-map-col {
+	width: var(--map-max-width);
+	flex-shrink: 0;
+	display: flex; flex-direction: column;
+}
+
+.replay-panel-col {
+	flex: 1; min-width: 0;
+	overflow-y: auto;
+	display: flex; flex-direction: column;
+}
+
+/* Playback controls */
+.replay-controls {
+	display: flex; align-items: center; gap: var(--sp-2);
+	padding: var(--sp-3) var(--sp-5);
+	border-top: 1px solid var(--border);
+	flex-shrink: 0;
+}
+
+.replay-progress {
+	flex: 1; height: 3px;
+	background: var(--bg-surface);
+	border-radius: 2px; overflow: hidden;
+	margin-left: var(--sp-2);
+}
+.replay-progress__fill {
+	height: 100%; background: var(--accent);
+	border-radius: 2px; transition: width 0.25s ease;
+}
+
+/* Mutation card */
+.replay-mutation-card {
+	background: var(--bg-surface); border: 1px solid var(--border-bright);
+	border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4);
+	display: flex; flex-direction: column; gap: var(--sp-2);
+}
+.replay-mutation-card__row   { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); }
+.replay-mutation-card__label { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.replay-mutation-card__val   { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary); }
+.replay-mutation-card__val--delta { color: #f0c44a; }
+.replay-mutation-card__val--after { color: var(--accent); }
+
+/* Win-check progress */
+.replay-win-check {
+	background: var(--bg-surface); border: 1px solid var(--border-bright);
+	border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4);
+	display: flex; flex-direction: column; gap: var(--sp-2);
+}
+.replay-win-check__label { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary); }
+.replay-win-check__bar   { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+.replay-win-check__fill  { height: 100%; border-radius: 3px; transition: width 0.4s ease; }

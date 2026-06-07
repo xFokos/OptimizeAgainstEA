@@ -1,4 +1,5 @@
 import type { ProblemInstance } from '../../types/map';
+import { buildReplayFrames, type ReplayFrame } from './eaReplayLog';
 import type { EAConfig, Generation, Individual, RNG } from '../../types/ea';
 import { createRandom, evaluate, clamp } from './individual';
 import {
@@ -28,8 +29,8 @@ export interface EACallbacks {
 
 // ── Fix 1: correct union type syntax (was = instead of |) ─────────────────
 export type StepResult =
-  | { type: 'generation'; generation: Generation }
-  | { type: 'solved';     generation: Generation; totalGenerations: number }
+  | { type: 'generation'; generation: Generation; replay?: ReplayFrame[] }
+  | { type: 'solved';     generation: Generation; totalGenerations: number; replay?: ReplayFrame[] }
   | { type: 'exhausted';  totalGenerations: number; best: Individual };
 
 export interface EAStepper {
@@ -127,9 +128,13 @@ export function createEAStepper(
         return { type: 'solved', generation, totalGenerations: genIndex + 1 };
       }
 
-      population = breedNext(population, config, genIndex, select, crossover, mutate, problem, rng);
+      const eliteCount = Math.max(1, Math.floor(config.populationSize * 0.05));
+      const threshold  = Math.max(2, Math.ceil(config.populationSize * WIN_POPULATION_FRACTION));
+      const nextPop    = breedNext(population, config, genIndex, select, crossover, mutate, problem, rng);
+      const replay     = buildReplayFrames(population, nextPop, eliteCount, config, threshold);
+      population = nextPop;
       genIndex++;
-      lastResult = { type: 'generation', generation };
+      lastResult = { type: 'generation', generation, replay };
     }
 
     return lastResult;

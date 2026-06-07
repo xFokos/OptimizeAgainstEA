@@ -4,10 +4,9 @@ import type {
   WorkerInMessage, WorkerOutMessage,
   SerializedMinima,
 } from '../types/ea';
-import {
-  DEFAULT_EA_CONFIG
-} from '../types/ea';
+import { DEFAULT_EA_CONFIG } from '../types/ea';
 import type { MapConfig } from '../types/map';
+import type { ReplayFrame } from '../engine/ea/eaReplayLog';
 
 export type EAStatus = 'idle' | 'running' | 'solved' | 'exhausted' | 'error';
 
@@ -17,6 +16,7 @@ export interface EAState {
   currentGeneration: Generation | null;
   best:              Individual | null;
   totalGenerations:  number;
+  latestReplay:      ReplayFrame[] | null;
   errorMessage:      string | null;
 }
 
@@ -26,6 +26,7 @@ const INITIAL_STATE: EAState = {
   currentGeneration: null,
   best:              null,
   totalGenerations:  0,
+  latestReplay:      null,
   errorMessage:      null,
 };
 
@@ -35,7 +36,6 @@ export function useEARunner() {
 
   useEffect(() => () => { workerRef.current?.terminate(); }, []);
 
-  // Shared handler wired up when the worker is created
   const attachWorker = useCallback((worker: Worker) => {
     worker.onmessage = (event: MessageEvent<WorkerOutMessage>) => {
       const msg = event.data;
@@ -51,6 +51,7 @@ export function useEARunner() {
                 ? msg.generation.best
                 : prev.best,
             totalGenerations: msg.generation.index + 1,
+            latestReplay:     msg.replay ?? prev.latestReplay,
           }));
           break;
         case 'SOLVED':
@@ -61,6 +62,7 @@ export function useEARunner() {
             generations:       [...prev.generations, msg.generation],
             best:              msg.generation.best,
             totalGenerations:  msg.totalGenerations,
+            latestReplay:      msg.replay ?? prev.latestReplay,
           }));
           break;
         case 'EXHAUSTED':
@@ -88,7 +90,6 @@ export function useEARunner() {
     };
   }, []);
 
-  /** Initialise the worker + EA state. Does NOT start running — call step() to advance. */
   const init = useCallback((mapConfig: MapConfig, config: EAConfig = DEFAULT_EA_CONFIG) => {
     workerRef.current?.terminate();
     setState({ ...INITIAL_STATE, status: 'running' });
@@ -109,17 +110,10 @@ export function useEARunner() {
     worker.postMessage({ type: 'START', config, minima, winRadius: mapConfig.winRadius } as WorkerInMessage);
   }, [attachWorker]);
 
-  /** Run the EA freely until solved / exhausted (original behaviour) */
   const start = useCallback((mapConfig: MapConfig, config: EAConfig = DEFAULT_EA_CONFIG) => {
     init(mapConfig, config);
-    // After START the worker runs to completion via its loop in runEA
   }, [init]);
 
-  /**
-   * Advance the EA by `count` generations.
-   * Use this in vs-EA mode: call step(n) every time the player makes a guess.
-   * `init()` must have been called first.
-   */
   const step = useCallback((count: number = 1) => {
     if (!workerRef.current) return;
     workerRef.current.postMessage({ type: 'STEP', count } as WorkerInMessage);
