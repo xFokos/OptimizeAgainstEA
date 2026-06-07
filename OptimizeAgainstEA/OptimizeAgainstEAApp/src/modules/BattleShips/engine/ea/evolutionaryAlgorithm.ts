@@ -1,4 +1,5 @@
 import type { ProblemInstance } from '../../types/map';
+import { buildReplayFrames, type ReplayFrame } from './eaReplayLog';
 import type { EAConfig, Generation, Individual, RNG } from '../../types/ea';
 import { createRandom, evaluate, clamp } from './individual';
 import {
@@ -6,6 +7,19 @@ import {
   CROSSOVER_STRATEGIES,
   MUTATION_STRATEGIES,
 } from './operators';
+
+/**
+ * Fraction of the population that must be inside the win radius
+ * simultaneously for the EA to be considered solved.
+ * Scales automatically with populationSize so the difficulty stays
+ * consistent regardless of how many individuals are in the population.
+ *
+ * 0.10 = 10% -- e.g. 4 out of 40, near-impossible by chance but
+ *               achieved quickly once the EA has genuinely converged.
+ * Raise toward 0.25 for a stricter win condition.
+ * Lower toward 0.05 for a looser one.
+ */
+const WIN_POPULATION_FRACTION = 0.10;
 
 export interface EACallbacks {
   onGeneration: (generation: Generation) => void;
@@ -15,8 +29,8 @@ export interface EACallbacks {
 
 // ── Fix 1: correct union type syntax (was = instead of |) ─────────────────
 export type StepResult =
-  | { type: 'generation'; generation: Generation }
-  | { type: 'solved';     generation: Generation; totalGenerations: number }
+  | { type: 'generation'; generation: Generation; replay?: ReplayFrame[] }
+  | { type: 'solved';     generation: Generation; totalGenerations: number; replay?: ReplayFrame[] }
   | { type: 'exhausted';  totalGenerations: number; best: Individual };
 
 export interface EAStepper {
@@ -89,7 +103,8 @@ export function createEAStepper(
     { length: config.populationSize },
     () => createRandom(problem, rng),
   );
-  let genIndex = 0;
+  let genIndex  = 0;
+  let hasSolved = false;
 
   const step = (n: number): StepResult => {
     // n = 0 just returns current state without advancing
@@ -108,14 +123,20 @@ export function createEAStepper(
       population.sort((a, b) => a.fitness - b.fitness);
       const generation = summarise(population, genIndex);
 
-      const solution = population.find((ind) => ind.isSolution);
-      if (solution) {
-        return { type: 'solved', generation, totalGenerations: genIndex + 1 };
+      const eliteCount = Math.max(1, Math.floor(config.populationSize * 0.05));
+      const threshold  = Math.max(2, Math.ceil(config.populationSize * WIN_POPULATION_FRACTION));
+      const nextPop    = breedNext(population, config, genIndex, select, crossover, mutate, problem, rng);
+      const replay     = buildReplayFrames(population, nextPop, eliteCount, config, threshold);
+      population = nextPop;
+      genIndex++;
+
+      const solutionCount = generation.individuals.filter((ind) => ind.isSolution).length;
+      if (solutionCount >= threshold && !hasSolved) {
+        hasSolved = true;
+        return { type: 'solved', generation, totalGenerations: genIndex, replay };
       }
 
-      population = breedNext(population, config, genIndex, select, crossover, mutate, problem, rng);
-      genIndex++;
-      lastResult = { type: 'generation', generation };
+      lastResult = { type: 'generation', generation, replay };
     }
 
     return lastResult;

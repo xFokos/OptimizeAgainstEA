@@ -62,7 +62,7 @@ export type WorkerInMessage =
   | { type: 'STOP' };
 
 export type WorkerOutMessage =
-  | { type: 'GENERATION'; generation: Generation }
-  | { type: 'SOLVED';     generation: Generation; totalGenerations: number }
+  | { type: 'GENERATION'; generation: Generation; replay?: import('../engine/ea/eaReplayLog').ReplayFrame[] }
+  | { type: 'SOLVED';     generation: Generation; totalGenerations: number; replay?: import('../engine/ea/eaReplayLog').ReplayFrame[] }
   | { type: 'EXHAUSTED';  totalGenerations: number; best: Individual }
   | { type: 'ERROR';      message: string };

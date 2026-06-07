@@ -59,9 +59,9 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
     const result = stepper.step(msg.count);
 
     if (result.type === 'generation') {
-      self.postMessage({ type: 'GENERATION', generation: result.generation } as WorkerOutMessage);
+      self.postMessage({ type: 'GENERATION', generation: result.generation, replay: result.replay } as WorkerOutMessage);
     } else if (result.type === 'solved') {
-      self.postMessage({ type: 'SOLVED', generation: result.generation, totalGenerations: result.totalGenerations } as WorkerOutMessage);
+      self.postMessage({ type: 'SOLVED', generation: result.generation, totalGenerations: result.totalGenerations, replay: result.replay } as WorkerOutMessage);
     } else if (result.type === 'exhausted') {
       self.postMessage({ type: 'EXHAUSTED', totalGenerations: result.totalGenerations, best: result.best } as WorkerOutMessage);
     }

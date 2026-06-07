@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { MapConfig } from '../../../types/map';
 import { createMapProblem } from '../../../engine/functionSurface';
 import { usePlaySession } from '../../../hooks/usePlaySession';
@@ -12,60 +12,44 @@ interface PlayModeProps {
   onBack: () => void;
 }
 
-/** Reveal radius around each probe in normalized [0,1] units */
-//const PROBE_REVEAL_RADIUS = 0.1;
-
 export function PlayMode({ onBack }: PlayModeProps) {
-  const [mapConfig, setMapConfig] = useState<MapConfig | null>(null);
+  const [mapConfig,    setMapConfig]    = useState<MapConfig | null>(null);
+  const [hoveredIndex, setHoveredIndex] = useState(-1);
+  const [dismissedWin, setDismissedWin] = useState(false);
 
   const problem = useMemo(
     () => (mapConfig ? createMapProblem(mapConfig) : null),
-    [mapConfig]
+    [mapConfig],
   );
 
   const { probes, status, bestProbe, probe, reset } = usePlaySession(problem);
 
-  const handleLoad = (config: MapConfig) => {
-    setMapConfig(config);
-    reset();
-  };
+  const handleLoad      = (config: MapConfig) => { setMapConfig(config); reset(); setDismissedWin(false); };
+  const handlePlayAgain = () => { setMapConfig(null); reset(); setDismissedWin(false); };
 
-  const handlePlayAgain = () => {
-    setMapConfig(null);
-    reset();
-  };
-
-  // Running best fitness per probe step — must be before any early return
-  const playerBestSeries = useMemo(() =>
-      probes.map((p) => p.value),
-    [probes],
-  );
+  // Must be before early return
+  const playerSeries = useMemo(() => probes.map((p) => p.value), [probes]);
+  const handleHover  = useCallback((i: number) => setHoveredIndex(i), []);
 
   if (!mapConfig || !problem) {
     return <MapLoader onLoad={handleLoad} onBack={onBack} />;
   }
 
-  const lastProbe = probes[probes.length - 1] ?? null;
-  const hasWon    = status === 'won';
-
-  // During play: clip contours to circles around each probe.
-  // On win: remove the clip so the full landscape is revealed.
+  const hasWon       = status === 'won';
+  const showOverlay  = hasWon && !dismissedWin;
   const revealPoints = hasWon ? undefined : probes.map((p) => p.position);
-
 
   return (
     <div className="play-mode">
       <div className="play-mode__topbar">
-        <button className="btn btn--ghost btn--sm" onClick={handlePlayAgain}>
-          Change Map
-        </button>
+        <button className="btn btn--ghost btn--sm" onClick={handlePlayAgain}>Change Map</button>
         <span className="play-mode__mapid">#{mapConfig.id}</span>
-        <button className="btn btn--ghost btn--sm btn--danger" onClick={reset}>
-          Reset
-        </button>
+        <button className="btn btn--ghost btn--sm btn--danger" onClick={reset}>Reset</button>
       </div>
 
+      {/* sidebar | map | chart */}
       <div className="play-layout">
+
         <div className="play-sidebar">
           <div className="play-sidebar__section">
             <div className="play-sidebar__label">Probes placed</div>
@@ -81,48 +65,20 @@ export function PlayMode({ onBack }: PlayModeProps) {
             </div>
           )}
 
-          {lastProbe && (
+          {probes.length > 0 && (
             <div className="play-sidebar__section">
               <div className="play-sidebar__label">Last probe</div>
-              <div className="play-sidebar__value">{lastProbe.value.toFixed(4)}</div>
+              <div className="play-sidebar__value">
+                {probes[probes.length - 1].value.toFixed(4)}
+              </div>
             </div>
           )}
 
           <div className="play-sidebar__hint">
-            {status === 'idle'
-              ? 'Click the map to place a probe.'
-              : status === 'playing'
-                ? 'Lower values are closer to a minimum.'
-                : 'Global minimum found!'}
+            {status === 'idle'    ? 'Click the map to place a probe.'
+              : status === 'playing' ? 'Lower values are closer to a minimum.'
+                :                        'Global minimum found!'}
           </div>
-
-          {probes.length > 0 && (
-            <div className="probe-history">
-              <div className="probe-history__label">History</div>
-              <div className="probe-history__list">
-                {[...probes].reverse().map((p, i) => {
-                  const isBest = p === bestProbe;
-                  return (
-                    <div key={i} className={'probe-row' + (isBest ? ' probe-row--best' : '')}>
-                      <span className="probe-row__idx">#{probes.length - i}</span>
-                      <div className="probe-row__swatch" style={{ background: swatchColor(p.value) }} />
-                      <span className="probe-row__val">{p.value.toFixed(4)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Chart — vertical strip left of the map */}
-        <div className="play-chart-col">
-          {playerBestSeries.length > 0 && (
-            <FitnessChart
-              series={[{ label: 'You', data: playerBestSeries, color: '#4af0a0' }]}
-              compact
-            />
-          )}
         </div>
 
         {/* Map */}
@@ -130,7 +86,7 @@ export function PlayMode({ onBack }: PlayModeProps) {
           <GameMap
             evaluateFn={problem.evaluate}
             revealPoints={revealPoints}
-            onMapClick={!hasWon ? probe : undefined}
+            onMapClick={!showOverlay ? probe : undefined}
           >
             {probes.map((p, i) => (
               <ProbeMarker
@@ -138,27 +94,35 @@ export function PlayMode({ onBack }: PlayModeProps) {
                 probe={p}
                 index={i}
                 isBest={p === bestProbe}
+                isHovered={i === hoveredIndex}
+                onHover={handleHover}
               />
             ))}
           </GameMap>
 
-          {hasWon && bestProbe && (
+          {showOverlay && bestProbe && (
             <WinOverlay
               probeCount={probes.length}
               bestProbe={bestProbe}
               mapId={mapConfig.id}
               onPlayAgain={handlePlayAgain}
               onHome={onBack}
+              onKeepPlaying={() => setDismissedWin(true)}
             />
           )}
         </div>
+
+        {/* Chart — right side */}
+        <div className="play-chart-col">
+          <FitnessChart
+            series={[{ label: 'You', data: playerSeries, color: '#4af0a0' }]}
+            compact
+            hoveredIndex={hoveredIndex}
+            onHover={handleHover}
+          />
+        </div>
+
       </div>
     </div>
   );
-}
-
-function swatchColor(value: number): string {
-  const r = Math.round(Math.min(255, value * 2 * 255));
-  const g = Math.round(Math.min(255, (1 - value) * 2 * 255));
-  return 'rgb(' + r + ',' + g + ',60)';
 }
