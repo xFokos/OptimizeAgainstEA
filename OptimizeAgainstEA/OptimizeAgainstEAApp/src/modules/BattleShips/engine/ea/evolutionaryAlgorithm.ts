@@ -1,11 +1,13 @@
 import type { ProblemInstance } from '../../types/map';
-import { buildReplayFrames, type ReplayFrame } from './eaReplayLog';
+import { buildReplayFrames, type ReplayFrame, type BreedingRecord } from './eaReplayLog';
 import type { EAConfig, Generation, Individual, RNG } from '../../types/ea';
 import { createRandom, evaluate, clamp } from './individual';
 import {
   SELECTION_STRATEGIES,
-  CROSSOVER_STRATEGIES,
+  CROSSOVER_STRATEGIES_RECORDING,
   MUTATION_STRATEGIES,
+  type CrossoverRecordingFn,
+  type CrossoverResult,
 } from './operators';
 
 /**
@@ -60,31 +62,51 @@ function breedNext(
   genIndex:    number,
   // Fix 2: type the operators as plain functions, not indexed lookups
   select:      (pop: Individual[], rng: RNG) => Individual,
-  crossover:   (a: Individual, b: Individual, rng: RNG) => import('../../types/map').Coordinate,
+  crossover:   CrossoverRecordingFn,
   mutate:      (coord: import('../../types/map').Coordinate, gen: number, cfg: EAConfig, rng: RNG) => import('../../types/map').Coordinate,
   problem:     ProblemInstance,
   rng:         RNG,
-): Individual[] {
+): { next: Individual[]; record?: BreedingRecord } {
   const eliteCount = Math.max(1, Math.floor(config.populationSize * 0.05));
   const next: Individual[] = population.slice(0, eliteCount);
+  let record: BreedingRecord | undefined;
 
   while (next.length < config.populationSize) {
+    // The first non-elite child is the one the replay walks through.
+    const isReplayChild = next.length === eliteCount;
+
     const parentA = select(population, rng);
     const parentB = select(population, rng);
 
-    let childCoord =
-      rng() < config.crossoverRate
-        ? crossover(parentA, parentB, rng)
-        : { ...parentA.position };
+    const didCrossover = rng() < config.crossoverRate;
+    const crossed: CrossoverResult = didCrossover
+      ? crossover(parentA, parentB, rng)
+      : { coord: { ...parentA.position } };
+    const beforeMutation = crossed.coord;
 
-    if (rng() < config.mutationRate) {
-      childCoord = mutate(childCoord, genIndex, config, rng);
+    const didMutate = rng() < config.mutationRate;
+    const childCoord = didMutate
+      ? mutate(beforeMutation, genIndex, config, rng)
+      : beforeMutation;
+
+    const child = evaluate(clamp(childCoord, problem), problem);
+    next.push(child);
+
+    if (isReplayChild) {
+      record = {
+        parentA,
+        parentB,
+        didCrossover,
+        alpha:          crossed.alpha,
+        geneSource:     crossed.geneSource,
+        beforeMutation,
+        didMutate,
+        child,
+      };
     }
-
-    next.push(evaluate(clamp(childCoord, problem), problem));
   }
 
-  return next;
+  return { next, record };
 }
 
 // ── Stateful stepper ──────────────────────────────────────────────────────
@@ -96,7 +118,7 @@ export function createEAStepper(
 ): EAStepper {
   const rng       = makeLCG(seed);
   const select    = SELECTION_STRATEGIES[config.selectionStrategy];
-  const crossover = CROSSOVER_STRATEGIES[config.crossoverStrategy];
+  const crossover = CROSSOVER_STRATEGIES_RECORDING[config.crossoverStrategy];
   const mutate    = MUTATION_STRATEGIES[config.mutationStrategy];
 
   let population: Individual[] = Array.from(
@@ -125,8 +147,8 @@ export function createEAStepper(
 
       const eliteCount = Math.max(1, Math.floor(config.populationSize * 0.05));
       const threshold  = Math.max(2, Math.ceil(config.populationSize * WIN_POPULATION_FRACTION));
-      const nextPop    = breedNext(population, config, genIndex, select, crossover, mutate, problem, rng);
-      const replay     = buildReplayFrames(population, nextPop, eliteCount, config, threshold);
+      const { next: nextPop, record } = breedNext(population, config, genIndex, select, crossover, mutate, problem, rng);
+      const replay     = buildReplayFrames(population, nextPop, eliteCount, config, threshold, record);
       population = nextPop;
       genIndex++;
 

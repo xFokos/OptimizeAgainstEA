@@ -8,13 +8,20 @@ import '../modules/BattleShips/styles/BattleShipsStyles.css';
 
 export default function BattleShipsPage() {
     const [mode, setMode] = useState<GameMode>('select');
+    const [pendingCode, setPendingCode] = useState<string | null>(null);
+
+    const goToMode = (m: GameMode, code?: string) => {
+        setPendingCode(code ?? null);
+        setMode(m);
+    };
+    const backToSelect = () => goToMode('select');
 
   return (
     <div className="app">
-      {mode === 'select' && <ModeSelector onSelect={setMode} />}
-      {mode === 'create' && <CreateMode onBack={() => setMode('select')} />}
-      {mode === 'play'   && <PlayMode   onBack={() => setMode('select')} />}
-      {mode === 'vs-ea'  && <VsEAMode   onBack={() => setMode('select')} />}
+      {mode === 'select' && <ModeSelector onSelect={(m) => goToMode(m)} />}
+      {mode === 'create' && <CreateMode onBack={backToSelect} onUseMap={goToMode} />}
+      {mode === 'play'   && <PlayMode   onBack={backToSelect} initialCode={pendingCode ?? undefined} />}
+      {mode === 'vs-ea'  && <VsEAMode   onBack={backToSelect} initialCode={pendingCode ?? undefined} />}
     </div>
   );
 

@@ -1,6 +1,19 @@
 import type { IndividualSnapshot } from '../../../../engine/ea/eaReplayLog';
 import { sampleGradientRgb } from '../../../../engine/colorScale';
 
+/**
+ * How long a dot takes to glide from its old position to its new one when
+ * the replay frame changes (e.g. population reorder, or moving into the next
+ * generation). Higher = slower, more readable motion.
+ *
+ * ⮕ SINGLE KNOB for replay node-movement speed. Used by:
+ *     • EAReplayOverlay   — the phase-by-phase "Watch Last Replay" (via ReplayMap)
+ *     • GenerationReplayOverlay — the full across-all-generations replay
+ *       (imports this constant)
+ */
+export const DOT_MOVE_DURATION_MS = 1000;
+export const DOT_MOVE_DURATION = `${DOT_MOVE_DURATION_MS}ms`;
+
 interface ReplayMapProps {
   individuals:     IndividualSnapshot[];
   highlightIds?:   Set<string>;
@@ -129,7 +142,7 @@ export function ReplayMap({
                 : '1px solid rgba(255,255,255,.2)',
             boxShadow: isHighlighted || isSolution ? `0 0 8px ${color}` : 'none',
             opacity,
-            transition: 'all 0.3s ease',
+            transition: `all ${DOT_MOVE_DURATION} ease`,
             zIndex: isHighlighted || isSolution ? 3 : 1,
             pointerEvents: 'none',
           }}/>

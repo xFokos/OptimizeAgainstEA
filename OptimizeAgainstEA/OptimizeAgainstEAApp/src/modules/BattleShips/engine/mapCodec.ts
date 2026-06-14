@@ -6,17 +6,27 @@ const DEFAULT_BOUNDS = { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
 /**
  * Encodes a MapConfig into a compact URL-safe base64 string.
  * Format (JSON → base64url):
- * { v: 1, id: string, m: [x, y, isGlobal][], wr: number }
+ * { v: 1, id: string, m: [x, y, isGlobal, floor?][], wr: number }
+ *
+ * The 4th tuple entry (floor) is only present for local minima with an
+ * explicit floor; omitting it keeps older codes valid and round-trips
+ * untouched (random-floor) nodes unchanged.
  */
 export function encodeMap(config: MapConfig): string {
   const payload = {
     v: 1,
     id: config.id,
-    m: config.minima.map((min) => [
-      parseFloat(min.position.x.toFixed(4)),
-      parseFloat(min.position.y.toFixed(4)),
-      min.isGlobal ? 1 : 0,
-    ]),
+    m: config.minima.map((min) => {
+      const entry = [
+        parseFloat(min.position.x.toFixed(4)),
+        parseFloat(min.position.y.toFixed(4)),
+        min.isGlobal ? 1 : 0,
+      ];
+      if (!min.isGlobal && min.floor !== undefined) {
+        entry.push(parseFloat(min.floor.toFixed(4)));
+      }
+      return entry;
+    }),
     wr: config.winRadius,
     t: config.createdAt,
   };
@@ -39,10 +49,11 @@ export function decodeMap(code: string): MapConfig {
     if (payload.v !== 1) throw new Error('Unknown version');
 
     const minima: Minimum[] = payload.m.map(
-      (entry: [number, number, number], idx: number) => ({
+      (entry: [number, number, number, number?], idx: number) => ({
         id: `m_${idx}`,
         position: { x: entry[0], y: entry[1] },
         isGlobal: entry[2] === 1,
+        ...(entry.length > 3 && entry[3] !== undefined ? { floor: entry[3] } : {}),
       })
     );
 

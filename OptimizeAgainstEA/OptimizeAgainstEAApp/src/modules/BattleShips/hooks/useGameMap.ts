@@ -42,6 +42,19 @@ export function useGameMap(maxMinima: number = MAX_MINIMA) {
     );
   }, []);
 
+  /** Set an explicit floor (depth) for a local minimum, or pass undefined to revert to the random default. */
+  const setFloor = useCallback((id: string, floor: number | undefined) => {
+    setMinima((prev) =>
+        prev.map((m) => {
+          if (m.id !== id) return m;
+          const next: Minimum = { ...m };
+          if (floor === undefined) delete next.floor;
+          else next.floor = floor;
+          return next;
+        })
+    );
+  }, []);
+
   const clearAll = useCallback(() => {
     setMinima([]);
   }, []);
@@ -75,6 +88,7 @@ export function useGameMap(maxMinima: number = MAX_MINIMA) {
     addMinimum,
     removeMinimum,
     setGlobalMinimum,
+    setFloor,
     clearAll,
     getMapConfig,
     getCode,

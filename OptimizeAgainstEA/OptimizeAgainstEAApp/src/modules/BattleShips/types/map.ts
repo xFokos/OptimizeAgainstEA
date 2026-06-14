@@ -7,6 +7,13 @@ export interface Minimum {
   id: string;
   position: Coordinate;
   isGlobal: boolean;
+  /**
+   * Explicit depth of this local minimum — the surface "floor" added to the
+   * distance term in `createMapProblem`. Lower = deeper / more deceptive.
+   * When omitted, a position-seeded pseudo-random floor is used instead.
+   * Ignored for the global minimum (always 0). Range: [0, ~0.3].
+   */
+  floor?: number;
 }
 
 export interface MapConfig {

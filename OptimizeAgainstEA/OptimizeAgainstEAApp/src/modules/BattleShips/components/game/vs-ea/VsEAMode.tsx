@@ -18,6 +18,8 @@ import { GenerationReplayOverlay } from './GenerationReplayOverlay';
 
 interface VsEAModeProps {
   onBack: () => void;
+  /** Optional map code to prefill both the player and EA code fields. */
+  initialCode?: string;
 }
 
 // ── Dual map loader ───────────────────────────────────────────────────────
@@ -33,6 +35,7 @@ interface DualLoaderState {
 interface DualLoaderProps {
   eaConfig:             EAConfig;
   gensPerProbe:         number;
+  initialCode?:         string;
   onConfigChange:       (patch: Partial<EAConfig>) => void;
   onGensPerProbeChange: (n: number) => void;
   onStart:              (playerMap: MapConfig, eaMap: MapConfig) => void;
@@ -40,11 +43,11 @@ interface DualLoaderProps {
 }
 
 function DualMapLoader({
-                         eaConfig, gensPerProbe, onConfigChange, onGensPerProbeChange,
+                         eaConfig, gensPerProbe, initialCode, onConfigChange, onGensPerProbeChange,
                          onStart, onBack,
                        }: DualLoaderProps) {
   const [s, setS] = useState<DualLoaderState>({
-    playerCode: '', eaCode: '', playerErr: '', eaErr: '', generatedCode: '',
+    playerCode: initialCode ?? '', eaCode: initialCode ?? '', playerErr: '', eaErr: '', generatedCode: '',
   });
   const [showSettings, setShowSettings] = useState(false);
 
@@ -158,7 +161,7 @@ function DualMapLoader({
 
 // ── Main component ────────────────────────────────────────────────────────
 
-export function VsEAMode({ onBack }: VsEAModeProps) {
+export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
   const [playerMap,    setPlayerMap]    = useState<MapConfig | null>(null);
   const [eaMap,        setEaMap]        = useState<MapConfig | null>(null);
   const [eaConfig,     setEaConfig]     = useState<EAConfig>(DEFAULT_EA_CONFIG);
@@ -234,6 +237,7 @@ export function VsEAMode({ onBack }: VsEAModeProps) {
       <DualMapLoader
         eaConfig={eaConfig}
         gensPerProbe={gensPerProbe}
+        initialCode={initialCode}
         onConfigChange={handleConfigChange}
         onGensPerProbeChange={setGensPerProbe}
         onStart={handleStart}

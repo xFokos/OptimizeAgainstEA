@@ -29,9 +29,9 @@ export function ModeSelector({ onSelect }: ModeSelectorProps) {
   return (
     <div className="mode-selector">
       <div className="mode-selector__header">
-        <h1 className="mode-selector__title">OPTIMA</h1>
+        <h1 className="mode-selector__title">Battleships</h1>
         <p className="mode-selector__subtitle">
-          A search-space exploration game
+          Like the board game, but made for optimization
         </p>
       </div>
 

@@ -2,6 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Generation } from '../../../types/ea';
 import type { MapConfig } from '../../../types/map';
 import { sampleGradientRgb } from '../../../engine/colorScale';
+import { DOT_MOVE_DURATION, DOT_MOVE_DURATION_MS } from './replay/ReplayMap';
+
+/**
+ * Time each frame stays on screen during autoplay. Must be ≥ the dot glide
+ * time so dots fully reach their new positions before the next frame starts;
+ * the extra buffer gives a brief pause to read each generation.
+ */
+const AUTOPLAY_FRAME_MS = DOT_MOVE_DURATION_MS + 300;
 
 interface GenerationReplayOverlayProps {
   generations: Generation[];
@@ -41,7 +49,7 @@ export function GenerationReplayOverlay({ generations, eaMap, onClose }: Generat
         }
         return i + 1;
       });
-    }, 600);
+    }, AUTOPLAY_FRAME_MS);
   }, [total, stopInterval]);
 
   const pause = useCallback(() => {
@@ -163,7 +171,7 @@ function GenerationMap({ gen }: { gen: Generation }) {
                 ? '2px solid var(--accent)'
                 : '1px solid rgba(255,255,255,.2)',
             boxShadow: isBest || ind.isSolution ? `0 0 8px ${color}` : 'none',
-            transition: 'left 0.45s ease, top 0.45s ease',
+            transition: `left ${DOT_MOVE_DURATION} ease, top ${DOT_MOVE_DURATION} ease`,
             zIndex,
             pointerEvents: 'none',
           }}/>

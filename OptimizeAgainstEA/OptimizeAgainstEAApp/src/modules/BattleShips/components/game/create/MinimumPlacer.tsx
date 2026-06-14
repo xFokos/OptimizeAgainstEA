@@ -73,7 +73,7 @@ export function MinimumPlacer({
                 >
                     {minima.length < 2
                         ? `Place at least ${2 - minima.length} more`
-                        : 'Pick Global Minimum →'}
+                        : 'Tune Depths →'}
                 </button>
             </div>
 

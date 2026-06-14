@@ -134,6 +134,8 @@ ea.stop(); ea.reset();
 | `FitnessChart.tsx` | `W`, `H_FULL`, `H_COMPACT` | `400`, `140`, `90` | Chart aspect ratio |
 | `ContourLayer.tsx` | `DEFAULT_CONTOUR_CONFIG` | see file | lineCount, spacingExponent, resolution |
 | `HeatmapLayer.tsx` | `DEFAULT_HEATMAP_CONFIG` | see file | resolution, opacity, valueExponent |
+| `replay/ReplayMap.tsx` | `DOT_MOVE_DURATION` | `0.8s` | How fast replay dots glide to new positions |
+| `EAReplayOverlay.tsx` | `play(1200)` arg | `1200` (ms) | Dwell time per frame during replay autoplay |
 | `useGameMap.ts` | `MAX_MINIMA`, `MIN_SPACING` | `12`, `0.12` | Create mode limits |
 | `VsEAMode.tsx` | `gensPerProbe` (state, default 1) | 1 | EA gens per player probe (in EA settings panel) |
 | `types/ea.ts` | `DEFAULT_EA_CONFIG` | see file | populationSize, crossoverRate, etc. |

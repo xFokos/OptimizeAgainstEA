@@ -1,4 +1,4 @@
-import type { ReplayFrame, IndividualSnapshot } from '../../../engine/ea/eaReplayLog';
+import type { ReplayFrame } from '../../../engine/ea/eaReplayLog';
 import { useEAReplay } from '../../../hooks/useEAReplay';
 import { ReplayMap } from './replay/ReplayMap';
 import { IndividualList, type IndividualRole } from './replay/IndividualList';
@@ -134,7 +134,7 @@ function PhaseMap({ frame }: { frame: ReplayFrame }) {
       const parentB = individuals.find((i) => i.id === frame.parentBId);
 
       const parentLine =
-        frame.crossoverStrategy === 'arithmetic' && parentA && parentB
+        frame.crossoverStrategy === 'arithmetic' && frame.didCrossover && parentA && parentB
           ? { from: parentA.position, to: parentB.position }
           : undefined;
 
@@ -144,7 +144,7 @@ function PhaseMap({ frame }: { frame: ReplayFrame }) {
           ? {
               xSource: frame.geneSource.xFromA ? parentA.position : parentB.position,
               ySource: frame.geneSource.yFromA ? parentA.position : parentB.position,
-              child:   frame.child.position,
+              child:   frame.crossoverResult,
             }
           : undefined;
 
@@ -160,7 +160,7 @@ function PhaseMap({ frame }: { frame: ReplayFrame }) {
           geneLines={geneLines}
           extraDots={[{
             id: 'child',
-            position: frame.child.position,
+            position: frame.crossoverResult,
             color: '#e8eaf0',
             label: 'child',
           }]}

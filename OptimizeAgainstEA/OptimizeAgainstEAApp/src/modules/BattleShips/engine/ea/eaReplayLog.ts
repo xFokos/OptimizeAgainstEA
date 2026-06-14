@@ -10,6 +10,21 @@ export interface IndividualSnapshot {
   isSolution: boolean;
 }
 
+// ── What actually happened when one child was bred ────────────────────────
+// Captured live inside breedNext so the replay shows the real parents and
+// the real random choices, instead of guessing them after the fact.
+
+export interface BreedingRecord {
+  parentA:        Individual;
+  parentB:        Individual;
+  didCrossover:   boolean;
+  alpha?:         number;                               // arithmetic blend factor
+  geneSource?:    { xFromA: boolean; yFromA: boolean }; // uniform / singlePoint
+  beforeMutation: Coordinate;                           // child after crossover, before mutation
+  didMutate:      boolean;
+  child:          Individual;                           // final clamped + evaluated child
+}
+
 // ── Frame union — one per animation step ─────────────────────────────────
 
 export type ReplayFrame =
@@ -55,7 +70,8 @@ export type ReplayFrame =
   nextGen:           IndividualSnapshot[];
   parentAId:         string;
   parentBId:         string;
-  child:             IndividualSnapshot;
+  child:             IndividualSnapshot;  // final child (post-mutation) — used in the side list
+  crossoverResult:   Coordinate;          // child position straight out of crossover, pre-mutation
   crossoverStrategy: CrossoverStrategy;
   alpha?:            number;
   geneSource?:       { xFromA: boolean; yFromA: boolean };
@@ -68,6 +84,7 @@ export type ReplayFrame =
   individuals: IndividualSnapshot[];
   nextGen:     IndividualSnapshot[];
   childId:     string;
+  didMutate:   boolean;
   before:      Coordinate;
   after:       Coordinate;
   delta:       Coordinate;
@@ -104,6 +121,7 @@ export function buildReplayFrames(
   eliteCount: number,
   config:     EAConfig,
   solutionThreshold: number,
+  breeding?:  BreedingRecord, // the real first non-elite breeding event
 ): ReplayFrame[] {
   const frames: ReplayFrame[] = [];
 
@@ -186,49 +204,49 @@ export function buildReplayFrames(
     });
   }
 
-  // 4. One breeding example (first non-elite child)
-  const firstChild = nextGen[eliteCount];
-  if (firstChild) {
-    const parentA    = sorted[0];
-    const parentB    = sorted[1];
-    const childSnap  = snapshot(firstChild, 'child-example');
+  // 4. One breeding example — the real first non-elite child, as it was bred
+  if (breeding) {
+    const { parentA, parentB, child } = breeding;
 
-    let geneSource: { xFromA: boolean; yFromA: boolean } | undefined;
-    if (config.crossoverStrategy === 'uniform' || config.crossoverStrategy === 'singlePoint') {
-      geneSource = {
-        xFromA: Math.abs(firstChild.position.x - parentA.position.x) <= Math.abs(firstChild.position.x - parentB.position.x),
-        yFromA: Math.abs(firstChild.position.y - parentA.position.y) <= Math.abs(firstChild.position.y - parentB.position.y),
-      };
-    }
+    // Locate the real parents within the sorted population so the map can
+    // highlight them. `sorted` shares object references with `before`.
+    const idxA = sorted.indexOf(parentA);
+    const idxB = sorted.indexOf(parentB);
+    const parentAId = idxA >= 0 ? label(idxA) : 'parent-a';
+    const parentBId = idxB >= 0 ? label(idxB) : 'parent-b';
+
+    const childSnap = snapshot(child, 'child-example');
 
     frames.push({
       phase:             'breeding',
       headline:          `${config.crossoverStrategy === 'arithmetic' ? 'Arithmetic' : config.crossoverStrategy === 'uniform' ? 'Uniform' : 'Single-point'} crossover`,
-      description:       crossoverDescription(config, parentA, parentB, firstChild),
+      description:       crossoverDescription(config, breeding),
       individuals:       sortedSnap,
       nextGen:           eliteSnap,
-      parentAId:         label(0),
-      parentBId:         label(1),
+      parentAId,
+      parentBId,
       child:             childSnap,
+      crossoverResult:   breeding.beforeMutation,
       crossoverStrategy: config.crossoverStrategy,
-      alpha:             config.crossoverStrategy === 'arithmetic' ? 0.5 : undefined,
-      geneSource,
-      didCrossover:      true,
+      alpha:             breeding.alpha,
+      geneSource:        breeding.geneSource,
+      didCrossover:      breeding.didCrossover,
     });
 
-    // 5. Mutation example
+    // 5. Mutation example — the actual offset applied to this child
     frames.push({
       phase:       'mutating',
       headline:    `${config.mutationStrategy === 'gaussian' ? 'Gaussian' : config.mutationStrategy === 'cauchy' ? 'Cauchy' : 'Uniform'} mutation`,
-      description: mutationDescription(config),
+      description: mutationDescription(config, breeding.didMutate),
       individuals: sortedSnap,
       nextGen:     eliteSnap,
       childId:     'child-example',
-      before:      parentA.position,
-      after:       firstChild.position,
+      didMutate:   breeding.didMutate,
+      before:      breeding.beforeMutation,
+      after:       child.position,
       delta: {
-        x: firstChild.position.x - parentA.position.x,
-        y: firstChild.position.y - parentA.position.y,
+        x: child.position.x - breeding.beforeMutation.x,
+        y: child.position.y - breeding.beforeMutation.y,
       },
     });
   }
@@ -266,30 +284,40 @@ export function buildReplayFrames(
 
 // ── Phase description helpers ─────────────────────────────────────────────
 
-function crossoverDescription(
-  config:   EAConfig,
-  parentA:  Individual,
-  parentB:  Individual,
-  child:    Individual,
-): string {
+function crossoverDescription(config: EAConfig, breeding: BreedingRecord): string {
+  const { parentA, parentB, beforeMutation, didCrossover, alpha, geneSource } = breeding;
   const ax = parentA.position.x.toFixed(3);
   const ay = parentA.position.y.toFixed(3);
   const bx = parentB.position.x.toFixed(3);
   const by = parentB.position.y.toFixed(3);
-  const cx = child.position.x.toFixed(3);
-  const cy = child.position.y.toFixed(3);
+  // The child shown is post-mutation; the crossover output is `beforeMutation`.
+  const cx = beforeMutation.x.toFixed(3);
+  const cy = beforeMutation.y.toFixed(3);
+
+  if (!didCrossover) {
+    return `Crossover was skipped this time (the ${(config.crossoverRate * 100).toFixed(0)}% gate didn't fire). The child starts as a direct clone of Parent A (${ax}, ${ay}) — any change comes from mutation alone.`;
+  }
 
   switch (config.crossoverStrategy) {
     case 'arithmetic':
-      return `Two parents are blended with a random weight α. Parent A (${ax}, ${ay}) and Parent B (${bx}, ${by}) produce child (${cx}, ${cy}) = α×A + (1-α)×B.`;
-    case 'uniform':
-      return `Each gene is independently drawn from either parent. Parent A (${ax}, ${ay}) and Parent B (${bx}, ${by}) produce child (${cx}, ${cy}) — x from one parent, y from the other.`;
-    case 'singlePoint':
-      return `One parent contributes x and the other contributes y. Parent A (${ax}, ${ay}) and Parent B (${bx}, ${by}) produce child (${cx}, ${cy}).`;
+      return `Two parents are blended with weight α=${(alpha ?? 0).toFixed(3)}. Parent A (${ax}, ${ay}) and Parent B (${bx}, ${by}) produce (${cx}, ${cy}) = α×A + (1-α)×B.`;
+    case 'uniform': {
+      const xFrom = geneSource?.xFromA ? 'A' : 'B';
+      const yFrom = geneSource?.yFromA ? 'A' : 'B';
+      return `Each gene is independently drawn from either parent. From Parent A (${ax}, ${ay}) and Parent B (${bx}, ${by}): x taken from Parent ${xFrom}, y from Parent ${yFrom} → (${cx}, ${cy}).`;
+    }
+    case 'singlePoint': {
+      const xFrom = geneSource?.xFromA ? 'A' : 'B';
+      const yFrom = geneSource?.yFromA ? 'A' : 'B';
+      return `One parent contributes x and the other y. From Parent A (${ax}, ${ay}) and Parent B (${bx}, ${by}): x from Parent ${xFrom}, y from Parent ${yFrom} → (${cx}, ${cy}).`;
+    }
   }
 }
 
-function mutationDescription(config: EAConfig): string {
+function mutationDescription(config: EAConfig, didMutate: boolean): string {
+  if (!didMutate) {
+    return `Mutation was skipped this time (the ${(config.mutationRate * 100).toFixed(0)}% gate didn't fire), so the child keeps its post-crossover position unchanged.`;
+  }
   switch (config.mutationStrategy) {
     case 'gaussian':
       return `A small normally-distributed offset is added to the child's position. The perturbation shrinks each generation (decay ${config.mutationDecay}) so early generations explore broadly and later ones fine-tune.`;

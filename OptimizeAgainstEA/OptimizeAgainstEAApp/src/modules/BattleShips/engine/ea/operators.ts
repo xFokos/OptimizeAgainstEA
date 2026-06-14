@@ -3,6 +3,7 @@ import type {
   SelectionStrategy, CrossoverStrategy, MutationStrategy,
   SelectionFn, CrossoverFn, MutationFn,
 } from '../../types/ea';
+import type { Coordinate } from '../../types/map';
 
 // ─────────────────────────────────────────────
 // SELECTION
@@ -51,31 +52,72 @@ export const SELECTION_STRATEGIES: Record<SelectionStrategy, SelectionFn> = {
 // CROSSOVER
 // ─────────────────────────────────────────────
 
+/**
+ * Crossover result with the random choices it made. These choices
+ * (blend factor / which parent each gene came from) cannot be reliably
+ * reverse-engineered from the child position once mutation has been
+ * applied, so the operators surface them here for the replay log.
+ */
+export interface CrossoverResult {
+  coord:       Coordinate;
+  alpha?:      number;                               // arithmetic
+  geneSource?: { xFromA: boolean; yFromA: boolean }; // uniform / singlePoint
+}
+
+export type CrossoverRecordingFn = (a: Individual, b: Individual, rng: RNG) => CrossoverResult;
+
 /** Uniform: each gene independently drawn from either parent */
-const uniformCrossover: CrossoverFn = (a, b, rng) => ({
-  x: rng() < 0.5 ? a.position.x : b.position.x,
-  y: rng() < 0.5 ? a.position.y : b.position.y,
-});
+const uniformCrossover: CrossoverRecordingFn = (a, b, rng) => {
+  const xFromA = rng() < 0.5;
+  const yFromA = rng() < 0.5;
+  return {
+    coord: {
+      x: xFromA ? a.position.x : b.position.x,
+      y: yFromA ? a.position.y : b.position.y,
+    },
+    geneSource: { xFromA, yFromA },
+  };
+};
 
 /** Arithmetic: weighted average with random blend factor */
-const arithmeticCrossover: CrossoverFn = (a, b, rng) => {
+const arithmeticCrossover: CrossoverRecordingFn = (a, b, rng) => {
   const alpha = rng();
   return {
-    x: alpha * a.position.x + (1 - alpha) * b.position.x,
-    y: alpha * a.position.y + (1 - alpha) * b.position.y,
+    coord: {
+      x: alpha * a.position.x + (1 - alpha) * b.position.x,
+      y: alpha * a.position.y + (1 - alpha) * b.position.y,
+    },
+    alpha,
   };
 };
 
 /** Single-point: treat (x,y) as a 2-gene chromosome, split after x or y */
-const singlePointCrossover: CrossoverFn = (a, b, rng) =>
-  rng() < 0.5
-    ? { x: a.position.x, y: b.position.y }
-    : { x: b.position.x, y: a.position.y };
+const singlePointCrossover: CrossoverRecordingFn = (a, b, rng) => {
+  const xFromA = rng() < 0.5; // true → x from A & y from B, false → the reverse
+  return {
+    coord: xFromA
+      ? { x: a.position.x, y: b.position.y }
+      : { x: b.position.x, y: a.position.y },
+    geneSource: { xFromA, yFromA: !xFromA },
+  };
+};
 
-export const CROSSOVER_STRATEGIES: Record<CrossoverStrategy, CrossoverFn> = {
+/**
+ * Recording variants — single source of truth for crossover. They draw
+ * exactly the same `rng()` values, in the same order, as the plain
+ * variants below, so swapping between them never changes the RNG stream.
+ */
+export const CROSSOVER_STRATEGIES_RECORDING: Record<CrossoverStrategy, CrossoverRecordingFn> = {
   uniform:     uniformCrossover,
   arithmetic:  arithmeticCrossover,
   singlePoint: singlePointCrossover,
+};
+
+/** Plain variants (coordinate only) — thin wrappers over the recording ones. */
+export const CROSSOVER_STRATEGIES: Record<CrossoverStrategy, CrossoverFn> = {
+  uniform:     (a, b, rng) => uniformCrossover(a, b, rng).coord,
+  arithmetic:  (a, b, rng) => arithmeticCrossover(a, b, rng).coord,
+  singlePoint: (a, b, rng) => singlePointCrossover(a, b, rng).coord,
 };
 
 // ─────────────────────────────────────────────

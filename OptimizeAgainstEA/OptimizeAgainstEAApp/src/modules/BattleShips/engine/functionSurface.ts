@@ -1,4 +1,4 @@
-import type { MapConfig, ProblemInstance } from '../types/map';
+import type { MapConfig, Minimum, ProblemInstance } from '../types/map';
 import { euclideanDistance, isWithinRadius } from './geometry';
 
 /**
@@ -11,19 +11,19 @@ import { euclideanDistance, isWithinRadius } from './geometry';
  * With a 480px map and typical minima spacing, a value of 0.25 means
  * a probe ~¼ of the map width away from all minima already reads ≈ 1.0.
  */
-const DISTANCE_SCALE = 0.7;
+export const DISTANCE_SCALE = 0.7;
 
 /**
- * Range for the randomised floor applied to each local minimum.
- * Each local minimum gets a random floor in [MIN, MAX] assigned once
- * at problem-creation time, seeded from the minimum's position so the
- * same map code always produces the same floors.
+ * Range for the randomised floor applied to each local minimum that has no
+ * explicit `floor` set. Each such minimum gets a random floor in [MIN, MAX]
+ * seeded from its position, so the same map code always produces the same
+ * floors.
  *
  * LOCAL_MIN_FLOOR_MIN — closest a local min can feel to the global (more deceptive)
  * LOCAL_MIN_FLOOR_MAX — furthest a local min can feel from the global (easier to dismiss)
  */
-const LOCAL_MIN_FLOOR_MIN = 0.03;
-const LOCAL_MIN_FLOOR_MAX = 0.1;
+export const LOCAL_MIN_FLOOR_MIN = 0.03;
+export const LOCAL_MIN_FLOOR_MAX = 0.1;
 
 /** Cheap deterministic hash into [0, 1) — seeds per-minimum randomness from position */
 function pseudoRandom(seed: number): number {
@@ -31,18 +31,37 @@ function pseudoRandom(seed: number): number {
   return x - Math.floor(x);
 }
 
+/**
+ * The position-seeded pseudo-random floor a local minimum gets when the
+ * creator hasn't set one explicitly. Exposed so the create UI can show the
+ * effective depth of untouched nodes.
+ */
+export function defaultLocalFloor(position: { x: number; y: number }): number {
+  const t = pseudoRandom(position.x * 1000 + position.y);
+  return LOCAL_MIN_FLOOR_MIN + t * (LOCAL_MIN_FLOOR_MAX - LOCAL_MIN_FLOOR_MIN);
+}
+
+/**
+ * The floor actually used for a minimum: 0 for the global, the explicit
+ * `floor` if set, otherwise the position-seeded default.
+ */
+export function effectiveFloor(minimum: Minimum): number {
+  if (minimum.isGlobal) return 0;
+  return minimum.floor ?? defaultLocalFloor(minimum.position);
+}
+
+/** The value a probe reads exactly at a minimum's center (clamped to [0, 1]). */
+export function floorToCenterValue(floor: number): number {
+  return Math.min(floor / DISTANCE_SCALE, 1);
+}
+
 export function createMapProblem(config: MapConfig): ProblemInstance {
   const globalMin = config.minima.find((m) => m.isGlobal);
 
-  // Assign a stable random floor to each local minimum, seeded from its position
+  // Resolve the floor for each minimum once (explicit, default, or 0 for global)
   const floorMap = new Map<string, number>();
   for (const minimum of config.minima) {
-    if (!minimum.isGlobal) {
-      const seed  = minimum.position.x * 1000 + minimum.position.y;
-      const t     = pseudoRandom(seed);
-      const floor = LOCAL_MIN_FLOOR_MIN + t * (LOCAL_MIN_FLOOR_MAX - LOCAL_MIN_FLOOR_MIN);
-      floorMap.set(minimum.id, floor);
-    }
+    floorMap.set(minimum.id, effectiveFloor(minimum));
   }
 
   const evaluate = (x: number, y: number): number => {
@@ -52,7 +71,7 @@ export function createMapProblem(config: MapConfig): ProblemInstance {
 
     for (const minimum of config.minima) {
       const dist  = euclideanDistance({ x, y }, minimum.position);
-      const floor = minimum.isGlobal ? 0 : (floorMap.get(minimum.id) ?? LOCAL_MIN_FLOOR_MIN);
+      const floor = floorMap.get(minimum.id) ?? LOCAL_MIN_FLOOR_MIN;
       const val   = dist + floor;
       if (val < minVal) minVal = val;
     }

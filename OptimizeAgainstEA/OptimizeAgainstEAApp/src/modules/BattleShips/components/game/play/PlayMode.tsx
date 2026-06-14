@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { MapConfig } from '../../../types/map';
 import { createMapProblem } from '../../../engine/functionSurface';
+import { decodeMap } from '../../../engine/mapCodec';
 import { usePlaySession } from '../../../hooks/usePlaySession';
 import { GameMap } from '../shared/GameMap';
 import { MapLoader } from './MapLoader';
@@ -10,10 +11,18 @@ import { FitnessChart } from '../shared/FitnessChart';
 
 interface PlayModeProps {
   onBack: () => void;
+  /** Optional map code to load straight into play, skipping the loader. */
+  initialCode?: string;
 }
 
-export function PlayMode({ onBack }: PlayModeProps) {
-  const [mapConfig,    setMapConfig]    = useState<MapConfig | null>(null);
+function decodeOrNull(code: string | undefined): MapConfig | null {
+  if (!code) return null;
+  try { return decodeMap(code.trim()); }
+  catch { return null; }
+}
+
+export function PlayMode({ onBack, initialCode }: PlayModeProps) {
+  const [mapConfig,    setMapConfig]    = useState<MapConfig | null>(() => decodeOrNull(initialCode));
   const [hoveredIndex, setHoveredIndex] = useState(-1);
   const [dismissedWin, setDismissedWin] = useState(false);
 

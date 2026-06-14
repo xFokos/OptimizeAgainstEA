@@ -1,18 +1,13 @@
-import React, { useRef, useCallback, useState } from 'react';
+import React, { useRef, useCallback } from 'react';
 import type { Coordinate, Minimum } from '../../../types/map';
-import { ContourLayer, type ContourConfig } from './ContourLayer';
 import { HeatmapLayer, type HeatmapConfig } from './HeatMapLayer.tsx';
 
 type EvalFn = (x: number, y: number) => number;
-export type VizMode = 'contour' | 'heatmap';
 
 interface GameMapProps {
     minima?: Minimum[];
     showMinima?: boolean;
     evaluateFn?: EvalFn;
-    /** Starting visualization mode. Defaults to 'contour'. */
-    defaultVizMode?: VizMode;
-    contourConfig?: Partial<ContourConfig>;
     heatmapConfig?: Partial<HeatmapConfig>;
     revealPoints?: Coordinate[];
     exclusionRadius?: number;
@@ -29,8 +24,6 @@ export function GameMap({
                             minima = [],
                             showMinima = false,
                             evaluateFn,
-                            defaultVizMode = 'heatmap',
-                            contourConfig,
                             heatmapConfig,
                             revealPoints,
                             exclusionRadius,
@@ -43,7 +36,6 @@ export function GameMap({
                             children,
                         }: GameMapProps) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const [vizMode, setVizMode] = useState<VizMode>(defaultVizMode);
 
     const toNormalized = useCallback((e: React.MouseEvent): Coordinate => {
         const rect = containerRef.current!.getBoundingClientRect();
@@ -81,14 +73,7 @@ export function GameMap({
             }}
         >
             {/* ── Visualization layer ── */}
-            {evaluateFn && vizMode === 'contour' && (
-                <ContourLayer
-                    evaluate={evaluateFn}
-                    config={contourConfig}
-                    revealPoints={revealPoints}
-                />
-            )}
-            {evaluateFn && vizMode === 'heatmap' && (
+            {evaluateFn && (
                 <HeatmapLayer
                     evaluate={evaluateFn}
                     config={heatmapConfig}
@@ -180,37 +165,6 @@ export function GameMap({
                 }}>
                     {overlayLabel}
                 </div>
-            )}
-
-            {/* ── Viz toggle button — only shown when evaluateFn is present ── */}
-            {evaluateFn && (
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setVizMode((m) => m === 'contour' ? 'heatmap' : 'contour');
-                    }}
-                    style={{
-                        position: 'absolute',
-                        bottom: 8,
-                        right: 8,
-                        zIndex: 10,
-                        padding: '3px 8px',
-                        background: 'rgba(13,15,18,0.82)',
-                        border: '1px solid var(--border-bright)',
-                        borderRadius: 3,
-                        color: 'var(--text-secondary)',
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '0.65rem',
-                        letterSpacing: '0.06em',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s',
-                        backdropFilter: 'blur(4px)',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
-                >
-                    {vizMode === 'contour' ? 'HEATMAP' : 'CONTOUR'}
-                </button>
             )}
 
             {children}

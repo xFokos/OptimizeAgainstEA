@@ -42,7 +42,7 @@ export function EAWinOverlay({
             ▶ Watch Replay
           </button>
           <button className="btn btn--ghost" onClick={onDismiss}>
-            Dismiss
+            Continue
           </button>
         </div>
       </div>
