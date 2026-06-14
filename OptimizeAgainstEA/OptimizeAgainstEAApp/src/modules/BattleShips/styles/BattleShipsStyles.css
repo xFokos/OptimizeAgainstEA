@@ -142,6 +142,18 @@ html, body, #root {
 .btn--sm { padding: var(--sp-2) var(--sp-3); font-size: 0.75rem; }
 .btn--danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
 
+.btn--active {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: #060809;
+	font-weight: 700;
+}
+.btn--active:hover:not(:disabled) {
+	border-color: var(--accent);
+	color: #060809;
+	box-shadow: 0 0 16px var(--accent-glow);
+}
+
 /* ─────────────────────────────────────────────
    MODE SELECTOR
 ───────────────────────────────────────────── */

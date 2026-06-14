@@ -68,7 +68,9 @@ export function ContourLayer({
         [evaluate, levels, cfg.resolution]
     );
 
-    const hasReveal = revealPoints && revealPoints.length > 0;
+    // Reveal mode is active whenever a points array is supplied (even if empty):
+    // an empty array reveals nothing, `undefined` reveals the whole map.
+    const hasReveal = revealPoints != null;
     const clipId = useMemo(() => `cl-${Math.random().toString(36).slice(2, 7)}`, []);
     const rSvg = cfg.revealRadius * 100;
 

@@ -38,7 +38,9 @@ interface HeatmapLayerProps {
 export function HeatmapLayer({ evaluate, config: configOverride, revealPoints }: HeatmapLayerProps) {
     const cfg = { ...DEFAULT_HEATMAP_CONFIG, ...configOverride };
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const hasReveal = revealPoints && revealPoints.length > 0;
+    // Reveal mode is active whenever a points array is supplied (even if empty):
+    // an empty array reveals nothing, `undefined` reveals the whole map.
+    const hasReveal = revealPoints != null;
     const revealR2  = (cfg.revealRadius) ** 2; // squared, in normalized space
 
     // Recompute whenever evaluate or config changes
