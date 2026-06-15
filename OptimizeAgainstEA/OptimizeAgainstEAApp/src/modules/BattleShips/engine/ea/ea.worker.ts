@@ -1,4 +1,4 @@
-import type { WorkerInMessage, WorkerOutMessage, EAConfig } from '../../types/ea';
+import type { WorkerInMessage, WorkerOutMessage } from '../../types/ea';
 import type { MapConfig, ProblemInstance, Minimum } from '../../types/map';
 import { createMapProblem } from '../functionSurface';
 import { createEAStepper, type EAStepper } from './evolutionaryAlgorithm';
@@ -20,14 +20,12 @@ function buildProblem(
 
 // Stepper is kept in worker scope — persists between STEP messages
 let stepper: EAStepper | null = null;
-let eaConfig: EAConfig | null = null;
 
 self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
   const msg = event.data;
 
   if (msg.type === 'STOP') {
-    stepper  = null;
-    eaConfig = null;
+    stepper = null;
     return;
   }
 
@@ -43,7 +41,6 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
       self.postMessage(out);
       return;
     }
-    eaConfig = msg.config;
     stepper  = createEAStepper(problem, msg.config);
     // Post the initial generation (gen 0 = just the random population)
     const result = stepper.step(0);
