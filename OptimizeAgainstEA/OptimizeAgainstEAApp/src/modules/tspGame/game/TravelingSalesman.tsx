@@ -1,15 +1,8 @@
 // typescript
-import { useState, useRef, useEffect } from "react";
-import type { Node, Edge } from "../../../types.ts";
+import {useEffect, useRef, useState} from "react";
+import type {Edge, Node} from "../../../types.ts";
 import NavigatePageButton from "../../../components/ui/NavigatePageButton.tsx";
-import {
-    LineChart,
-    Line,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-} from "recharts";
+import {CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis,} from "recharts";
 
 const NODE_RADIUS = 20;
 const NODE_COUNT = 30;
@@ -185,7 +178,7 @@ export default function TravelingSalesman() {
         setBesteaDrawCount(0);
         let i = 0;
         const intervalMs = 60; // Zeit pro Kante
-        const id = window.setInterval(() => {
+        besteaAnimRef.current = window.setInterval(() => {
             i++;
             setBesteaDrawCount(i);
             if (i >= besteaEdges.length) {
@@ -201,7 +194,6 @@ export default function TravelingSalesman() {
                 setShowEASolutionButton(false);
             }
         }, intervalMs);
-        besteaAnimRef.current = id;
 
         return () => {
             if (besteaAnimRef.current) {
