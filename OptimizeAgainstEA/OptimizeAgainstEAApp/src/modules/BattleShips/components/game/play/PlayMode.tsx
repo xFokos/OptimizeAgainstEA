@@ -25,7 +25,6 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
   const [mapConfig,    setMapConfig]    = useState<MapConfig | null>(() => decodeOrNull(initialCode));
   const [hoveredIndex, setHoveredIndex] = useState(-1);
   const [dismissedWin, setDismissedWin] = useState(false);
-  const [debug,        setDebug]        = useState(false);
 
   const problem = useMemo(
     () => (mapConfig ? createMapProblem(mapConfig) : null),
@@ -47,22 +46,15 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
 
   const hasWon       = status === 'won';
   const showOverlay  = hasWon && !dismissedWin;
-  // `undefined` reveals the whole map (on win or when debug is on); otherwise only
-  // the circles around placed probes are revealed — an empty array hides everything.
-  const revealPoints = hasWon || debug ? undefined : probes.map((p) => p.position);
+  // `undefined` reveals the whole map (on win); otherwise only the circles around
+  // placed probes are revealed — an empty array hides everything.
+  const revealPoints = hasWon ? undefined : probes.map((p) => p.position);
 
   return (
     <div className="play-mode">
       <div className="play-mode__topbar">
         <button className="btn btn--ghost btn--sm" onClick={handlePlayAgain}>Change Map</button>
         <span className="play-mode__mapid">#{mapConfig.id}</span>
-        <button
-          className={`btn btn--ghost btn--sm ${debug ? 'btn--active' : ''}`}
-          onClick={() => setDebug((d) => !d)}
-          title="Reveal the entire map (debug)"
-        >
-          Debug: {debug ? 'On' : 'Off'}
-        </button>
         <button className="btn btn--ghost btn--sm btn--danger" onClick={reset}>Reset</button>
       </div>
 
