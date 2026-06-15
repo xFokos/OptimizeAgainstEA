@@ -106,7 +106,7 @@ export default function TravelingSalesman() {
         if (!nodes.length) return;
 
         workerRef.current = new Worker(
-            new URL("../workers/tspWorker.ts", import.meta.url)
+            new URL("../../../workers/tspWorker.ts", import.meta.url)
         );
 
         workerRef.current.postMessage({
