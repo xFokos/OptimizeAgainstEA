@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom";
+import { SettingsProvider } from "./context/SettingsContext"; // neu
 
 import "./App.css";
 import HomePage from "./pages/HomePage.tsx";
@@ -12,21 +13,28 @@ import DashboardPage from "./pages/DashboardPage.tsx";
 import MapGamePage from "./pages/MapGamePage.tsx";
 import ShooterGamePage from "./pages/ShooterGamePage.tsx";
 import BattleShipsPage from "./pages/BattleShipsPage.tsx";
+import ShooterLobbyPage from "./pages/lobby/ShooterLobbyPage";
+import HordeLobbyPage   from "./pages/lobby/HordeLobbyPage";
+
 
 export default function App() {
     return (
-        <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/Settings" element={<SettingsPage />} />
-            <Route path="/Game" element={<GamePage />} />
-            <Route path="/Analytics" element={<AnalyticsPage />} />
-            <Route path="/JumpGame" element={<JumpGamePage />} />
-            <Route path="/TravelingSalesman" element={<TravelingSalesmanPage />} />
-            <Route path="/BattleShips" element={<BattleShipsPage />} />
-            <Route path="Problem" element={<ProblemPage />}/>
-            <Route path="Dashboard" element={<DashboardPage />}/>
-            <Route path="MapGame" element={<MapGamePage/>}/>
-            <Route path="ShooterGame" element={ <ShooterGamePage/>}/>
-        </Routes>
-    );
+        <SettingsProvider>
+            <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/Settings" element={<SettingsPage />} />
+                <Route path="/Game" element={<GamePage />} />
+                <Route path="/Analytics" element={<AnalyticsPage />} />
+                <Route path="/JumpGame" element={<JumpGamePage />} />
+                <Route path="/TravelingSalesman" element={<TravelingSalesmanPage />} />
+                <Route path="/BattleShips" element={<BattleShipsPage />} />
+                <Route path="Problem" element={<ProblemPage />}/>
+                <Route path="Dashboard" element={<DashboardPage />}/>
+                <Route path="MapGame" element={<MapGamePage/>}/>
+                <Route path="ShooterGame" element={<ShooterGamePage/>}/>
+                <Route path="/lobby/shooter" element={<ShooterLobbyPage />} />
+                <Route path="/lobby/horde"   element={<HordeLobbyPage />} />
+            </Routes>
+        </SettingsProvider>
+);
 }

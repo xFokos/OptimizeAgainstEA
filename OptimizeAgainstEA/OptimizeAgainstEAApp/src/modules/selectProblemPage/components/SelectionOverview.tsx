@@ -7,6 +7,8 @@ export default function SelectionOverview({ config }: { config: GameConfig }) {
         mapGame: "/MapGame",
         knapsack: "/",
         battleShips: "/Battleships",
+        shooter:     "/lobby/shooter",
+        horde:       "/lobby/horde",
         placeHolder: "/Game",
         vrp: "/vrp",
     };

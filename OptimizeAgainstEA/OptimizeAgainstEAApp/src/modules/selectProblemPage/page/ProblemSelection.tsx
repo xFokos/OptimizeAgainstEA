@@ -9,25 +9,25 @@ export type ProblemSelectionProps = {
 export function ProblemSelection({ value, onChange }: ProblemSelectionProps) {
     return (
         <>
-            <h1 className="page-title">Choose Optimization Problem</h1>
+            <h1 className="page-title">Choose Game</h1>
             <div className="problem-list">
-                <ProblemCard
-                    title="Map Game"
-                    description="Find the right place on the map."
-                    active={value === "mapGame"}
-                    onClick={() => onChange("mapGame")}
-                />
-                <ProblemCard
-                    title="Traveling Salesman"
-                    description="Find the shortest route."
-                    active={value === "tsp"}
-                    onClick={() => onChange("tsp")}
-                />
                 <ProblemCard
                     title="Battleships"
                     description="Creates and Play maps"
                     active={value === "battleShips"}
                     onClick={() => onChange("battleShips")}
+                />
+                <ProblemCard
+                    title="Shooter vs EA"
+                    description="Kämpfe gegen einen lernenden genetischen Algorithmus."
+                    active={value === "shooter"}
+                    onClick={() => onChange("shooter")}
+                />
+                <ProblemCard
+                    title="Horde Mode"
+                    description="Überlebe Wellen von EA-Agenten die sich anpassen."
+                    active={value === "horde"}
+                    onClick={() => onChange("horde")}
                 />
             </div>
         </>

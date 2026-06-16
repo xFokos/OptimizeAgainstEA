@@ -19,10 +19,14 @@ function crossover(dnaA: number[], dnaB: number[]): number[] {
 }
 
 // ---- Mutation ----
-function mutate(dna: number[]): number[] {
+function mutate(
+    dna:      number[],
+    rate:     number = GAME_CONFIG.MUTATION_RATE,
+    strength: number = GAME_CONFIG.MUTATION_STRENGTH,
+): number[] {
     return dna.map(gene => {
-        if (Math.random() < GAME_CONFIG.MUTATION_RATE) {
-            const delta = (Math.random() * 2 - 1) * GAME_CONFIG.MUTATION_STRENGTH;
+        if (Math.random() < rate) {
+            const delta = (Math.random() * 2 - 1) * strength;
             return Math.max(0, Math.min(1, gene + delta));
         }
         return gene;
@@ -30,7 +34,12 @@ function mutate(dna: number[]): number[] {
 }
 
 // ---- Evolution ----
-export function evolve(population: Population, agentFitness: number): Population {
+export function evolve(
+    population:       Population,
+    agentFitness:     number,
+    mutationRate:     number = GAME_CONFIG.MUTATION_RATE,
+    mutationStrength: number = GAME_CONFIG.MUTATION_STRENGTH,
+): Population {
     const updatedIndividuals = [...population.individuals];
     updatedIndividuals[0] = { ...updatedIndividuals[0], fitness: agentFitness };
 
@@ -41,7 +50,7 @@ export function evolve(population: Population, agentFitness: number): Population
     while (offspring.length < GAME_CONFIG.POPULATION_SIZE - GAME_CONFIG.ELITE_COUNT) {
         const parent1  = tournamentSelect(sorted);
         const parent2  = tournamentSelect(sorted);
-        const childDna = mutate(crossover(parent1.dna, parent2.dna));
+        const childDna = mutate(crossover(parent1.dna, parent2.dna), mutationRate, mutationStrength);
         offspring.push({ dna: childDna, fitness: 0 });
     }
 

@@ -6,7 +6,7 @@ import SelectionOverview from "../modules/selectProblemPage/components/Selection
 type Section = "problemSelect" | "gameSettings" | "algorithmSettings" | "overview";
 
 // Typen exportieren, damit andere Dateien sie verwenden können
-export type ProblemId = "tsp" | "mapGame" | "knapsack" | "placeHolder" | "battleShips";
+export type ProblemId = "battleShips" | "shooter" | "horde";
 export type GameConfig = {
     problem?: ProblemId;
 };
