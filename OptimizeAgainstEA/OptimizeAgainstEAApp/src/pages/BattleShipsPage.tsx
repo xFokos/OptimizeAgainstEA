@@ -4,6 +4,9 @@ import { ModeSelector } from '../modules/BattleShips/components/game/shared/Mode
 import { CreateMode } from '../modules/BattleShips/components/game/create/CreateMode';
 import { PlayMode } from '../modules/BattleShips/components/game/play/PlayMode';
 import {VsEAMode} from "../modules/BattleShips/components/game/vs-ea/VsEAMode.tsx";
+import { HintsProvider } from '../modules/BattleShips/hints/HintContext';
+import { HintToggle } from '../modules/BattleShips/hints/HintToggle';
+import { HintLayer } from '../modules/BattleShips/hints/HintLayer';
 import '../modules/BattleShips/styles/BattleShipsStyles.css';
 
 export default function BattleShipsPage() {
@@ -17,12 +20,16 @@ export default function BattleShipsPage() {
     const backToSelect = () => goToMode('select');
 
   return (
-    <div className="app">
-      {mode === 'select' && <ModeSelector onSelect={(m) => goToMode(m)} />}
-      {mode === 'create' && <CreateMode onBack={backToSelect} onUseMap={goToMode} />}
-      {mode === 'play'   && <PlayMode   onBack={backToSelect} initialCode={pendingCode ?? undefined} />}
-      {mode === 'vs-ea'  && <VsEAMode   onBack={backToSelect} initialCode={pendingCode ?? undefined} />}
-    </div>
+    <HintsProvider>
+      <div className="app">
+        <HintToggle />
+        {mode === 'select' && <ModeSelector onSelect={(m) => goToMode(m)} />}
+        {mode === 'create' && <CreateMode onBack={backToSelect} onUseMap={goToMode} />}
+        {mode === 'play'   && <PlayMode   onBack={backToSelect} initialCode={pendingCode ?? undefined} />}
+        {mode === 'vs-ea'  && <VsEAMode   onBack={backToSelect} initialCode={pendingCode ?? undefined} />}
+        <HintLayer />
+      </div>
+    </HintsProvider>
   );
 
 }
