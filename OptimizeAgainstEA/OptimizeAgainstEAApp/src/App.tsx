@@ -14,8 +14,6 @@ import MapGamePage from "./pages/MapGamePage.tsx";
 import ShooterGamePage from "./pages/ShooterGamePage.tsx";
 import BattleShipsPage from "./pages/BattleShipsPage.tsx";
 import ShooterLobbyPage from "./pages/lobby/ShooterLobbyPage";
-import HordeLobbyPage   from "./pages/lobby/HordeLobbyPage";
-
 
 export default function App() {
     return (
@@ -33,7 +31,6 @@ export default function App() {
                 <Route path="MapGame" element={<MapGamePage/>}/>
                 <Route path="ShooterGame" element={<ShooterGamePage/>}/>
                 <Route path="/lobby/shooter" element={<ShooterLobbyPage />} />
-                <Route path="/lobby/horde"   element={<HordeLobbyPage />} />
             </Routes>
         </SettingsProvider>
 );
