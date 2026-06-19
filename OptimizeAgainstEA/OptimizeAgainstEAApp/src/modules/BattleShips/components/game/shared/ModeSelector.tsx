@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import type {GameMode} from '../../../types/game.ts';
+import { useHints } from '../../../hints/HintContext';
 
 interface ModeSelectorProps {
   onSelect: (mode: GameMode) => void;
@@ -26,6 +28,12 @@ const MODES: { id: GameMode; label: string; sub: string; key: string }[] = [
 ];
 
 export function ModeSelector({ onSelect }: ModeSelectorProps) {
+  const { showHint } = useHints();
+
+  useEffect(() => {
+    showHint('selector.welcome');
+  }, [showHint]);
+
   return (
     <div className="mode-selector">
       <div className="mode-selector__header">

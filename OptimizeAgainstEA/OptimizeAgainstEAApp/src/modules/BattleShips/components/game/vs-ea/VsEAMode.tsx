@@ -15,6 +15,7 @@ import type { FitnessSeries } from '../shared/FitnessChart';
 import { EAReplayOverlay } from './EAReplayOverlay';
 import { EAWinOverlay } from './EAWinOverlay';
 import { GenerationReplayOverlay } from './GenerationReplayOverlay';
+import { HintPopover } from '../../../hints/HintPopover';
 
 interface VsEAModeProps {
   onBack: () => void;
@@ -333,12 +334,14 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
           {(ea.latestReplay && ea.latestReplay.length > 0 || ea.status === 'solved') && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {ea.latestReplay && ea.latestReplay.length > 0 && (
-                <button
-                  className="btn btn--ghost btn--sm"
-                  onClick={() => setShowReplay(true)}
-                >
-                  ▶ Watch Last Replay
-                </button>
+                <HintPopover id="vsEa.replayButton" placement="top">
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => setShowReplay(true)}
+                  >
+                    ▶ Watch Last Replay
+                  </button>
+                </HintPopover>
               )}
               {ea.status === 'solved' && ea.generations.length > 0 && (
                 <button

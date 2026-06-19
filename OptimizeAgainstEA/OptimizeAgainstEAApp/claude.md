@@ -209,6 +209,99 @@ Phases in order: `initial` → `sorted` → `elite` → `breeding` → `mutating
 
 ---
 
+## Hint system
+
+A page-wide, toggleable hint system that gives players contextual help. Lives in
+`src/modules/BattleShips/hints/`. Wrapped around the whole page by `BattleShipsPage.tsx`
+via `<HintsProvider>`, with `<HintToggle />` and `<HintLayer />` mounted once inside it.
+
+### Files
+
+```
+hints/
+├── hintContent.ts    # ★ SINGLE SOURCE OF TRUTH for all hint text + per-hint settings
+├── HintContext.tsx   # HintsProvider + useHints() hook; persistence + state
+├── HintLayer.tsx     # Renders the active global hint (modal or toast). Mount once at root.
+├── HintToggle.tsx    # Page-wide 💡 on/off button + ↻ Reset button
+└── HintPopover.tsx   # Declarative anchored coachmark — wrap any element to pin a hint to it
+```
+
+### Editing hint text — `hintContent.ts`
+
+This is the **only file you touch** to add/edit/remove hint wording. Add the id to the
+`HintId` union, then an entry to `HINTS`:
+
+```ts
+export interface HintDef {
+  title?: string;
+  body: string;          // supports {placeholders}, filled via `vars` at the call site
+  style: 'modal' | 'toast';   // global hints only; ignored by HintPopover
+  once?: boolean;        // show only the first time this session
+  pauses?: boolean;      // (modal only) backdrop click won't close — must use a button
+}
+```
+
+### Three presentation styles
+
+- **Modal** (`style: 'modal'`) — centered blocking pop-up; reuses `.modal-backdrop`. Set
+  `pauses: true` to freeze the game until a button is clicked (interaction is behind the
+  backdrop, so no game-logic changes needed).
+- **Toast** (`style: 'toast'`) — small non-blocking corner popup, auto-dismisses after 7s.
+- **Popover** (`<HintPopover>`) — anchored coachmark next to a specific element. Pure-CSS
+  positioning, so it tracks the element. `style`/`pauses` are ignored for these.
+
+### Firing a global hint — `useHints()`
+
+```ts
+const { showHint, dismiss, enabled, toggle, resetSeen } = useHints();
+showHint('vsEa.afterProbe', {
+  vars: { gens: String(gensPerProbe) },          // fills {gens} in the body
+  actions: [                                     // optional; defaults to one "Got it" button
+    { label: '▶ Watch Replay', onClick: () => { dismiss(); setShowReplay(true); }, variant: 'primary' },
+    { label: 'Continue', onClick: dismiss },
+  ],
+});
+```
+`showHint` no-ops when hints are disabled or when a `once` hint was already seen — call sites
+never need to guard. For async triggers (e.g. EA worker round-trips), fire from a `useEffect`
+on the relevant state, not synchronously, so dependent data (e.g. `latestReplay`) exists.
+
+### Anchored hint — `<HintPopover>`
+
+```tsx
+<HintPopover id="vsEa.replayButton" placement="top" show={canReplay}>
+  <button>▶ Watch Last Replay</button>
+</HintPopover>
+```
+Props: `id`, `placement` (`top|bottom|left|right`, default `right`), `show` (extra condition),
+`vars`, `actions`. Wrapper is `display: inline-block` — safe around buttons/flex items; inside
+a CSS **grid**, wrap a child *inside* the grid item instead, or it becomes the grid item.
+
+### State & persistence
+
+- **`enabled`** (the toggle) → `localStorage` `bs.hints.enabled`. Persists across visits;
+  default on. A returning player keeps their choice.
+- **`seen`** (which `once` hints fired) → `sessionStorage` `bs.hints.seen`. Re-arms in a new
+  browser session, or immediately via the **Reset** button (`resetSeen()`).
+- All storage access is `try/catch`-guarded (private-mode safe; falls back to in-memory).
+- 100% client-side Web Storage — no backend, no Firebase config, no billing impact.
+
+### Currently wired hints
+
+| Id | Where | Style |
+|---|---|---|
+| `selector.welcome` | `ModeSelector` (landing) — `useEffect` on mount | modal, once |
+| `vsEa.replayButton` | `VsEAMode` — `<HintPopover>` on "Watch Last Replay" | popover, once |
+
+### Tunable constants
+
+| File | Constant | Default | Effect |
+|---|---|---|---|
+| `HintLayer.tsx` | `TOAST_DURATION` | `7000` (ms) | How long a toast stays before auto-dismiss |
+| `styles.css` | `.hint-toggle` | top/right fixed | Toggle button position (may overlap mode topbars) |
+
+---
+
 ## Known issues / open TODOs
 
 - `VsEAMode.tsx` line ~8: import path `'../../../hooks/useEARunner'` may need adjustment depending on actual project folder structure (project is inside `src/modules/BattleShips/` based on error messages)
