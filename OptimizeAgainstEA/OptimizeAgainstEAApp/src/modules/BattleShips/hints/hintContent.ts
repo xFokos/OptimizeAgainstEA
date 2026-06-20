@@ -48,7 +48,7 @@ export const HINTS: Record<HintId, HintDef> = {
   'selector.welcome': {
     title: 'Welcome to Battleships',
     body:
-      'In this game you try to find lowest point on an unexplored map. ' +
+      'In this game you try to find the lowest point on an unexplored map. ' +
       'Create your own map to get a feel on how they work.' +
       'Play your own, random or other player\'s maps, ' +
       'Or challenge yourself against an Evolutionary Algorithm. ' +
@@ -118,7 +118,7 @@ export const HINTS: Record<HintId, HintDef> = {
     title: 'Read the surface',
     body:
       'That number is how close your probe is to a minimum — lower means ' +
-      'closer. The colours around it show the slope: colder color -> better result. ' +
+      'closer. The colours around it show the slope: colder color leads to better result. ' +
       'Beware deceptive local minima that look ' +
       'good but aren\'t the true global one. There is only one true global minimum',
     style: 'modal',

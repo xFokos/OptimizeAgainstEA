@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { MapConfig } from '../../../types/map.ts';
 import { decodeMap, generateRandomMap } from '../../../engine/mapCodec';
+import { SavedMapsSidebar } from '../shared/SavedMapsSidebar';
 
 interface MapLoaderProps {
   onLoad: (config: MapConfig) => void;
@@ -26,6 +27,8 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
   };
 
   return (
+    <div className="loader-with-saved">
+    <SavedMapsSidebar />
     <div className="map-loader">
       <h2 className="map-loader__heading">Load a Map</h2>
       <p className="map-loader__desc">
@@ -61,6 +64,7 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
       <button className="btn btn--ghost btn--sm" onClick={onBack} style={{ marginTop: 8 }}>
         ← Back
       </button>
+    </div>
     </div>
   );
 }

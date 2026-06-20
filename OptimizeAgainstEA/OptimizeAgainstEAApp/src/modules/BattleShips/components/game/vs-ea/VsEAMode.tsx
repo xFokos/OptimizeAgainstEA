@@ -7,6 +7,7 @@ import { decodeMap, encodeMap, generateRandomMap } from '../../../engine/mapCode
 import { usePlaySession } from '../../../hooks/usePlaySession';
 import { useEARunner } from '../../../hooks/useEARunner';
 import { GameMap } from '../shared/GameMap';
+import { SavedMapsSidebar } from '../shared/SavedMapsSidebar';
 import { ProbeMarker } from '../play/ProbeMarker';
 import { WinOverlay } from '../play/WinOverlay';
 import { EASettingsPanel } from './EASettingsPanel';
@@ -83,6 +84,8 @@ function DualMapLoader({
   const canStart = s.playerCode.trim().length > 0 && s.eaCode.trim().length > 0;
 
   return (
+    <div className="loader-with-saved">
+    <SavedMapsSidebar />
     <div className="dual-loader">
       <h2 className="dual-loader__heading">Vs Evolutionary Algorithm</h2>
       <p className="dual-loader__desc">
@@ -163,6 +166,7 @@ function DualMapLoader({
           onClose={() => setShowSettings(false)}
         />
       )}
+    </div>
     </div>
   );
 }

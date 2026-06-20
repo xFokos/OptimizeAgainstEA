@@ -17,7 +17,7 @@ function generateId(): string {
 
 export function useGameMap(maxMinima: number = MAX_MINIMA) {
   const [minima, setMinima] = useState<Minimum[]>([]);
-  const [mapId] = useState(() => generateId());
+  const [mapId, setMapId] = useState(() => generateId());
 
   const addMinimum = useCallback((position: Coordinate) => {
     setMinima((prev) => {
@@ -55,8 +55,11 @@ export function useGameMap(maxMinima: number = MAX_MINIMA) {
     );
   }, []);
 
+  // Starting over means a brand-new map — mint a fresh id so each created
+  // map saves as its own entry (saveMap de-duplicates by id).
   const clearAll = useCallback(() => {
     setMinima([]);
+    setMapId(generateId());
   }, []);
 
   const getMapConfig = useCallback((): MapConfig => {

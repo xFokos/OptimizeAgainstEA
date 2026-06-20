@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import type { CreateStep, GameMode } from '../../../types/game.ts';
 import { useGameMap } from '../../../hooks/useGameMap';
+import { useSavedMaps } from '../../../hooks/useSavedMaps';
 import { useHints } from '../../../hints/HintContext';
 import type { HintId } from '../../../hints/hintContent';
 import { MinimumPlacer } from './MinimumPlacer';
@@ -28,6 +29,8 @@ const stepHint: Record<CreateStep, HintId> = {
 export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
   const [step, setStep] = useState<CreateStep>('place');
   const [copied, setCopied] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
   const { showHint, active, isSeen } = useHints();
 
   // Intro modal, shown once when the player first enters Create mode.
@@ -55,18 +58,31 @@ export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
     setGlobalMinimum,
     clearAll,
     getCode,
+    getMapConfig,
   } = useGameMap();
+
+  const { saveMap } = useSavedMaps();
 
   const selectedId = minima.find((m) => m.isGlobal)?.id ?? null;
 
+  // Code is generated on entering 'done' — prompt for a name before saving.
   const handleFinish = () => {
+    setNameDraft('');
+    setShowNameModal(true);
     setStep('done');
+  };
+
+  const handleSaveName = () => {
+    saveMap(getMapConfig(), nameDraft);
+    setShowNameModal(false);
   };
 
   const handleReset = () => {
     clearAll();
     setStep('place');
     setCopied(false);
+    setShowNameModal(false);
+    setNameDraft('');
   };
 
   const handleCopy = async (code: string) => {
@@ -152,6 +168,32 @@ export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
                 </div>
             );
         })()}
+
+        {showNameModal && (
+            <div className="modal-backdrop">
+              <div className="modal">
+                <span className="modal__tag">SAVE MAP</span>
+                <p className="modal__desc">
+                  Give your map a name so you can find it later in “Your Maps”.
+                  Leave it blank to keep the id #{mapId}.
+                </p>
+                <input
+                    className="map-loader__input"
+                    placeholder={`#${mapId}`}
+                    value={nameDraft}
+                    autoFocus
+                    spellCheck={false}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+                />
+                <div className="modal__actions">
+                  <button className="btn btn--primary" onClick={handleSaveName}>
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+        )}
       </div>
   );
 }
