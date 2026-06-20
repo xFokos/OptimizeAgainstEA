@@ -139,9 +139,11 @@ function DualMapLoader({
 
       <div className="dual-loader__actions">
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
-        <button className="btn btn--ghost btn--sm" onClick={() => setShowSettings((v) => !v)}>
-          ⚙ EA Settings
-        </button>
+        <HintPopover id="vsEa.settingsButton" placement="bottom" dismissAfter={6000}>
+          <button className="btn btn--ghost btn--sm" onClick={() => setShowSettings((v) => !v)}>
+            ⚙ EA Settings
+          </button>
+        </HintPopover>
         <button className="btn btn--primary" disabled={!canStart} onClick={handleStart}>
           Start →
         </button>

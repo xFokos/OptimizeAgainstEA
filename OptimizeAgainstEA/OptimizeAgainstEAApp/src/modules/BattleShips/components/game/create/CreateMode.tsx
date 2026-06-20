@@ -1,6 +1,8 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { CreateStep, GameMode } from '../../../types/game.ts';
 import { useGameMap } from '../../../hooks/useGameMap';
+import { useHints } from '../../../hints/HintContext';
+import type { HintId } from '../../../hints/hintContent';
 import { MinimumPlacer } from './MinimumPlacer';
 import { TuneValues } from './TuneValues';
 import { GlobalMinimumPicker } from './GlobalMinimumPicker';
@@ -18,9 +20,23 @@ const stepOrder: Record<CreateStep, number> = {
   done: 3,
 };
 
+// One-time hint shown the first time the player reaches each phase this session.
+const stepHint: Record<CreateStep, HintId> = {
+  place: 'create.place',
+  tune: 'create.tune',
+  'pick-global': 'create.pickGlobal',
+  done: 'create.done',
+};
+
 export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
   const [step, setStep] = useState<CreateStep>('place');
   const [copied, setCopied] = useState(false);
+  const { showHint } = useHints();
+
+  // Fire the phase's one-time hint whenever the player enters a new phase.
+  useEffect(() => {
+    showHint(stepHint[step]);
+  }, [step, showHint]);
 
   const {
     minima,

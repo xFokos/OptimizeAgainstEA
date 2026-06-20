@@ -857,6 +857,10 @@ html, body, #root {
 /* Anchored popover — sits next to a wrapped element */
 .hint-anchor { position: relative; display: inline-block; }
 
+/* When the popover wraps the EA settings drawer, the anchor must fill the
+   backdrop height so the panel keeps full height and the bubble centers. */
+.ea-settings-backdrop > .hint-anchor { display: flex; height: 100%; }
+
 .hint-popover {
 	position: absolute;
 	z-index: 150;

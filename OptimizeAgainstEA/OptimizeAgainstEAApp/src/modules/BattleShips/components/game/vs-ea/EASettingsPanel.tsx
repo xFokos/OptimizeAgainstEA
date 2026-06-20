@@ -4,6 +4,7 @@ import type {
     CrossoverStrategy,
     MutationStrategy,
 } from '../../../types/ea';
+import { HintPopover } from '../../../hints/HintPopover';
 
 interface EASettingsPanelProps {
     config: EAConfig;
@@ -86,7 +87,11 @@ export function EASettingsPanel({
     const fmtInt = (v: number) => String(Math.round(v));
 
     return (
-        <div className="ea-settings-backdrop" onClick={onClose}>
+        <div
+            className="ea-settings-backdrop"
+            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+        >
+          <HintPopover id="vsEa.settingsPanel" placement="left">
             <div className="ea-settings-panel" onClick={(e) => e.stopPropagation()}>
 
                 <div className="ea-settings-panel__header">
@@ -197,6 +202,7 @@ export function EASettingsPanel({
 
                 </div>
             </div>
+          </HintPopover>
         </div>
     );
 }

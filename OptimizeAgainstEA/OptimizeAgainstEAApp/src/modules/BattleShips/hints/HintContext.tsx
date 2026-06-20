@@ -21,6 +21,7 @@ export interface ActiveHint {
   body: string;
   style: 'modal' | 'toast';
   pauses: boolean;
+  sticky: boolean;
   actions: HintAction[];
 }
 
@@ -118,6 +119,7 @@ export function HintsProvider({ children }: { children: ReactNode }) {
       body: fillTemplate(def.body, opts?.vars),
       style: def.style,
       pauses: def.pauses ?? false,
+      sticky: def.sticky ?? false,
       actions: opts?.actions ?? [],
     });
   }, [enabled, seen, markSeen]);

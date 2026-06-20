@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { HintId } from './hintContent';
 import { HINTS } from './hintContent';
@@ -20,6 +20,8 @@ interface HintPopoverProps {
   vars?: Record<string, string>;
   /** Contextual buttons. Falls back to a single "Got it" button. */
   actions?: HintAction[];
+  /** If set, the bubble auto-dismisses itself after this many ms (like a toast). */
+  dismissAfter?: number;
 }
 
 /**
@@ -32,7 +34,7 @@ interface HintPopoverProps {
  *   </HintPopover>
  */
 export function HintPopover({
-  id, children, placement = 'right', show = true, vars, actions,
+  id, children, placement = 'right', show = true, vars, actions, dismissAfter,
 }: HintPopoverProps) {
   const { enabled, isSeen, markSeen } = useHints();
   const [dismissed, setDismissed] = useState(false);
@@ -45,6 +47,16 @@ export function HintPopover({
     if (def?.once) markSeen(id);
     setDismissed(true);
   };
+
+  // Optional toast-like self-dismiss once the bubble is actually on screen.
+  useEffect(() => {
+    if (!visible || !dismissAfter) return;
+    const t = setTimeout(() => {
+      if (def?.once) markSeen(id);
+      setDismissed(true);
+    }, dismissAfter);
+    return () => clearTimeout(t);
+  }, [visible, dismissAfter, def, id, markSeen]);
 
   const resolvedActions: HintAction[] = actions ?? [
     { label: 'Got it', onClick: close, variant: 'primary' },

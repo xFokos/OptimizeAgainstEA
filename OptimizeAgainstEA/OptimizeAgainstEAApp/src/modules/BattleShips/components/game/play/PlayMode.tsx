@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { MapConfig } from '../../../types/map';
 import { createMapProblem } from '../../../engine/functionSurface';
 import { decodeMap } from '../../../engine/mapCodec';
 import { usePlaySession } from '../../../hooks/usePlaySession';
+import { useHints } from '../../../hints/HintContext';
 import { GameMap } from '../shared/GameMap';
 import { MapLoader } from './MapLoader';
 import { ProbeMarker } from './ProbeMarker';
@@ -32,6 +33,17 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
   );
 
   const { probes, status, bestProbe, probe, reset } = usePlaySession(problem);
+  const { showHint } = useHints();
+
+  // Blocking welcome modal the first time the play screen appears (map loaded).
+  useEffect(() => {
+    if (mapConfig && problem) showHint('play.start');
+  }, [mapConfig, problem, showHint]);
+
+  // Blocking follow-up modal right after the player's first probe.
+  useEffect(() => {
+    if (probes.length === 1) showHint('play.firstProbe');
+  }, [probes.length, showHint]);
 
   const handleLoad      = (config: MapConfig) => { setMapConfig(config); reset(); setDismissedWin(false); };
   const handlePlayAgain = () => { setMapConfig(null); reset(); setDismissedWin(false); };

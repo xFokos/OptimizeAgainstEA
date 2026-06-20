@@ -13,7 +13,7 @@ export function HintLayer() {
   const { active, dismiss } = useHints();
 
   useEffect(() => {
-    if (!active || active.style !== 'toast') return;
+    if (!active || active.style !== 'toast' || active.sticky) return;
     const t = setTimeout(dismiss, TOAST_DURATION);
     return () => clearTimeout(t);
   }, [active, dismiss]);
