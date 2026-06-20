@@ -4,7 +4,6 @@ import { useGameMap } from '../../../hooks/useGameMap';
 import { useHints } from '../../../hints/HintContext';
 import type { HintId } from '../../../hints/hintContent';
 import { MinimumPlacer } from './MinimumPlacer';
-import { TuneValues } from './TuneValues';
 import { GlobalMinimumPicker } from './GlobalMinimumPicker';
 
 interface CreateModeProps {
@@ -15,15 +14,13 @@ interface CreateModeProps {
 
 const stepOrder: Record<CreateStep, number> = {
   place: 0,
-  tune: 1,
-  'pick-global': 2,
-  done: 3,
+  'pick-global': 1,
+  done: 2,
 };
 
 // One-time hint shown the first time the player reaches each phase this session.
 const stepHint: Record<CreateStep, HintId> = {
   place: 'create.place',
-  tune: 'create.tune',
   'pick-global': 'create.pickGlobal',
   done: 'create.done',
 };
@@ -31,12 +28,20 @@ const stepHint: Record<CreateStep, HintId> = {
 export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
   const [step, setStep] = useState<CreateStep>('place');
   const [copied, setCopied] = useState(false);
-  const { showHint } = useHints();
+  const { showHint, active, isSeen } = useHints();
+
+  // Intro modal, shown once when the player first enters Create mode.
+  useEffect(() => {
+    showHint('create.start');
+  }, [showHint]);
 
   // Fire the phase's one-time hint whenever the player enters a new phase.
+  // On the initial 'place' phase, hold off until the intro modal has actually
+  // been dismissed — otherwise the toast would clobber the (single-slot) modal.
   useEffect(() => {
+    if (step === 'place' && (!isSeen('create.start') || active?.id === 'create.start')) return;
     showHint(stepHint[step]);
-  }, [step, showHint]);
+  }, [step, active, isSeen, showHint]);
 
   const {
     minima,
@@ -48,7 +53,6 @@ export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
     addMinimum,
     removeMinimum,
     setGlobalMinimum,
-    setFloor,
     clearAll,
     getCode,
   } = useGameMap();
@@ -78,7 +82,7 @@ export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
             ← Back
           </button>
           <div className="step-indicator">
-            {(['place', 'tune', 'pick-global', 'done'] as const).map((s, i) => (
+            {(['place', 'pick-global', 'done'] as const).map((s, i) => (
               <Fragment key={s}>
                 {i > 0 && <span className="step-pip__line" />}
                 <span className={`step-pip ${stepOrder[step] >= i ? 'step-pip--active' : ''}`} />
@@ -106,15 +110,6 @@ export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
                 isFull={isFull}
                 onPlace={addMinimum}
                 onRemove={removeMinimum}
-                onNext={() => setStep('tune')}
-            />
-        )}
-
-        {step === 'tune' && (
-            <TuneValues
-                minima={minima}
-                onSetFloor={setFloor}
-                onBack={() => setStep('place')}
                 onNext={() => setStep('pick-global')}
             />
         )}
@@ -124,7 +119,7 @@ export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
                 minima={minima}
                 selectedId={selectedId}
                 onSelect={setGlobalMinimum}
-                onBack={() => setStep('tune')}
+                onBack={() => setStep('place')}
                 onFinish={handleFinish}
             />
         )}

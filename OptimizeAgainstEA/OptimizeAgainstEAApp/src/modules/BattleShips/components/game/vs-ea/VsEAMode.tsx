@@ -16,6 +16,7 @@ import { EAReplayOverlay } from './EAReplayOverlay';
 import { EAWinOverlay } from './EAWinOverlay';
 import { GenerationReplayOverlay } from './GenerationReplayOverlay';
 import { HintPopover } from '../../../hints/HintPopover';
+import { useHints } from '../../../hints/HintContext';
 
 interface VsEAModeProps {
   onBack: () => void;
@@ -36,16 +37,18 @@ interface DualLoaderState {
 interface DualLoaderProps {
   eaConfig:             EAConfig;
   gensPerProbe:         number;
+  revealRadius:         number;
   initialCode?:         string;
   onConfigChange:       (patch: Partial<EAConfig>) => void;
   onGensPerProbeChange: (n: number) => void;
+  onRevealRadiusChange: (r: number) => void;
   onStart:              (playerMap: MapConfig, eaMap: MapConfig) => void;
   onBack:               () => void;
 }
 
 function DualMapLoader({
-                         eaConfig, gensPerProbe, initialCode, onConfigChange, onGensPerProbeChange,
-                         onStart, onBack,
+                         eaConfig, gensPerProbe, revealRadius, initialCode, onConfigChange,
+                         onGensPerProbeChange, onRevealRadiusChange, onStart, onBack,
                        }: DualLoaderProps) {
   const [s, setS] = useState<DualLoaderState>({
     playerCode: initialCode ?? '', eaCode: initialCode ?? '', playerErr: '', eaErr: '', generatedCode: '',
@@ -153,8 +156,10 @@ function DualMapLoader({
         <EASettingsPanel
           config={eaConfig}
           gensPerProbe={gensPerProbe}
+          revealRadius={revealRadius}
           onConfigChange={onConfigChange}
           onGensPerProbeChange={onGensPerProbeChange}
+          onRevealRadiusChange={onRevealRadiusChange}
           onClose={() => setShowSettings(false)}
         />
       )}
@@ -169,6 +174,7 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
   const [eaMap,        setEaMap]        = useState<MapConfig | null>(null);
   const [eaConfig,     setEaConfig]     = useState<EAConfig>(DEFAULT_EA_CONFIG);
   const [gensPerProbe, setGensPerProbe] = useState(1);
+  const [revealRadius, setRevealRadius] = useState(0.05);
   const [hoveredIndex, setHoveredIndex] = useState(-1);
   const [showReplay,      setShowReplay]      = useState(false);
   const [showEAWin,       setShowEAWin]       = useState(false);
@@ -182,6 +188,7 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
 
   const play = usePlaySession(playerProblem);
   const ea   = useEARunner();
+  const { showHint } = useHints();
 
   const handleStart = (pm: MapConfig, em: MapConfig) => {
     setPlayerMap(pm);
@@ -191,8 +198,19 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
   };
 
   useEffect(() => {
-    if (ea.status === 'solved') setShowEAWin(true);
-  }, [ea.status]);
+    if (playerMap && eaMap && play.probes.length === 0) showHint('vsEa.start');
+  }, [playerMap, eaMap, play.probes.length, showHint]);
+
+  useEffect(() => {
+    if (ea.status === 'solved') {
+      setShowEAWin(true);
+      showHint('vsEa.eaWon');
+    }
+  }, [ea.status, showHint]);
+
+  useEffect(() => {
+    if (play.status === 'won') showHint('vsEa.playerWon');
+  }, [play.status, showHint]);
 
   const handleReset = () => {
     play.reset();
@@ -240,9 +258,11 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
       <DualMapLoader
         eaConfig={eaConfig}
         gensPerProbe={gensPerProbe}
+        revealRadius={revealRadius}
         initialCode={initialCode}
         onConfigChange={handleConfigChange}
         onGensPerProbeChange={setGensPerProbe}
+        onRevealRadiusChange={setRevealRadius}
         onStart={handleStart}
         onBack={onBack}
       />
@@ -283,6 +303,7 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
             <GameMap
               evaluateFn={playerProblem?.evaluate}
               revealPoints={revealPoints}
+              heatmapConfig={{ revealRadius }}
               onMapClick={!showOverlay ? handleProbe : undefined}
             >
               {play.probes.map((p, i) => (
@@ -345,13 +366,19 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
                   </button>
                 </HintPopover>
               )}
-              {ea.status === 'solved' && ea.generations.length > 0 && (
-                <button
-                  className="btn btn--ghost btn--sm"
-                  onClick={() => setShowGenReplay(true)}
+              {ea.generations.length > 0 && (
+                <HintPopover
+                  id="vsEa.eaMovementButton"
+                  placement="top"
+                  show={play.probes.length >= 3 && !playerWon && !eaWon}
                 >
-                  ▶ Watch Full Replay
-                </button>
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => setShowGenReplay(true)}
+                  >
+                    ▶ Watch EA Movement
+                  </button>
+                </HintPopover>
               )}
             </div>
           )}

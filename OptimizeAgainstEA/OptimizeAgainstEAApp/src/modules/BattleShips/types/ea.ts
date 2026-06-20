@@ -31,6 +31,8 @@ export interface EAConfig {
   mutationRate:     number;
   mutationStrength: number;
   mutationDecay:    number;
+  /** Fraction of the population that must sit inside the win radius for the EA to count as solved. */
+  winPopulationFraction: number;
   selectionStrategy:  SelectionStrategy;
   crossoverStrategy:  CrossoverStrategy;
   mutationStrategy:   MutationStrategy;
@@ -47,6 +49,7 @@ export const DEFAULT_EA_CONFIG: EAConfig = {
   mutationRate:       0.3,
   mutationStrength:   0.25,
   mutationDecay:      0.97,
+  winPopulationFraction: 0.10,
   selectionStrategy:  'tournament',
   crossoverStrategy:  'arithmetic',
   mutationStrategy:   'gaussian',

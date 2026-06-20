@@ -9,8 +9,10 @@ import { HintPopover } from '../../../hints/HintPopover';
 interface EASettingsPanelProps {
     config: EAConfig;
     gensPerProbe: number;
+    revealRadius: number;
     onConfigChange: (patch: Partial<EAConfig>) => void;
     onGensPerProbeChange: (n: number) => void;
+    onRevealRadiusChange: (r: number) => void;
     onClose: () => void;
 }
 
@@ -78,13 +80,16 @@ function Divider({ label }: { label: string }) {
 export function EASettingsPanel({
                                     config,
                                     gensPerProbe,
+                                    revealRadius,
                                     onConfigChange,
                                     onGensPerProbeChange,
+                                    onRevealRadiusChange,
                                     onClose,
                                 }: EASettingsPanelProps) {
     const set = (patch: Partial<EAConfig>) => onConfigChange(patch);
     const fmt = (decimals: number) => (v: number) => v.toFixed(decimals);
     const fmtInt = (v: number) => String(Math.round(v));
+    const fmtPct = (v: number) => `${Math.round(v * 100)}%`;
 
     return (
         <div
@@ -109,6 +114,22 @@ export function EASettingsPanel({
                         min={1} max={20} step={1}
                         format={fmtInt}
                         onChange={onGensPerProbeChange}
+                    />
+
+                    <SliderRow
+                        label="Population in win radius to solve"
+                        value={config.winPopulationFraction}
+                        min={0.05} max={0.5} step={0.05}
+                        format={fmtPct}
+                        onChange={(v) => set({ winPopulationFraction: v })}
+                    />
+
+                    <SliderRow
+                        label="Probe reveal radius"
+                        value={revealRadius}
+                        min={0.02} max={0.25} step={0.01}
+                        format={fmt(2)}
+                        onChange={onRevealRadiusChange}
                     />
 
                     <Divider label="Population" />

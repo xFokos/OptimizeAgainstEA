@@ -130,7 +130,7 @@ ea.stop(); ea.reset();
 | `functionSurface.ts` | `DISTANCE_SCALE` | `0.25` | How fast values rise with distance |
 | `functionSurface.ts` | `LOCAL_MIN_FLOOR_MIN` | `0.08` | Min floor for local minima |
 | `functionSurface.ts` | `LOCAL_MIN_FLOOR_MAX` | `0.25` | Max floor for local minima |
-| `evolutionaryAlgorithm.ts` | `WIN_POPULATION_FRACTION` | `0.10` | % of pop needed in win radius |
+| `evolutionaryAlgorithm.ts` | `WIN_POPULATION_FRACTION` | `0.10` | Fallback % of pop in win radius (now per-race via `EAConfig.winPopulationFraction`) |
 | `FitnessChart.tsx` | `W`, `H_FULL`, `H_COMPACT` | `400`, `140`, `90` | Chart aspect ratio |
 | `ContourLayer.tsx` | `DEFAULT_CONTOUR_CONFIG` | see file | lineCount, spacingExponent, resolution |
 | `HeatmapLayer.tsx` | `DEFAULT_HEATMAP_CONFIG` | see file | resolution, opacity, valueExponent |
@@ -152,12 +152,13 @@ crossoverRate:    0.8
 mutationRate:     0.3
 mutationStrength: 0.25
 mutationDecay:    0.97      // strength × decay each generation
+winPopulationFraction: 0.10 // % of pop in win radius needed to count as solved
 selectionStrategy: 'tournament'   // | 'roulette' | 'elitist'
 crossoverStrategy: 'arithmetic'   // | 'uniform' | 'singlePoint'
 mutationStrategy:  'gaussian'     // | 'uniform' | 'cauchy'
 ```
 
-All of these are exposed in the **EA Settings panel** (slide-in drawer on the DualMapLoader screen in Vs EA mode). `gensPerProbe` is also there.
+All of these are exposed in the **EA Settings panel** (slide-in drawer on the DualMapLoader screen in Vs EA mode). Two non-`EAConfig` values are threaded into the panel separately (like `gensPerProbe`): `gensPerProbe`, and `revealRadius` — the player map's probe reveal radius (`HeatmapConfig.revealRadius`, default `0.05`), applied to the player's `GameMap` during the race.
 
 ---
 

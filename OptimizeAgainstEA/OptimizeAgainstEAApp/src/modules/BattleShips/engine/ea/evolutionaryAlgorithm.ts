@@ -20,6 +20,9 @@ import {
  *               achieved quickly once the EA has genuinely converged.
  * Raise toward 0.25 for a stricter win condition.
  * Lower toward 0.05 for a looser one.
+ *
+ * This is now configurable per-race via `EAConfig.winPopulationFraction`;
+ * the constant below is only a fallback for configs missing the field.
  */
 const WIN_POPULATION_FRACTION = 0.10;
 
@@ -146,7 +149,8 @@ export function createEAStepper(
       const generation = summarise(population, genIndex);
 
       const eliteCount = Math.max(1, Math.floor(config.populationSize * 0.05));
-      const threshold  = Math.max(2, Math.ceil(config.populationSize * WIN_POPULATION_FRACTION));
+      const winFraction = config.winPopulationFraction ?? WIN_POPULATION_FRACTION;
+      const threshold  = Math.max(2, Math.ceil(config.populationSize * winFraction));
       const { next: nextPop, record } = breedNext(population, config, genIndex, select, crossover, mutate, problem, rng);
       const replay     = buildReplayFrames(population, nextPop, eliteCount, config, threshold, record);
       population = nextPop;

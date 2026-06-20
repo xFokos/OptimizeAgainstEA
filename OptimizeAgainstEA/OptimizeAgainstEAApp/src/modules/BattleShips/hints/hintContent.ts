@@ -21,15 +21,19 @@
 
 export type HintId =
   | 'selector.welcome'
+  | 'create.start'
   | 'create.place'
-  | 'create.tune'
   | 'create.pickGlobal'
   | 'create.done'
   | 'play.start'
   | 'play.firstProbe'
+  | 'vsEa.start'
   | 'vsEa.settingsButton'
   | 'vsEa.settingsPanel'
-  | 'vsEa.replayButton';
+  | 'vsEa.replayButton'
+  | 'vsEa.eaMovementButton'
+  | 'vsEa.playerWon'
+  | 'vsEa.eaWon';
 
 export interface HintDef {
   title?: string;
@@ -44,39 +48,41 @@ export const HINTS: Record<HintId, HintDef> = {
   'selector.welcome': {
     title: 'Welcome to Battleships',
     body:
-      'Like the board game — but for optimization. Pick a mode below: ' +
-      'Create your own map, Play to hunt the hidden global minimum, or race ' +
-      'an evolutionary algorithm in Vs EA. New here? Leave these hints on; ' +
-      'you can toggle them anytime with the button in the top-right corner.',
+      'In this game you try to find lowest point on an unexplored map. ' +
+      'Create your own map to get a feel on how they work.' +
+      'Play your own, random or other player\'s maps, ' +
+      'Or challenge yourself against an Evolutionary Algorithm. ' +
+      'You can Toggle hints anytime in the top right corner',
     style: 'modal',
     once: true,
+  },
+
+  // ── Create mode: intro modal, then one toast per phase ───────────────────
+  'create.start': {
+    title: 'Build a map',
+    body:
+      'You build your own map step by step here. ' +
+      'Start by placing minima, scatter strategically to trap players. ' +
+      'Select the global minimum, which is the only winning spot. ' +
+      'Once you are done you will get a code to share and play your map.',
+    style: 'modal',
+    once: true,
+    pauses: true,
   },
 
   // ── Create mode: one per phase, fired once on first entry this session ────
   'create.place': {
     title: 'Step 1 — Place Minima',
     body:
-      'Click empty map space to drop a local minimum; click a dot to remove ' +
-      'it. Scatter a few decoys away from where you\'ll hide the real one — ' +
+      'Scatter a few decoys away from where you\'ll hide the real one — ' +
       'the more tempting the traps, the harder the map. You need at least two.',
     style: 'toast',
     once: true,
     sticky: true,
   },
 
-  'create.tune': {
-    title: 'Step 2 — Tune Depths',
-    body:
-      'A minimum\'s depth is the value a probe reads at its center. Make a ' +
-      'decoy almost as deep as the global and it becomes a convincing trap. ' +
-      'Any dot you leave alone keeps a random depth.',
-    style: 'toast',
-    once: true,
-    sticky: true,
-  },
-
   'create.pickGlobal': {
-    title: 'Step 3 — Pick the Global Minimum',
+    title: 'Step 2 — Pick the Global Minimum',
     body:
       'Click the dot that wins the game — the true lowest point players must ' +
       'find. Tucking it behind a cluster of deep decoys makes for a sneaky map.',
@@ -89,7 +95,7 @@ export const HINTS: Record<HintId, HintDef> = {
     title: 'Your map is ready',
     body:
       'Copy the code to share your map, or jump straight into Play or Vs EA ' +
-      'to try it yourself. Hit "Create Another" to build a new one.',
+      'to try it yourself. ',
     style: 'toast',
     once: true,
     sticky: true,
@@ -102,7 +108,7 @@ export const HINTS: Record<HintId, HintDef> = {
       'Somewhere on this map is a hidden global minimum. Click anywhere to ' +
       'drop a probe — it reveals the surface around that spot and reads a ' +
       'value. Lower is better: 0 means you\'ve found it. Use the readings to ' +
-      'close in, and try to win in as few probes as possible.',
+      'close in, and try to win in as few probes as possible. ',
     style: 'modal',
     once: true,
     pauses: true,
@@ -112,9 +118,22 @@ export const HINTS: Record<HintId, HintDef> = {
     title: 'Read the surface',
     body:
       'That number is how close your probe is to a minimum — lower means ' +
-      'closer. The colours around it show the slope: follow them downhill ' +
-      'toward the deepest point. Beware deceptive local minima that look ' +
-      'good but aren\'t the true global one.',
+      'closer. The colours around it show the slope: colder color -> better result. ' +
+      'Beware deceptive local minima that look ' +
+      'good but aren\'t the true global one. There is only one true global minimum',
+    style: 'modal',
+    once: true,
+    pauses: true,
+  },
+
+  // ── Vs EA race: blocking modal fired once when the race screen loads ──────
+  'vsEa.start': {
+    title: 'Playing against the Algorithm',
+    body:
+      'It works the same as play mode — but now you\'re racing an evolutionary algorithm. ' +
+      'Each probe you drop lets the EA evolve its ' +
+      'population a step on its own map. Find the minimum in fewer moves than ' +
+      'it takes the EA to converge, and you win. ',
     style: 'modal',
     once: true,
     pauses: true,
@@ -124,18 +143,17 @@ export const HINTS: Record<HintId, HintDef> = {
   'vsEa.settingsButton': {
     title: 'Tune the EA',
     body:
-      'Open this to change the algorithm — population size, operators, and ' +
-      'how many generations it evolves per move you make.',
+      'Open this to change the algorithm. ' +
+      'Experiment with different settings and see how it makes a difference.',
     style: 'toast',
     once: true,
   },
 
   'vsEa.settingsPanel': {
-    title: 'Your opponent\'s brain',
+    title: 'EA Settings',
     body:
-      'These settings shape how the EA searches. Stronger operators and more ' +
-      'generations per probe make it a tougher rival. Tweak, then close and ' +
-      'hit Start to race.',
+      'These settings shape how the EA searches. ' +
+      'Have fun experimenting with the values here and see how it changes the solving process.',
     style: 'toast',
     once: true,
   },
@@ -145,9 +163,41 @@ export const HINTS: Record<HintId, HintDef> = {
   'vsEa.replayButton': {
     title: 'See what the EA did',
     body:
-      'After each move you make, the algorithm breeds a new generation. ' +
-      'Click here to replay its last step move-by-move.',
+      'The EA has also made its move. To see how it evolves from ' +
+      'its current state to the next one you can always press this button',
     style: 'toast',
+    once: true,
+  },
+
+  // Anchored coachmark — pinned to the "Watch EA Movement" button after a few
+  // moves. Non-blocking; stays until the player dismisses it (see HintPopover).
+  'vsEa.eaMovementButton': {
+    title: 'Watch the EA move',
+    body:
+      'You\'ve made a few moves now and so did the EA. To watch' +
+      ' how all the probes shifted over all generations you can watch the replay here ',
+    style: 'toast',
+    once: true,
+  },
+
+  // ── End-of-race modals (one per outcome) ──────────────────────────────────
+  'vsEa.playerWon': {
+    title: 'You beat the EA!',
+    body:
+      'Despite the odds being against you, you reached the global minimum first. ' +
+      'Can you keep it up though? Try adjusting the algorithm and see if you can keep beating it!',
+    style: 'modal',
+    once: true,
+  },
+
+  'vsEa.eaWon': {
+    title: 'The EA got there first',
+    body:
+      'The algorithm found the global minimum first. Don\'t worry about it, ' +
+      'its tools are far more powerful than yours which makes them great for optimization' +
+      'More importantly, did you understand how it got there in the first place? ' +
+      'You can watch the replay as well as changing the settings and trying again',
+    style: 'modal',
     once: true,
   },
 };

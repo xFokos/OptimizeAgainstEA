@@ -26,6 +26,7 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
   const [mapConfig,    setMapConfig]    = useState<MapConfig | null>(() => decodeOrNull(initialCode));
   const [hoveredIndex, setHoveredIndex] = useState(-1);
   const [dismissedWin, setDismissedWin] = useState(false);
+  const [revealRadius, setRevealRadius] = useState(0.05);
 
   const problem = useMemo(
     () => (mapConfig ? createMapProblem(mapConfig) : null),
@@ -102,6 +103,19 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
               : status === 'playing' ? 'Lower values are closer to a minimum.'
                 :                        'Global minimum found!'}
           </div>
+
+          <div className="play-sidebar__section">
+            <div className="play-sidebar__label">
+              Reveal radius <span className="play-sidebar__value">{revealRadius.toFixed(2)}</span>
+            </div>
+            <input
+              type="range"
+              className="ea-slider"
+              min={0.02} max={0.25} step={0.01}
+              value={revealRadius}
+              onChange={(e) => setRevealRadius(parseFloat(e.target.value))}
+            />
+          </div>
         </div>
 
         {/* Map */}
@@ -109,6 +123,7 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
           <GameMap
             evaluateFn={problem.evaluate}
             revealPoints={revealPoints}
+            heatmapConfig={{ revealRadius }}
             onMapClick={!showOverlay ? probe : undefined}
           >
             {probes.map((p, i) => (
