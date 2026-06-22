@@ -27,14 +27,14 @@ export function DNADisplay() {
 
 const styles: Record<string, React.CSSProperties> = {
     panel: {
-        width:        '260px',
-        background:   '#111',
-        color:        '#fff',
-        fontFamily:   'monospace',
-        padding:      '10px',
-        borderLeft:   '1px solid #333',
-        height:       '100%',
-        overflowY:    'auto',
-        boxSizing:    'border-box',
+        background: 'transparent',
+        color:      '#fff',
+        fontFamily: 'monospace',
+        fontSize:   '11px',
+        padding:    '0',
+        height:     '100%',
+        overflowY:  'auto',
+        boxSizing:  'border-box',
+        wordBreak:  'break-all',
     },
 };

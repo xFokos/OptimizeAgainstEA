@@ -82,6 +82,7 @@ export interface RoundStats {
     dodgedBullets: number; // Bullets die nah vorbeigingen (<40px)
     distanceSum:   number; // Summe aller Distanzen (für Durchschnitt)
     distanceSamples: number;
+    dodgedBulletIds:  string[];
 }
 
 export const emptyStats = (): RoundStats => ({
@@ -92,6 +93,7 @@ export const emptyStats = (): RoundStats => ({
     dodgedBullets:   0,
     distanceSum:     0,
     distanceSamples: 0,
+    dodgedBulletIds:  [],
 });
 
 // ---- Game State ----

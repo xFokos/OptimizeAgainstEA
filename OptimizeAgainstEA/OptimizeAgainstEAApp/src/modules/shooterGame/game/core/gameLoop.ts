@@ -103,23 +103,24 @@ export function update(
     newStats.distanceSamples = (agent.stats.distanceSamples ?? 0) + 1;
 
     newBullets = newBullets.filter(bullet => {
-        // Agent-Bullet trifft Spieler
         if (bullet.ownerId === 'agent') {
             if (vec.distance(bullet.position, player.position) < GAME_CONFIG.PLAYER_RADIUS + bullet.radius) {
-                newStats.hitsLanded = newStats.hitsLanded + 1;
-                return false; // Bullet entfernen
+                newStats.hitsLanded++;
+                return false;
             }
         }
 
-        // Spieler-Bullet trifft Agent
         if (bullet.ownerId === 'player') {
             if (vec.distance(bullet.position, agent.position) < GAME_CONFIG.AGENT_RADIUS + bullet.radius) {
-                newStats.hitsReceived = newStats.hitsReceived + 1;
+                newStats.hitsReceived++;
                 return false;
             }
-            // Near-miss: Bullet geht nah an Agent vorbei ohne zu treffen
-            if (vec.distance(bullet.position, agent.position) < GAME_CONFIG.NEAR_MISS_RADIUS) {
-                newStats.dodgedBullets = newStats.dodgedBullets + 1;
+            if (
+                !newStats.dodgedBulletIds.includes(bullet.id) &&
+                vec.distance(bullet.position, agent.position) < GAME_CONFIG.NEAR_MISS_RADIUS
+            ) {
+                newStats.dodgedBullets++;
+                newStats.dodgedBulletIds = [...newStats.dodgedBulletIds, bullet.id];
             }
         }
 
