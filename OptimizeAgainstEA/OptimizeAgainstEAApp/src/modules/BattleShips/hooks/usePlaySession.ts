@@ -9,13 +9,15 @@ export function usePlaySession(problem: ProblemInstance | null) {
 
   const probe = useCallback(
     (position: Coordinate) => {
-      if (!problem || status === 'won') return;
+      if (!problem) return;
 
       const value = problem.evaluate(position.x, position.y);
       const win = problem.isWin(position.x, position.y);
 
       const result: ProbeResult = { position, value, isWin: win };
       setProbes((prev) => [...prev, result]);
+      // Once won, the status stays 'won' — but probes still register so the
+      // player can keep exploring the map after dismissing the win overlay.
       if (win) setStatus('won');
       else if (status === 'idle') setStatus('playing');
     },

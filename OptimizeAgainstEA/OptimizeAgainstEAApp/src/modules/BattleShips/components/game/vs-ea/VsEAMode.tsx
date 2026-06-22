@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type { MapConfig, Coordinate } from '../../../types/map';
 import type { EAConfig} from '../../../types/ea';
 import { DEFAULT_EA_CONFIG } from '../../../types/ea';
@@ -15,6 +15,7 @@ import { FitnessChart } from '../shared/FitnessChart';
 import type { FitnessSeries } from '../shared/FitnessChart';
 import { EAReplayOverlay } from './EAReplayOverlay';
 import { EAWinOverlay } from './EAWinOverlay';
+import { SecondSolveOverlay } from './SecondSolveOverlay';
 import { GenerationReplayOverlay } from './GenerationReplayOverlay';
 import { HintPopover } from '../../../hints/HintPopover';
 import { useHints } from '../../../hints/HintContext';
@@ -185,6 +186,13 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
   const [eaWinPending,    setEaWinPending]    = useState(false);
   const [showGenReplay,   setShowGenReplay]   = useState(false);
   const [dismissedWin,    setDismissedWin]    = useState(false);
+  // The first side to finish locks the race result; if the other side later
+  // also reaches the optimum, it surfaces a separate "caught up" popup.
+  const [winner,          setWinner]          = useState<'player' | 'ea' | null>(null);
+  const [secondSolver,    setSecondSolver]    = useState<'player' | 'ea' | null>(null);
+  // After winning the whole map is revealed; this toggles that reveal on/off.
+  const [solutionMapVisible, setSolutionMapVisible] = useState(true);
+  const winnerRef = useRef<'player' | 'ea' | null>(null);
 
   const playerProblem = useMemo(
     () => (playerMap ? createMapProblem(playerMap) : null),
@@ -206,15 +214,27 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
     if (playerMap && eaMap && play.probes.length === 0) showHint('vsEa.start');
   }, [playerMap, eaMap, play.probes.length, showHint]);
 
+  // Claims the win for `who` unless the other side already finished. Uses a ref
+  // so the lock is read/written synchronously within a single render pass.
+  const claimWin = useCallback((who: 'player' | 'ea') => {
+    if (winnerRef.current) return false;
+    winnerRef.current = who;
+    setWinner(who);
+    return true;
+  }, []);
+
   // When the EA solves, show the explanatory hint first and queue the win card.
   // showHint no-ops if hints are disabled or the hint was already seen — in
   // that case `active` never becomes 'vsEa.eaWon' and the win card shows at once.
   useEffect(() => {
-    if (ea.status === 'solved') {
+    if (ea.status !== 'solved') return;
+    if (claimWin('ea')) {
       setEaWinPending(true);
       showHint('vsEa.eaWon');
+    } else if (winnerRef.current === 'player') {
+      setSecondSolver('ea');   // player won the race, EA caught up afterwards
     }
-  }, [ea.status, showHint]);
+  }, [ea.status, showHint, claimWin]);
 
   // Reveal the win overlay once the eaWon hint is gone (dismissed or hints off).
   useEffect(() => {
@@ -225,8 +245,13 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
   }, [eaWinPending, active]);
 
   useEffect(() => {
-    if (play.status === 'won') showHint('vsEa.playerWon');
-  }, [play.status, showHint]);
+    if (play.status !== 'won') return;
+    if (claimWin('player')) {
+      showHint('vsEa.playerWon');
+    } else if (winnerRef.current === 'ea') {
+      setSecondSolver('player');   // EA won the race, player caught up afterwards
+    }
+  }, [play.status, showHint, claimWin]);
 
   const handleReset = () => {
     play.reset();
@@ -239,6 +264,10 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
     setEaWinPending(false);
     setShowGenReplay(false);
     setDismissedWin(false);
+    setWinner(null);
+    setSecondSolver(null);
+    setSolutionMapVisible(true);
+    winnerRef.current = null;
   };
 
   const handleConfigChange = useCallback((patch: Partial<EAConfig>) => {
@@ -286,10 +315,18 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
     );
   }
 
-  const playerWon    = play.status === 'won';
-  const eaWon        = ea.status === 'solved';
+  // Outcome is driven by the locked `winner` so the loser's later win is ignored.
+  const playerWon    = winner === 'player';
+  const eaWon        = winner === 'ea';
   const showOverlay  = playerWon && !dismissedWin;
-  const revealPoints = playerWon ? undefined : play.probes.map((p) => p.position);
+  // True whenever the player has reached the optimum, regardless of who won the
+  // race (covers both winning and catching up after the EA won).
+  const playerSolved = play.status === 'won';
+  // `undefined` reveals the whole map (once the player has solved it); otherwise
+  // only circles around placed probes. The player can toggle the reveal off.
+  const revealPoints = playerSolved && solutionMapVisible
+    ? undefined
+    : play.probes.map((p) => p.position);
 
   return (
     <div className="vsea-race">
@@ -297,9 +334,8 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
         <button className="btn btn--ghost btn--sm" onClick={handleReset}>← Change Maps</button>
         <div className="vsea-race__title">
           {!playerWon && !eaWon && 'Race in progress'}
-          {playerWon  && !eaWon && '🏆 You won!'}
-          {eaWon      && !playerWon && '🤖 EA won!'}
-          {playerWon  && eaWon  && 'Both solved!'}
+          {playerWon  && '🏆 You won!'}
+          {eaWon      && '🤖 EA won!'}
         </div>
         <button className="btn btn--ghost btn--sm btn--danger" onClick={handleReset}>Reset</button>
       </div>
@@ -314,6 +350,14 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
               {play.probes.length} probe{play.probes.length !== 1 ? 's' : ''}
               {play.bestProbe && ` · best ${play.bestProbe.value.toFixed(4)}`}
             </span>
+            {playerSolved && (
+              <button
+                className="btn btn--ghost btn--sm"
+                onClick={() => setSolutionMapVisible((v) => !v)}
+              >
+                {solutionMapVisible ? 'Hide Map' : 'Show Map'}
+              </button>
+            )}
           </div>
 
           <div style={{ position: 'relative' }}>
@@ -426,6 +470,13 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
           generations={ea.generations}
           eaMap={eaMap}
           onClose={() => setShowGenReplay(false)}
+        />
+      )}
+
+      {secondSolver && (
+        <SecondSolveOverlay
+          who={secondSolver}
+          onClose={() => setSecondSolver(null)}
         />
       )}
     </div>
