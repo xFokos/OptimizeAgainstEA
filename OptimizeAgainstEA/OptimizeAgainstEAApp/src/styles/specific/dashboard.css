@@ -1,187 +1,153 @@
-/* ---------- Layout ---------- */
-
+/* ---- Page grid ---- */
 .layout {
     display: grid;
-    grid-template-columns: 240px 1fr;
-    height: 100vh;
-    background: radial-gradient(circle at top, #1f2f38, #0b141a);
-    color: #e6edf3;
-    font-family: system-ui, sans-serif;
+    grid-template-columns: clamp(200px, 18%, 260px) 1fr;
+    height:  100vh;
+    background: radial-gradient(circle at top, var(--bg-light), var(--bg));
+    color:   var(--text);
 }
 
-/* ---------- Sidebar ---------- */
-
-.sidebar-header {
-    flex-shrink: 0;
-}
+/* ---- Sidebar ---- */
 .sidebar {
-    display: flex;
+    display:        flex;
     flex-direction: column;
-    height: 100%;
-    background: linear-gradient(180deg, #14222c, #0b141a);
-    border-right: 1px solid #2a3a44;
-    padding: 24px 16px;
-}
-.sidebar-menu {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    height:         100%;
+    background:     linear-gradient(180deg, #14222c, var(--bg));
+    border-right:   1px solid var(--border-strong);
+    padding:        var(--sp-6) var(--sp-4);
+    gap:            var(--sp-2);
 }
 
 .sidebar-title {
-    font-size: 14px;
+    font-size:      11px;
     text-transform: uppercase;
-    opacity: 0.7;
-    margin-bottom: 24px;
+    letter-spacing: 0.08em;
+    color:          var(--text-muted);
+    margin-bottom:  var(--sp-4);
+}
+
+.sidebar-menu {
+    flex:           1;
+    display:        flex;
+    flex-direction: column;
+    justify-content: center;
+    gap:            var(--sp-1);
 }
 
 .menu-item {
-    width: 100%;
-    background: none;
-    border: none;
-    color: #cfd8dc;
-    padding: 12px 16px;
-    margin-bottom: 8px;
-    text-align: left;
-    border-radius: 8px;
-    cursor: pointer;
+    width:         100%;
+    background:    none;
+    border:        none;
+    border-left:   3px solid transparent;
+    border-radius: var(--r-md);
+    color:         var(--text-dim);
+    padding:       12px var(--sp-4);
+    text-align:    left;
+    font-size:     14px;
+    letter-spacing: 0.02em;
+    transition:    background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .menu-item:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--surface-hover);
+    color:      var(--text);
+    border-color: transparent;
 }
 
 .menu-item.active {
-    background: rgba(255, 255, 255, 0.08);
-    border-left: 3px solid #4fc3f7;
+    background:   var(--surface-hover);
+    border-color: var(--accent);
+    color:        var(--text);
+    padding-left: calc(var(--sp-4) - 3px);
 }
 
-/* ---------- Content ---------- */
-
+/* ---- Main content ---- */
 .content {
-    padding: 32px;
+    padding:    var(--sp-8);
     overflow-y: auto;
 }
 
-/* ---------- Home ---------- */
-
-.centered {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-}
-
-.primary-button {
-    margin-top: 24px;
-    padding: 12px 24px;
-    border-radius: 8px;
-    border: none;
-    background: #3b82f6;
-    color: white;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-/* ---------- Dashboard Blocks ---------- */
-
 .page-title {
-    margin-bottom: 60px;
+    font-size:    20px;
+    font-weight:  600;
+    color:        var(--text);
+    margin-bottom: var(--sp-8);
 }
 
-.blocks {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 24px;
-    margin: 5%;
-}
-
-.block {
-    background: #e9eef3;
-    color: #0b141a;
-    border-radius: 12px;
-    padding: 16px;
-    min-height: 420px;
-}
-
-.block.wide {
-    grid-column: span 2;
-}
-/* -------------Problem Selection-------------*/
+/* ---- Problem selection ---- */
 .problem-list {
-    max-width: 80%;
-    margin: auto;
-    row-gap: 60px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 380px));
+    gap:     var(--sp-4);
+    justify-content: center;
+    padding: var(--sp-2) 0;
 }
 
 .problem-card {
-    max-width: 420px;
-    width: 100%;
-    background: #e9eef3;
-    color: #0b141a;
-    border-radius: 12px;
-    padding: 20px;
-    margin: 36px;
-    display: flex;
-    gap: 16px;
-    min-height: 140px;
-    align-items: center;
-}
-
-/* links */
-.problem-card:nth-child(odd) {
-    grid-column: 1;
-    justify-self: end;
-}
-
-/* rechts */
-.problem-card:nth-child(even) {
-    grid-column: 3;
-    justify-self: start;
+    background:    var(--surface);
+    border:        1px solid var(--border-strong);
+    color:         var(--text);
+    border-radius: var(--r-lg);
+    padding:       var(--sp-5);
+    display:       flex;
+    gap:           var(--sp-4);
+    align-items:   center;
+    cursor:        pointer;
+    transition:    background 0.15s, border-color 0.15s, transform 0.15s;
 }
 
 .problem-card:hover {
-    transform: translateX(4px);
+    background:   var(--surface-hover);
+    border-color: var(--accent);
+    transform:    translateY(-2px);
 }
-.problem-card:nth-child(even):hover {
-    transform: translateX(-4px);
-}
+
 .problem-card.active {
-    outline: 4px solid #fdc600;
+    border-color: var(--accent);
+    background:   var(--accent-dim);
 }
 
-/* Bildplatzhalter */
 .problem-image {
-    width: 96px;
-    height: 96px;
-    border-radius: 8px;
-    background: #cbd5e1;
-    flex-shrink: 0;
+    width:         80px;
+    height:        80px;
+    border-radius: var(--r-md);
+    background:    var(--border-strong);
+    flex-shrink:   0;
 }
 
-/* Text */
 .problem-text h3 {
-    margin: 0 0 8px;
-    font-size: 16px;
+    font-size:    16px;
+    font-weight:  600;
+    color:        var(--text);
+    margin-bottom: var(--sp-1);
 }
 
 .problem-text p {
-    margin: 0;
-    font-size: 14px;
-    opacity: 0.8;
+    font-size: 13px;
+    color:     var(--text-dim);
 }
 
-@media (max-width: 768px) {
-    .problem-list {
-        grid-template-columns: 1fr;
-        column-gap: 0;
-    }
+/* ---- Misc ---- */
+.centered {
+    height:         100%;
+    display:        flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items:    center;
+    text-align:     center;
+}
 
-    .problem-card {
-        justify-self: center;
-        max-width: 100%;
-    }
+.primary-button {
+    margin-top:    var(--sp-6);
+    padding:       12px 28px;
+    border-radius: var(--r-md);
+    border:        1px solid var(--accent);
+    background:    var(--accent-dim);
+    color:         var(--accent);
+    font-size:     14px;
+    transition:    background 0.15s, border-color 0.15s;
+}
+
+.primary-button:hover {
+    background: rgba(79, 195, 247, 0.2);
 }

@@ -1,81 +1,58 @@
 .homepage-container {
-    width: 100%;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
+    width:    100%;
+    height:   100vh;
+    display:  grid;
+    place-items: center;
     position: relative;
 
-    background: linear-gradient(
-            120deg,
-            #0f2027,
-            #203a43,
-            #2c5364
-    );
+    background: linear-gradient(120deg, #0f2027, #203a43, #2c5364);
     background-size: 300% 300%;
-    animation: gradientMove 12s ease infinite;
+    animation: bgMove 12s ease infinite; /* keyframe defined in index.css */
 }
 
-@keyframes gradientMove {
-    0%   { background-position: 0% 50%; }
-    50%  { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
+/* Subtle dark veil */
 .homepage-container::before {
-    content: "";
+    content:  "";
     position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.25);
-    z-index: 0;
+    inset:    0;
+    background: rgba(0, 0, 0, 0.2);
+    z-index:  0;
 }
+
+/* Dot-grid pattern, fades at edges */
 .homepage-container::after {
-    content: "";
+    content:  "";
     position: absolute;
-    inset: 0;
-
-    background-image: radial-gradient(
-            rgba(255,255,255,0.2) 1px,
-            transparent 1px
-    );
-    background-size: 6px 6px;
-
-    opacity: 0.35;
-
-    mask-image: radial-gradient(
-            circle at center,
-            black 40%,
-            transparent 75%
-    );
-
-    z-index: 0;
+    inset:    0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity:  0.4;
+    mask-image: radial-gradient(circle at center, black 35%, transparent 70%);
+    z-index:  0;
     pointer-events: none;
 }
 
-
 .homepage-content {
-    position: relative;
-    z-index: 1;
-    color: #fff;
-    display: flex;
+    position:  relative;
+    z-index:   1;
+    display:   flex;
     flex-direction: column;
-    align-items: center; /* center everything horizontally */
-    letter-spacing: 5px;
+    align-items:    center;
+    gap: var(--sp-8);
+    padding:   0 var(--sp-6);
+    text-align: center;
+    color: var(--text);
 }
 
 .homepage-content h1 {
-    font-size: 3rem;
+    font-size:   clamp(2rem, 4vw, 3.2rem);
     font-weight: 700;
-    margin-bottom: 1rem;
-    text-shadow: 2px 2px 6px rgba(0,0,0,0.6);
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 60px rgba(79, 195, 247, 0.25);
 }
 
 .homepage-content p.subtext {
-    font-size: 1.5rem;
-    font-weight: 400;
-    margin-bottom: 2rem;
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.5);
-    color: #f0f0f0;
-    letter-spacing: -1px;
+    font-size:   clamp(0.95rem, 1.5vw, 1.15rem);
+    color:       var(--text-dim);
+    letter-spacing: 0.02em;
 }

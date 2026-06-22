@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 // ---- Design Tokens ----
 export const LAYOUT = {
     SPACING:      16,   // Basis-Spacing
-    LEFT_BAR:     240,   // Breite der linken Icon-Bar
-    RIGHT_PANEL:  160,  // Breite des rechten Panels
+    LEFT_BAR:     240,  // Breite der linken Icon-Bar
+    RIGHT_PANEL:  220,  // Breite des rechten Panels
     BORDER_COLOR: 'rgba(255, 255, 255, 0.06)',
     BG_PANEL:     'rgba(0, 0, 0, 0.25)',
 } as const;
@@ -44,15 +44,13 @@ export function GameLayout({ children, leftBar, sidebar }: GameLayoutProps) {
 
 const styles: Record<string, React.CSSProperties> = {
     root: {
-        display:   'flex',
-        width:     '100%',
-        height:    '100%',
-        gap:       0,
-        overflow:  'hidden',
+        display:             'grid',
+        gridTemplateColumns: `${LAYOUT.LEFT_BAR}px 1fr ${LAYOUT.RIGHT_PANEL}px`,
+        width:               '100%',
+        height:              '100%',
+        overflow:            'hidden',
     },
     leftBar: {
-        width:          LAYOUT.LEFT_BAR,
-        flexShrink:     0,
         display:        'flex',
         flexDirection:  'column',
         alignItems:     'center',
@@ -60,24 +58,20 @@ const styles: Record<string, React.CSSProperties> = {
         padding:        `${LAYOUT.SPACING}px 0`,
         borderRight:    `1px solid ${LAYOUT.BORDER_COLOR}`,
         background:     LAYOUT.BG_PANEL,
-        boxSizing:      'border-box',
+        overflow:       'hidden',
     },
     canvasArea: {
-        flex:           1,
         display:        'flex',
         alignItems:     'center',
         justifyContent: 'center',
         padding:        LAYOUT.SPACING,
         minWidth:       0,
-        boxSizing:      'border-box',
+        overflow:       'hidden',
     },
     sidebar: {
-        width:       LAYOUT.RIGHT_PANEL,
-        flexShrink:  0,
         borderLeft:  `1px solid ${LAYOUT.BORDER_COLOR}`,
         background:  LAYOUT.BG_PANEL,
         overflowY:   'auto',
-        boxSizing:   'border-box',
         padding:     LAYOUT.SPACING,
     },
 };
