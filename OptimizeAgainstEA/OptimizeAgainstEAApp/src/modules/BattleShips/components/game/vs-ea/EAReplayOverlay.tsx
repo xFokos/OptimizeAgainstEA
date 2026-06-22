@@ -10,8 +10,8 @@ interface EAReplayOverlayProps {
 
 export function EAReplayOverlay({ frames, onClose }: EAReplayOverlayProps) {
   const replay = useEAReplay(frames);
-  const { currentFrame, frameIndex, totalFrames, isPlaying,
-    isFirst, isLast, next, prev, play, pause, goTo } = replay;
+  const { currentFrame, frameIndex, totalFrames,
+    isFirst, isLast, next, prev, goTo } = replay;
 
   if (!currentFrame) return null;
 
@@ -46,11 +46,6 @@ export function EAReplayOverlay({ frames, onClose }: EAReplayOverlayProps) {
         <div className="replay-controls">
           <button className="btn btn--ghost btn--sm" onClick={() => goTo(0)} disabled={isFirst}>⏮</button>
           <button className="btn btn--ghost btn--sm" onClick={prev}        disabled={isFirst}>◀</button>
-          <button className="btn btn--primary btn--sm"
-                  onClick={() => isPlaying ? pause() : play(1200)}
-                  style={{ minWidth: 64 }}>
-            {isPlaying ? '⏸ Pause' : '▶ Play'}
-          </button>
           <button className="btn btn--ghost btn--sm" onClick={next}        disabled={isLast}>▶</button>
           <button className="btn btn--ghost btn--sm" onClick={() => goTo(totalFrames - 1)} disabled={isLast}>⏭</button>
 

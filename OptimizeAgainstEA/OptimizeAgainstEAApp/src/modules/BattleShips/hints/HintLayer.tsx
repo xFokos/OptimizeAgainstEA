@@ -35,7 +35,7 @@ export function HintLayer() {
     : [{ label: 'Got it', onClick: dismiss, variant: 'primary' }];
 
   return (
-    <div className="modal-backdrop" onClick={active.pauses ? undefined : dismiss}>
+    <div className="modal-backdrop hint-modal-backdrop" onClick={active.pauses ? undefined : dismiss}>
       <div className="modal hint-modal" onClick={(e) => e.stopPropagation()}>
         <div className="hint-modal__tag">💡 Hint</div>
         {active.title && <h2 className="hint-modal__title">{active.title}</h2>}

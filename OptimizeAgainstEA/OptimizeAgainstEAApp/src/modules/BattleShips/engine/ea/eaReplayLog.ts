@@ -165,18 +165,30 @@ export function buildReplayFrames(
   // 3.5. Selection example
   const n = sortedSnap.length;
   if (config.selectionStrategy === 'tournament') {
-    const i1 = 0;
-    const i2 = Math.min(Math.floor(n / 3), n - 1);
-    const i3 = Math.min(Math.floor(2 * n / 3), n - 1);
-    const candidateIds = [...new Set([label(i1), label(i2), label(i3)])];
+    // Draw three *distinct* random candidates (k = 3), mirroring the real
+    // tournamentSelection operator. `sorted` is best-first, so the fittest of
+    // the draw is simply the one with the lowest rank index.
+    const drawn = new Set<number>();
+    while (drawn.size < Math.min(3, n)) drawn.add(Math.floor(Math.random() * n));
+    const picks = [...drawn].sort((a, b) => a - b);
+    const winnerIdx = picks[0];
+    const candidateIds = picks.map(label);
+    const parts = picks.map((i, idx) =>
+      idx === 0
+        ? `#${i + 1} (fitness ${sorted[i].fitness.toFixed(3)})`
+        : `#${i + 1} (${sorted[i].fitness.toFixed(3)})`,
+    );
+    const list = parts.length > 1
+      ? `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`
+      : parts[0];
     frames.push({
       phase:        'selection',
       headline:     'Tournament selection (k = 3)',
-      description:  `Three individuals are drawn at random — here rank #${i1 + 1} (fitness ${sorted[i1].fitness.toFixed(3)}), #${i2 + 1} (${sorted[i2].fitness.toFixed(3)}), and #${i3 + 1} (${sorted[i3].fitness.toFixed(3)}). The fittest of the three wins and becomes a parent. A second tournament picks the other parent.`,
+      description:  `Three individuals are drawn at random — here rank ${list}. The fittest of the three wins and becomes a parent. A second tournament picks the other parent.`,
       individuals:  sortedSnap,
       strategy:     'tournament',
       candidateIds,
-      winnerId:     label(i1),
+      winnerId:     label(winnerIdx),
     });
   } else if (config.selectionStrategy === 'roulette') {
     const maxFit    = sorted[n - 1].fitness;

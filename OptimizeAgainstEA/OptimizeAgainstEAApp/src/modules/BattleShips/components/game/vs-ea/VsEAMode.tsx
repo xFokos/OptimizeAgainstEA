@@ -182,6 +182,7 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
   const [hoveredIndex, setHoveredIndex] = useState(-1);
   const [showReplay,      setShowReplay]      = useState(false);
   const [showEAWin,       setShowEAWin]       = useState(false);
+  const [eaWinPending,    setEaWinPending]    = useState(false);
   const [showGenReplay,   setShowGenReplay]   = useState(false);
   const [dismissedWin,    setDismissedWin]    = useState(false);
 
@@ -192,7 +193,7 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
 
   const play = usePlaySession(playerProblem);
   const ea   = useEARunner();
-  const { showHint } = useHints();
+  const { showHint, active } = useHints();
 
   const handleStart = (pm: MapConfig, em: MapConfig) => {
     setPlayerMap(pm);
@@ -205,12 +206,23 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
     if (playerMap && eaMap && play.probes.length === 0) showHint('vsEa.start');
   }, [playerMap, eaMap, play.probes.length, showHint]);
 
+  // When the EA solves, show the explanatory hint first and queue the win card.
+  // showHint no-ops if hints are disabled or the hint was already seen — in
+  // that case `active` never becomes 'vsEa.eaWon' and the win card shows at once.
   useEffect(() => {
     if (ea.status === 'solved') {
-      setShowEAWin(true);
+      setEaWinPending(true);
       showHint('vsEa.eaWon');
     }
   }, [ea.status, showHint]);
+
+  // Reveal the win overlay once the eaWon hint is gone (dismissed or hints off).
+  useEffect(() => {
+    if (eaWinPending && active?.id !== 'vsEa.eaWon') {
+      setShowEAWin(true);
+      setEaWinPending(false);
+    }
+  }, [eaWinPending, active]);
 
   useEffect(() => {
     if (play.status === 'won') showHint('vsEa.playerWon');
@@ -224,6 +236,7 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
     setHoveredIndex(-1);
     setShowReplay(false);
     setShowEAWin(false);
+    setEaWinPending(false);
     setShowGenReplay(false);
     setDismissedWin(false);
   };

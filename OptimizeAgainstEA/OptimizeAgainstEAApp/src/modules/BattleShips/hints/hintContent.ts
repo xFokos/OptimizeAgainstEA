@@ -194,7 +194,7 @@ export const HINTS: Record<HintId, HintDef> = {
     title: 'The EA got there first',
     body:
       'The algorithm found the global minimum first. Don\'t worry about it, ' +
-      'its tools are far more powerful than yours which makes them great for optimization' +
+      'its tools are far more powerful than yours which makes them great for optimization. ' +
       'More importantly, did you understand how it got there in the first place? ' +
       'You can watch the replay as well as changing the settings and trying again',
     style: 'modal',

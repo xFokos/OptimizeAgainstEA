@@ -990,6 +990,9 @@ html, body, #root {
 	gap: var(--sp-2);
 }
 
+/* Hint modals must sit above the end-of-race win overlays (z-index 200) so the
+   educational hint isn't hidden behind the EA/player win card. */
+.hint-modal-backdrop { z-index: 300; }
 .hint-modal { gap: var(--sp-4); }
 .hint-modal__tag {
 	font-family: var(--font-mono);
