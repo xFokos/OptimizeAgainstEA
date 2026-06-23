@@ -41,18 +41,24 @@ export function useEARunner() {
       const msg = event.data;
       switch (msg.type) {
         case 'GENERATION':
-          setState((prev) => ({
-            ...prev,
-            status:            prev.status === 'solved' ? 'solved' : 'running',
-            currentGeneration: msg.generation,
-            generations:       [...prev.generations, msg.generation],
-            best:
-              prev.best === null || msg.generation.best.fitness < prev.best.fitness
-                ? msg.generation.best
-                : prev.best,
-            totalGenerations: msg.generation.index + 1,
-            latestReplay:     msg.replay ?? prev.latestReplay,
-          }));
+          setState((prev) => {
+            // Once solved, the generation count is locked to the solving
+            // generation — further player probes keep the worker running but
+            // must not advance the "Solved in X generations" tally.
+            const solved = prev.status === 'solved';
+            return {
+              ...prev,
+              status:            solved ? 'solved' : 'running',
+              currentGeneration: msg.generation,
+              generations:       [...prev.generations, msg.generation],
+              best:
+                prev.best === null || msg.generation.best.fitness < prev.best.fitness
+                  ? msg.generation.best
+                  : prev.best,
+              totalGenerations: solved ? prev.totalGenerations : msg.generation.index + 1,
+              latestReplay:     msg.replay ?? prev.latestReplay,
+            };
+          });
           break;
         case 'SOLVED':
           setState((prev) => ({

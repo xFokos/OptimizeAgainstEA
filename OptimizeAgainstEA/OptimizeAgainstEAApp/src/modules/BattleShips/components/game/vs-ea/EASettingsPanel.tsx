@@ -111,7 +111,7 @@ export function EASettingsPanel({
                     <SliderRow
                         label="EA generations per probe"
                         value={gensPerProbe}
-                        min={1} max={20} step={1}
+                        min={1} max={50} step={1}
                         format={fmtInt}
                         onChange={onGensPerProbeChange}
                     />
@@ -119,7 +119,7 @@ export function EASettingsPanel({
                     <SliderRow
                         label="Population in win radius to solve"
                         value={config.winPopulationFraction}
-                        min={0.05} max={0.5} step={0.05}
+                        min={0.05} max={1.0} step={0.05}
                         format={fmtPct}
                         onChange={(v) => set({ winPopulationFraction: v })}
                     />
@@ -127,7 +127,7 @@ export function EASettingsPanel({
                     <SliderRow
                         label="Probe reveal radius"
                         value={revealRadius}
-                        min={0.02} max={0.25} step={0.01}
+                        min={0.01} max={0.5} step={0.01}
                         format={fmt(2)}
                         onChange={onRevealRadiusChange}
                     />
@@ -137,7 +137,7 @@ export function EASettingsPanel({
                     <SliderRow
                         label="Population size"
                         value={config.populationSize}
-                        min={5} max={200} step={5}
+                        min={5} max={500} step={5}
                         format={fmtInt}
                         onChange={(v) => set({ populationSize: Math.round(v) })}
                     />
@@ -145,7 +145,7 @@ export function EASettingsPanel({
                     <SliderRow
                         label="Max generations"
                         value={config.maxGenerations}
-                        min={10} max={1000} step={10}
+                        min={10} max={5000} step={10}
                         format={fmtInt}
                         onChange={(v) => set({ maxGenerations: Math.round(v) })}
                     />
@@ -208,7 +208,7 @@ export function EASettingsPanel({
                     <SliderRow
                         label="Initial strength"
                         value={config.mutationStrength}
-                        min={0.01} max={0.5} step={0.01}
+                        min={0.01} max={1.0} step={0.01}
                         format={fmt(2)}
                         onChange={(v) => set({ mutationStrength: v })}
                     />
@@ -216,7 +216,7 @@ export function EASettingsPanel({
                     <SliderRow
                         label="Decay per generation"
                         value={config.mutationDecay}
-                        min={0.8} max={1.0} step={0.005}
+                        min={0} max={1.0} step={0.005}
                         format={fmt(3)}
                         onChange={(v) => set({ mutationDecay: v })}
                     />
