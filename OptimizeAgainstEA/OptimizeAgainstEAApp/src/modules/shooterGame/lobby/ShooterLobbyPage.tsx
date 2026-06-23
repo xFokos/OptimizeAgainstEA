@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import PageContainer from '../../../components/layout/PageContainer';
 import { ShooterSettingsPanel } from '../settings/ShooterSettings';
 import { EASettingsPanel } from '../../../components/settings/EASettings';
-import { ARENA, GAME_CONFIG } from '../shooter.types';
 import { vec } from '../game/core/vec';
 
 // ---- Mini Preview Canvas ----
@@ -26,7 +25,6 @@ interface PreviewBullet {
 
 const PREVIEW_W = 400;
 const PREVIEW_H = 400;
-const SCALE     = PREVIEW_W / ARENA.WIDTH;
 
 function ShooterPreview() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
