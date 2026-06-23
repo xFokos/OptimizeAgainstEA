@@ -1,73 +1,98 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles/specific/dashboard.css";
 import { ProblemSelection } from "../modules/selectProblemPage/page/ProblemSelection.tsx";
-import SelectionOverview from "../modules/selectProblemPage/components/SelectionOverview.tsx";
 
-type Section = "problemSelect" | "gameSettings" | "algorithmSettings" | "overview";
+type Section = "gameSelect" | "settings" | "eaExplained" | "tab4";
 
-// Typen exportieren, damit andere Dateien sie verwenden können
 export type ProblemId = "battleShips" | "shooter" | "horde";
 export type GameConfig = {
     problem?: ProblemId;
 };
 
-export default function DashboardPage() {
-    const [active, setActive] = useState<Section>("problemSelect");
+const ROUTES: Record<ProblemId, string> = {
+    battleShips: "/Battleships",
+    shooter:     "/lobby/shooter",
+    horde:       "/lobby/horde",
+};
 
-    // <-- hier kommt der State für die Spielkonfiguration
+export default function DashboardPage() {
+    const [active, setActive] = useState<Section>("gameSelect");
     const [config, setConfig] = useState<GameConfig>({ problem: undefined });
 
     return (
         <div className="layout">
-            {/* Sidebar */}
             <aside className="sidebar">
-                <h2 className="sidebar-title">Game Configuration</h2>
+                <div className="sidebar-brand">
+                    <div className="sidebar-logo">OAE</div>
+                    <span className="sidebar-brand-name">Optimize Against EA</span>
+                </div>
+
                 <nav className="sidebar-menu">
                     <MenuItem
-                        label="Optimization Problem"
-                        active={active === "problemSelect"}
-                        onClick={() => setActive("problemSelect")}
+                        label="Game Selection"
+                        active={active === "gameSelect"}
+                        onClick={() => setActive("gameSelect")}
                     />
                     <MenuItem
-                        label="Game Settings"
-                        active={active === "gameSettings"}
-                        onClick={() => setActive("gameSettings")}
+                        label="Settings"
+                        active={active === "settings"}
+                        onClick={() => setActive("settings")}
                     />
                     <MenuItem
-                        label="Algorithm Settings"
-                        active={active === "algorithmSettings"}
-                        onClick={() => setActive("algorithmSettings")}
+                        label="EA Explained"
+                        active={active === "eaExplained"}
+                        onClick={() => setActive("eaExplained")}
                     />
                     <MenuItem
-                        label="Overview"
-                        active={active === "overview"}
-                        onClick={() => setActive("overview")}
+                        label="Tab 4"
+                        active={active === "tab4"}
+                        onClick={() => setActive("tab4")}
                     />
                 </nav>
             </aside>
 
-            {/* Content */}
             <main className="content">
-                {active === "problemSelect" && (
-                    <ProblemSelection
-                        value={config.problem}
-                        onChange={(p) => setConfig((prev) => ({ ...prev, problem: p }))}
-                    />
+                {active === "gameSelect" && (
+                    <>
+                        <ProblemSelection
+                            value={config.problem}
+                            onChange={(p) => setConfig((prev) => ({ ...prev, problem: p }))}
+                        />
+                        <div className="game-select-launch">
+                            <LaunchButton problemId={config.problem} />
+                        </div>
+                    </>
                 )}
 
-                {active === "overview" && <SelectionOverview config={config} />}
-                {active === "gameSettings" && <GameSettings />}
-                {active === "algorithmSettings" && <AlgorithmSettings />}
+                {active === "settings"    && <EmptyTab title="Settings" />}
+                {active === "eaExplained" && <EmptyTab title="EA Explained" />}
+                {active === "tab4"        && <EmptyTab title="Tab 4" />}
             </main>
         </div>
     );
 }
 
+function LaunchButton({ problemId }: { problemId?: ProblemId }) {
+    const navigate = useNavigate();
+    const enabled = problemId != null;
+
+    return (
+        <button
+            className="launch-btn"
+            disabled={!enabled}
+            onClick={() => { if (enabled) navigate(ROUTES[problemId]); }}
+        >
+            {enabled ? "▶  Start Game" : "Select a game first"}
+        </button>
+    );
+}
+
 function MenuItem({
-                      label,
-                      active,
-                      onClick,
-                  }: {
+    label,
+    active,
+    onClick,
+}: {
     label: string;
     active: boolean;
     onClick: () => void;
@@ -79,21 +104,13 @@ function MenuItem({
     );
 }
 
-function GameSettings() {
+function EmptyTab({ title }: { title: string }) {
     return (
         <>
-            <h1 className="page-title">Game Settings</h1>
-            <div className="centered"></div>
+            <h1 className="page-title">{title}</h1>
+            <div className="centered">
+                <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>Coming soon</p>
+            </div>
         </>
     );
 }
-
-function AlgorithmSettings() {
-    return (
-        <>
-            <h1 className="page-title">Algorithm</h1>
-            <div className="centered"></div>
-        </>
-    );
-}
-

@@ -65,7 +65,6 @@ const styles: Record<string, React.CSSProperties> = {
         background:   'rgba(255,255,255,0.04)',
         borderRadius: '8px',
         border:       '1px solid rgba(255,255,255,0.08)',
-        marginBottom: '24px',
     },
     sectionTitle: {
         fontSize:      '12px',
