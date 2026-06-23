@@ -731,7 +731,11 @@ html, body, #root {
    EA SETTINGS PANEL
 ───────────────────────────────────────────── */
 .ea-settings-backdrop {
-	position: fixed; inset: 0; z-index: 50;
+	/* Above the anchored hint popovers (z-index 150) so opening the panel
+	   covers any hint bubbles pinned to the buttons behind it. The backdrop
+	   also forms its own stacking context, so the panel's own HintPopover
+	   still layers correctly inside it. */
+	position: fixed; inset: 0; z-index: 250;
 	background: rgba(0, 0, 0, 0.45);
 	backdrop-filter: blur(2px);
 	display: flex; justify-content: flex-end;
