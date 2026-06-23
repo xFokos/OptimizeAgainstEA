@@ -40,20 +40,21 @@ interface DualLoaderProps {
   eaConfig:             EAConfig;
   gensPerProbe:         number;
   revealRadius:         number;
-  initialCode?:         string;
+  initialPlayerCode?:   string;
+  initialEaCode?:       string;
   onConfigChange:       (patch: Partial<EAConfig>) => void;
   onGensPerProbeChange: (n: number) => void;
   onRevealRadiusChange: (r: number) => void;
-  onStart:              (playerMap: MapConfig, eaMap: MapConfig) => void;
+  onStart:              (playerMap: MapConfig, eaMap: MapConfig, playerCode: string, eaCode: string) => void;
   onBack:               () => void;
 }
 
 function DualMapLoader({
-                         eaConfig, gensPerProbe, revealRadius, initialCode, onConfigChange,
+                         eaConfig, gensPerProbe, revealRadius, initialPlayerCode, initialEaCode, onConfigChange,
                          onGensPerProbeChange, onRevealRadiusChange, onStart, onBack,
                        }: DualLoaderProps) {
   const [s, setS] = useState<DualLoaderState>({
-    playerCode: initialCode ?? '', eaCode: initialCode ?? '', playerErr: '', eaErr: '', generatedCode: '',
+    playerCode: initialPlayerCode ?? '', eaCode: initialEaCode ?? '', playerErr: '', eaErr: '', generatedCode: '',
   });
   const [showSettings, setShowSettings] = useState(false);
 
@@ -79,7 +80,7 @@ function DualMapLoader({
     catch { eaErr = 'Invalid code'; }
 
     setS((prev) => ({ ...prev, playerErr, eaErr }));
-    if (playerMap && eaMap) onStart(playerMap, eaMap);
+    if (playerMap && eaMap) onStart(playerMap, eaMap, s.playerCode.trim(), s.eaCode.trim());
   };
 
   const canStart = s.playerCode.trim().length > 0 && s.eaCode.trim().length > 0;
@@ -177,6 +178,10 @@ function DualMapLoader({
 export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
   const [playerMap,    setPlayerMap]    = useState<MapConfig | null>(null);
   const [eaMap,        setEaMap]        = useState<MapConfig | null>(null);
+  // The codes last loaded into the race, kept so a reset returns to the loader
+  // with the same maps already pasted in.
+  const [playerCode,   setPlayerCode]   = useState(initialCode ?? '');
+  const [eaCode,       setEaCode]       = useState(initialCode ?? '');
   const [eaConfig,     setEaConfig]     = useState<EAConfig>(DEFAULT_EA_CONFIG);
   const [gensPerProbe, setGensPerProbe] = useState(1);
   const [revealRadius, setRevealRadius] = useState(0.05);
@@ -203,9 +208,11 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
   const ea   = useEARunner();
   const { showHint, active } = useHints();
 
-  const handleStart = (pm: MapConfig, em: MapConfig) => {
+  const handleStart = (pm: MapConfig, em: MapConfig, pCode: string, eCode: string) => {
     setPlayerMap(pm);
     setEaMap(em);
+    setPlayerCode(pCode);
+    setEaCode(eCode);
     play.reset();
     ea.init(em, eaConfig);
   };
@@ -305,7 +312,8 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
         eaConfig={eaConfig}
         gensPerProbe={gensPerProbe}
         revealRadius={revealRadius}
-        initialCode={initialCode}
+        initialPlayerCode={playerCode}
+        initialEaCode={eaCode}
         onConfigChange={handleConfigChange}
         onGensPerProbeChange={setGensPerProbe}
         onRevealRadiusChange={setRevealRadius}

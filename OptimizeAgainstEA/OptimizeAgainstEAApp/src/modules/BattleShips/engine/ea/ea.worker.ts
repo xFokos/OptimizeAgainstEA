@@ -41,12 +41,11 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
       self.postMessage(out);
       return;
     }
-    stepper  = createEAStepper(problem, msg.config);
-    // Post the initial generation (gen 0 = just the random population)
-    const result = stepper.step(0);
-    if (result.type === 'generation') {
-      self.postMessage({ type: 'GENERATION', generation: result.generation } as WorkerOutMessage);
-    }
+    stepper = createEAStepper(problem, msg.config);
+    // The initial random population is NOT posted here: the first STEP already
+    // returns generation 0 (it summarises the population before breeding). Posting
+    // it on START too would duplicate generation 0 — making the first replay step
+    // show no movement and adding a phantom point to the fitness chart.
     return;
   }
 

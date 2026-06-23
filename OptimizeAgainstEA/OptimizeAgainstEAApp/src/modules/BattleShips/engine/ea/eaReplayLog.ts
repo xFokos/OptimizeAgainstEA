@@ -129,23 +129,14 @@ export function buildReplayFrames(
   const label = (i: number) => `ind-${i}`;
   const snap  = (pop: Individual[]) => pop.map((ind, i) => snapshot(ind, label(i)));
 
-  const initialSnaps = snap(before);
-
-  // 1. Initial — unsorted order
-  frames.push({
-    phase:       'initial',
-    headline:    'Population',
-    description: `Generation begins with ${config.populationSize} individuals spread across the map. Each dot is one candidate solution.`,
-    individuals: initialSnaps,
-  });
-
-  // 2. Sorted by fitness
+  // 1. Population, ranked by fitness. (`before` is already sorted by the stepper,
+  // so a separate unsorted "initial" frame would be an identical no-op step.)
   const sorted     = [...before].sort((a, b) => a.fitness - b.fitness);
   const sortedSnap = snap(sorted);
   frames.push({
     phase:       'sorted',
-    headline:    'Ranked by fitness',
-    description: 'Individuals are sorted best-first. Lower fitness = closer to a minimum. The best will be preferred for breeding.',
+    headline:    'Population — ranked by fitness',
+    description: `The generation begins with ${config.populationSize} individuals spread across the map — each dot is one candidate solution. They are sorted best-first: lower fitness = closer to a minimum. The best will be preferred for breeding.`,
     individuals: sortedSnap,
   });
 
