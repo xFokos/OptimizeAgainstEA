@@ -7,10 +7,10 @@ export function randomDNA(): number[] {
 }
 
 // Erste Generation
-export function initPopulation(): Population {
+export function initPopulation(starterDna: number[] = STARTER_DNA): Population {
     const individuals: Individual[] = Array.from(
         { length: GAME_CONFIG.POPULATION_SIZE },
-        () => ({ dna: STARTER_DNA.map(v =>
+        () => ({ dna: starterDna.map(v =>
                 Math.max(0, Math.min(1, v + (Math.random() - 0.5) * 0.1))
             ),
             fitness: 0

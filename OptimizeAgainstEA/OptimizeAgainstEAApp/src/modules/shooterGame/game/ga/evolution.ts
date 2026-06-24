@@ -335,10 +335,11 @@ function simulateAgainstGhost(dna: DNA, ghost: PlayerGhost): number {
 }
 
 export function presimulateAgainstGhost(
-    generations: number,
-    ghost:       PlayerGhost,
+    generations:     number,
+    ghost:           PlayerGhost,
+    startPopulation: Population,
 ): Population {
-    let pop = initPopulation();
+    let pop = startPopulation;
 
     for (let i = 0; i < generations; i++) {
         // Jeder Agent kämpft gegen den Ghost – linear statt Round Robin

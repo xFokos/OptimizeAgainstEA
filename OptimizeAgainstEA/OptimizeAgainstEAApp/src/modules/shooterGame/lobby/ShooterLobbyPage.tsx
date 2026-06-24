@@ -23,6 +23,7 @@ interface PreviewBullet {
     vel:      { x: number; y: number };
     color:    string;
     lifetime: number;
+    owner:    'a' | 'b';
 }
 
 const PREVIEW_W = 400;
@@ -146,7 +147,7 @@ function ShooterPreview() {
             const dna      = dnaRef.current;
             const spread   = (1 - dna[DNA_INDEX.SHOOT_ACCURACY]) * 0.6;
 
-            const shoot = (from: PreviewAgent, to: PreviewAgent, color: string) => {
+            const shoot = (from: PreviewAgent, to: PreviewAgent, color: string, owner: 'a' | 'b') => {
                 const base  = Math.atan2(to.pos.y - from.pos.y, to.pos.x - from.pos.x);
                 const angle = base + (Math.random() - 0.5) * spread * 2;
                 bullets.push({
@@ -154,11 +155,12 @@ function ShooterPreview() {
                     vel:      { x: Math.cos(angle) * 260, y: Math.sin(angle) * 260 },
                     color,
                     lifetime: 1.5,
+                    owner,
                 });
             };
 
-            shoot(a, b, '#80d8ff');
-            shoot(b, a, '#ff8a80');
+            shoot(a, b, '#80d8ff', 'a');
+            shoot(b, a, '#ff8a80', 'b');
         };
 
         const loop = (timestamp: number) => {
@@ -175,17 +177,24 @@ function ShooterPreview() {
                 spawnBullets(agentA, agentB);
             }
 
+            const AGENT_RADIUS  = 14;
+            const BULLET_RADIUS = 4;
+            const HIT_DIST      = AGENT_RADIUS + BULLET_RADIUS;
+
             bullets = bullets
                 .map(b => ({
                     ...b,
                     pos:      { x: b.pos.x + b.vel.x * dt, y: b.pos.y + b.vel.y * dt },
                     lifetime: b.lifetime - dt,
                 }))
-                .filter(b =>
-                    b.lifetime > 0 &&
-                    b.pos.x > 0 && b.pos.x < PREVIEW_W &&
-                    b.pos.y > 0 && b.pos.y < PREVIEW_H
-                );
+                .filter(b => {
+                    if (b.lifetime <= 0 || b.pos.x <= 0 || b.pos.x >= PREVIEW_W || b.pos.y <= 0 || b.pos.y >= PREVIEW_H)
+                        return false;
+                    const target = b.owner === 'a' ? agentB : agentA;
+                    const dx = b.pos.x - target.pos.x;
+                    const dy = b.pos.y - target.pos.y;
+                    return dx * dx + dy * dy >= HIT_DIST * HIT_DIST;
+                });
 
             drawArena();
             drawBullets();

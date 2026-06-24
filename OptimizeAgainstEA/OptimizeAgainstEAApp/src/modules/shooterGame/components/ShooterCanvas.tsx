@@ -7,7 +7,9 @@ import {
     type GamePhase,
     type InputState,
     type PlayerGhost,
+    type AgentGhostFrame,
 } from '../shooter.types';
+
 import { evolve, getNextAgent, presimulateAgainstGhost } from '../game/ga/evolution';
 import { initPopulation } from '../game/ga/population';
 import { useInput }          from '../hooks/useInput';
@@ -16,6 +18,7 @@ import { update }            from '../game/core/gameLoop';
 import { renderer }          from '../game/core/renderer';
 import { calculateFitness }  from '../game/ga/fitness';
 import { gameStore }         from '../game/gameStore';
+import { analyticsStore }    from '../game/analyticsStore';
 import { useSettings }       from '../../../context/SettingsContext.tsx';
 import type { ShooterSettings } from '../../../context/SettingsContext.tsx';
 import styles                from './ShooterCanvas.module.css';
@@ -28,7 +31,8 @@ const makeInitialGameState = (settings: ShooterSettings): GameState => ({
     roundNumber: 0,
     bullets:     [],
     population:  null,
-    ghostFrames: [],
+    ghostFrames:    [],
+    lastAgentFrame: null,
     player: {
         id:       'player',
         position: { x: 200, y: ARENA.HEIGHT / 2 },
@@ -62,14 +66,23 @@ interface ShooterCanvasProps {
 export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
     const { eaSettings, shooterSettings } = useSettings();
 
-    const canvasRef    = useRef<HTMLCanvasElement>(null);
-    const gameStateRef = useRef<GameState | null>(null);
-    const inputRef     = useInput();
-    const [phase, setPhase] = useState<GamePhase>('idle');
+    const canvasRef      = useRef<HTMLCanvasElement>(null);
+    const gameStateRef   = useRef<GameState | null>(null);
+    const agentFramesRef = useRef<AgentGhostFrame[]>([]);
+    const inputRef       = useInput();
+    const saved = gameStore.state;
+    const restoredPhase: GamePhase =
+        saved?.roundNumber > 0
+            ? (saved.phase === 'playing' ? 'roundEnd' : saved.phase)
+            : 'idle';
+    const [phase, setPhase] = useState<GamePhase>(restoredPhase);
 
-    // Lazy initialisieren – erst wenn shooterSettings verfügbar
+    // Lazy initialisieren – vorherigen State wiederherstellen falls vorhanden
     if (!gameStateRef.current) {
-        const state = makeInitialGameState(shooterSettings);
+        const state =
+            saved?.roundNumber > 0
+                ? { ...saved, phase: restoredPhase }
+                : makeInitialGameState(shooterSettings);
         gameStateRef.current = state;
         gameStore.state      = state;
     }
@@ -81,6 +94,10 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
         input: InputState,
     ): GameState => {
         const next = update(state, dt, input);
+
+        if (next.lastAgentFrame) {
+            agentFramesRef.current.push(next.lastAgentFrame);
+        }
 
         if (next.phase !== state.phase) {
             setPhase(next.phase);
@@ -107,7 +124,26 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
         const currentState = gameStateRef.current!;
         const nextRound    = currentState.roundNumber + 1;
 
-        const population = currentState.population ?? initPopulation();
+        const population = currentState.population ?? initPopulation(shooterSettings.starterDna);
+
+        // Runden-Daten für Analytics speichern (nach Runde 1+)
+        if (currentState.roundNumber > 0) {
+            const s = currentState.agent.stats;
+            analyticsStore.push({
+                round:        currentState.roundNumber,
+                hitsLanded:   s.hitsLanded,
+                hitsReceived: s.hitsReceived,
+                bulletsFired: s.bulletsFired,
+                accuracy:     s.bulletsFired > 0 ? s.hitsLanded / s.bulletsFired : 0,
+                dodged:       s.dodgedBullets,
+                fitness:      calculateFitness(s),
+                generation:   currentState.population?.generation ?? 1,
+                bestFitness:  currentState.population?.bestFitness ?? 0,
+                playerFrames: currentState.ghostFrames,
+                agentFrames:  agentFramesRef.current,
+                agentDna:     currentState.agent.dna,
+            });
+        }
 
         const evolvedPopulation = currentState.roundNumber > 0
             ? (() => {
@@ -116,7 +152,7 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                     roundDuration: shooterSettings.roundDuration,
                 };
                 return currentState.ghostFrames.length > 0
-                    ? presimulateAgainstGhost(eaSettings.presimGenerations, ghost)
+                    ? presimulateAgainstGhost(eaSettings.presimGenerations, ghost, population)
                     : evolve(
                         population,
                         calculateFitness(currentState.agent.stats),
@@ -133,15 +169,17 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
             phase:       'playing',
             roundNumber: nextRound,
             population:  evolvedPopulation,
-            ghostFrames: [],
+            ghostFrames:    [],
+            lastAgentFrame: null,
             agent: {
                 ...makeInitialGameState(shooterSettings).agent,
                 dna: nextDna,
             },
         };
 
-        gameStateRef.current = newState;
-        gameStore.state      = newState;
+        agentFramesRef.current = [];
+        gameStateRef.current   = newState;
+        gameStore.state        = newState;
         gameStore.notify();
 
         setPhase('playing');

@@ -4,7 +4,8 @@ import {
     type AgentState,
     type PlayerState,
     type Bullet,
-    type PlayerGhostFrame, // neu
+    type PlayerGhostFrame,
+    type AgentGhostFrame,
     DNA_INDEX,
 } from '../../shooter.types';
 import { GAME_CONFIG, ARENA } from '../../shooter.types';
@@ -60,7 +61,8 @@ export function update(
     );
 
     // ---- Spieler schießt ----
-    if (input.shoot && playerShootCooldown === 0) {
+    const playerShotThisFrame = input.shoot && playerShootCooldown === 0;
+    if (playerShotThisFrame) {
         playerShootCooldown = GAME_CONFIG.SHOOT_COOLDOWN;
         const bulletVel = vec.scale(vec.fromAngle(player.rotation), GAME_CONFIG.BULLET_SPEED);
         bullets.push({
@@ -133,8 +135,14 @@ export function update(
         position: { ...player.position },
         velocity: { ...player.velocity },
         rotation: player.rotation,
-        shot:     input.shoot && playerShootCooldown === 0,
+        shot:     playerShotThisFrame,
         time:     state.roundTimer,
+    };
+
+    const agentFrame: AgentGhostFrame = {
+        position: { ...agent.position },
+        rotation: agent.rotation,
+        shot:     agentBullet !== null,
     };
 
     return {
@@ -143,7 +151,8 @@ export function update(
         player,
         agent,
         bullets:     newBullets,
-        ghostFrames: [...state.ghostFrames, ghostFrame], // neu
+        ghostFrames:    [...state.ghostFrames, ghostFrame],
+        lastAgentFrame: agentFrame,
     };
 }
 

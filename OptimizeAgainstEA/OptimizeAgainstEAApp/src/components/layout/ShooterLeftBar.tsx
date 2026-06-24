@@ -3,38 +3,37 @@ import { useNavigate } from 'react-router-dom';
 import { gameStore } from '../../modules/shooterGame/game/gameStore';
 import type { GameState } from '../../modules/shooterGame/shooter.types';
 
-// ---- Icon Button ----
-interface IconButtonProps {
-    icon:    string;
-    label:   string;
-    onClick: () => void;
-    color?:  string;
+// ---- Nav Button ----
+const VARIANTS = {
+    neutral: { color: 'rgba(255,255,255,0.6)',  border: 'rgba(255,255,255,0.18)', bg: 'rgba(255,255,255,0.04)', bgHover: 'rgba(255,255,255,0.08)' },
+    blue:    { color: '#4fc3f7',                border: 'rgba(79,195,247,0.4)',   bg: 'rgba(79,195,247,0.06)',  bgHover: 'rgba(79,195,247,0.12)'  },
+    red:     { color: '#ef5350',                border: 'rgba(239,83,80,0.4)',    bg: 'rgba(239,83,80,0.06)',   bgHover: 'rgba(239,83,80,0.12)'   },
+} as const;
+
+interface NavButtonProps {
+    label:    string;
+    onClick:  () => void;
+    variant?: keyof typeof VARIANTS;
 }
 
-function IconButton({ icon, label, onClick, color = 'rgba(255,255,255,0.5)' }: IconButtonProps) {
+function NavButton({ label, onClick, variant = 'neutral' }: NavButtonProps) {
     const [hovered, setHovered] = useState(false);
+    const v = VARIANTS[variant];
 
     return (
-        <div style={styles.iconWrapper}>
-            {/* Tooltip */}
-            {hovered && (
-                <div style={styles.tooltip}>
-                    {label}
-                </div>
-            )}
-            <button
-                style={{
-                    ...styles.iconBtn,
-                    color,
-                    background: hovered ? 'rgba(255,255,255,0.06)' : 'transparent',
-                }}
-                onClick={onClick}
-                onMouseEnter={() => setHovered(true)}
-                onMouseLeave={() => setHovered(false)}
-            >
-                {icon}
-            </button>
-        </div>
+        <button
+            style={{
+                ...styles.navBtn,
+                color:      v.color,
+                border:     `1px solid ${v.border}`,
+                background: hovered ? v.bgHover : v.bg,
+            }}
+            onClick={onClick}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+        >
+            {label}
+        </button>
     );
 }
 
@@ -135,15 +134,14 @@ export function ShooterLeftBar({ onAnalytics }: ShooterLeftBarProps) {
         <>
             {/* Top – Navigation */}
             <div style={styles.group}>
-                <IconButton
-                    icon="⬅"
-                    label="Zurück zur Lobby"
+                <NavButton
+                    label="← Lobby"
                     onClick={() => navigate('/lobby/shooter')}
                 />
                 {onAnalytics && (
-                    <IconButton
-                        icon="📊"
+                    <NavButton
                         label="Analytics"
+                        variant="blue"
                         onClick={onAnalytics}
                     />
                 )}
@@ -154,10 +152,9 @@ export function ShooterLeftBar({ onAnalytics }: ShooterLeftBarProps) {
 
             {/* Bottom – Quit */}
             <div style={styles.group}>
-                <IconButton
-                    icon="✕"
-                    label="Spiel beenden"
-                    color="rgba(239, 83, 80, 0.6)"
+                <NavButton
+                    label="Beenden"
+                    variant="red"
                     onClick={() => navigate('/Dashboard')}
                 />
             </div>
@@ -169,39 +166,22 @@ const styles: Record<string, React.CSSProperties> = {
     group: {
         display:       'flex',
         flexDirection: 'column',
-        alignItems:    'center',
+        alignItems:    'stretch',
         gap:           8,
+        width:         '100%',
+        padding:       '0 16px',
+        boxSizing:     'border-box',
     },
-    iconWrapper: {
-        position: 'relative',
-        display:  'flex',
-        alignItems: 'center',
-    },
-    iconBtn: {
-        width:          44,
-        height:         44,
-        border:         'none',
-        borderRadius:   'var(--r-md)',
-        cursor:         'pointer',
-        fontSize:       18,
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        transition:     'background 0.15s, color 0.15s',
-        fontFamily:     'var(--font)',
-    },
-    tooltip: {
-        position:      'absolute',
-        left:          52,
-        background:    'rgba(11, 20, 26, 0.97)',
-        border:        '1px solid var(--border-strong)',
-        borderRadius:  'var(--r-md)',
-        padding:       '8px 12px',
+    navBtn: {
+        padding:       '10px 16px',
+        borderRadius:  '8px',
+        cursor:        'pointer',
         fontSize:      13,
-        color:         'var(--text)',
-        whiteSpace:    'nowrap',
         fontFamily:    'var(--font)',
-        pointerEvents: 'none',
-        zIndex:        100,
+        fontWeight:    500,
+        letterSpacing: '0.04em',
+        textAlign:     'center',
+        transition:    'background 0.15s',
+        width:         '100%',
     },
 };

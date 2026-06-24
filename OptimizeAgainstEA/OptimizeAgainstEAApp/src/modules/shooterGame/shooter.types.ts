@@ -105,14 +105,15 @@ export type GamePhase =
     | 'evolving';   // GA rechnet neue Generation (kurz)
 
 export interface GameState {
-    phase:       GamePhase;
-    roundTimer:  number;
-    roundNumber: number;
-    player:      PlayerState;
-    agent:       AgentState;
-    bullets:     Bullet[];
-    population:  Population | null;
-    ghostFrames: PlayerGhostFrame[];
+    phase:          GamePhase;
+    roundTimer:     number;
+    roundNumber:    number;
+    player:         PlayerState;
+    agent:          AgentState;
+    bullets:        Bullet[];
+    population:     Population | null;
+    ghostFrames:    PlayerGhostFrame[];
+    lastAgentFrame: AgentGhostFrame | null;
 }
 
 // ---- Input ----
@@ -166,6 +167,12 @@ export interface PlayerGhostFrame {
     rotation: number;
     shot:     boolean;
     time:     number;
+}
+
+export interface AgentGhostFrame {
+    position: Vector2D;
+    rotation: number;
+    shot:     boolean;
 }
 
 export interface PlayerGhost {
