@@ -59,8 +59,6 @@ export interface AgentState extends Entity {
     dna:   DNA;
     stats: RoundStats; // live stats während der Runde
     pendingBullet?: Bullet;
-    dodgeSide: 1 | -1;
-    dodgeSideTimer: number;
 }
 
 export interface Bullet {
@@ -104,16 +102,23 @@ export type GamePhase =
     | 'roundEnd'    // Runde vorbei, zeige Summary
     | 'evolving';   // GA rechnet neue Generation (kurz)
 
+export interface CrossoverExample {
+    parentA:    DNA;
+    parentB:    DNA;
+    crossPoint: number; // Gen-Index wo Crossover stattfand
+}
+
 export interface GameState {
-    phase:          GamePhase;
-    roundTimer:     number;
-    roundNumber:    number;
-    player:         PlayerState;
-    agent:          AgentState;
-    bullets:        Bullet[];
-    population:     Population | null;
-    ghostFrames:    PlayerGhostFrame[];
-    lastAgentFrame: AgentGhostFrame | null;
+    phase:            GamePhase;
+    roundTimer:       number;
+    roundNumber:      number;
+    player:           PlayerState;
+    agent:            AgentState;
+    bullets:          Bullet[];
+    population:       Population | null;
+    ghostFrames:      PlayerGhostFrame[];
+    lastAgentFrame:   AgentGhostFrame | null;
+    crossoverExample: CrossoverExample | null;
 }
 
 // ---- Input ----

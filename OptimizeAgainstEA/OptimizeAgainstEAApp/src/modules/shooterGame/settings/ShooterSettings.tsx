@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useSettings, resetShooterSettings } from '../../../context/SettingsContext';
 import { DNA_NAMES } from '../shooter.types';
 
@@ -52,24 +53,24 @@ export function ShooterSettingsPanel() {
     );
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
     section: {
         padding:      '16px',
-        background:   'rgba(255,255,255,0.04)',
-        borderRadius: '8px',
-        border:       '1px solid rgba(255,255,255,0.08)',
+        background:   'var(--surface)',
+        borderRadius: 'var(--r-md)',
+        border:       '1px solid var(--border)',
         marginBottom: '12px',
     },
     sectionTitle: {
         fontSize:      '12px',
-        color:         'rgba(255,255,255,0.4)',
+        color:         'var(--text-muted)',
         letterSpacing: '0.1em',
         textTransform: 'uppercase',
         margin:        '0 0 8px 0',
     },
     hint: {
         fontSize: '12px',
-        color:    'rgba(255,255,255,0.25)',
+        color:    'var(--text-muted)',
         margin:   '0 0 16px 0',
     },
     row: {
@@ -82,7 +83,7 @@ const styles: Record<string, React.CSSProperties> = {
         width:      '160px',
         fontSize:   '13px',
         flexShrink: 0,
-        color:      'rgba(255,255,255,0.7)',
+        color:      'var(--text-dim)',
     },
     slider: {
         flex:   1,
@@ -92,16 +93,16 @@ const styles: Record<string, React.CSSProperties> = {
         width:     '36px',
         fontSize:  '13px',
         textAlign: 'right',
-        color:     '#4fc3f7',
+        color:     'var(--accent)',
     },
     resetBtn: {
         padding:      '8px 20px',
         background:   'transparent',
-        border:       '1px solid rgba(255,255,255,0.15)',
-        borderRadius: '6px',
-        color:        'rgba(255,255,255,0.5)',
+        border:       '1px solid var(--border)',
+        borderRadius: 'var(--r-sm)',
+        color:        'var(--text-muted)',
         cursor:       'pointer',
-        fontFamily:   'monospace',
+        fontFamily:   'var(--font)',
         fontSize:     '12px',
     },
 };

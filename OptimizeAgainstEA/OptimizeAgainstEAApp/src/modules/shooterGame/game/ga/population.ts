@@ -7,9 +7,9 @@ export function randomDNA(): number[] {
 }
 
 // Erste Generation
-export function initPopulation(starterDna: number[] = STARTER_DNA): Population {
+export function initPopulation(starterDna: number[] = STARTER_DNA, size: number = GAME_CONFIG.POPULATION_SIZE): Population {
     const individuals: Individual[] = Array.from(
-        { length: GAME_CONFIG.POPULATION_SIZE },
+        { length: size },
         () => ({ dna: starterDna.map(v =>
                 Math.max(0, Math.min(1, v + (Math.random() - 0.5) * 0.1))
             ),

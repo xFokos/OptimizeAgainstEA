@@ -16,7 +16,7 @@ export function calculateFitness(stats: RoundStats): number {
 
     return (
         stats.hitsLanded      * 100    // Treffer auf Spieler → wichtigstes Kriterium
-      - stats.hitsReceived    *  80    // Selbst getroffen → stark bestrafen
+      - stats.hitsReceived    * 100    // Selbst getroffen → gleich wie Treffer landen
       + accuracy              *  50    // Gute Genauigkeit belohnen
       + stats.timeAlive       *   2    // Überleben belohnen
       + stats.dodgedBullets   *  15    // Aktives Ausweichen belohnen

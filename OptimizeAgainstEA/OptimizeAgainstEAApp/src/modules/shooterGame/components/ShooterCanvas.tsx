@@ -2,12 +2,15 @@ import { useRef, useCallback, useState } from 'react';
 import {
     ARENA,
     GAME_CONFIG,
+    DNA_LENGTH,
+    DNA_NAMES,
     emptyStats,
     type GameState,
     type GamePhase,
     type InputState,
     type PlayerGhost,
     type AgentGhostFrame,
+    type CrossoverExample,
 } from '../shooter.types';
 
 import { evolve, getNextAgent, presimulateAgainstGhost } from '../game/ga/evolution';
@@ -23,16 +26,90 @@ import { useSettings }       from '../../../context/SettingsContext.tsx';
 import type { ShooterSettings } from '../../../context/SettingsContext.tsx';
 import styles                from './ShooterCanvas.module.css';
 
+// ---- Crossover Visualization ----
+
+const COL_A = '#60a5fa';
+const COL_B = '#f97316';
+
+function CrossoverViz({ example }: { example: CrossoverExample }) {
+    const blockPct = 100 / example.parentA.length;
+
+    const renderRow = (dna: number[], color: string, label: string) => (
+        <div className={styles.crossoverRow}>
+            <span className={styles.crossoverRowLabel} style={{ color }}>{label}</span>
+            <div className={styles.crossoverBlocks}>
+                {dna.map((v, i) => (
+                    <div
+                        key={i}
+                        className={styles.crossoverBlock}
+                        title={`${DNA_NAMES[i]}: ${v.toFixed(2)}`}
+                        style={{ background: color, opacity: 0.2 + v * 0.8 }}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+
+    const child = [
+        ...example.parentA.slice(0, example.crossPoint),
+        ...example.parentB.slice(example.crossPoint),
+    ];
+
+    return (
+        <div className={styles.crossover}>
+            <div className={styles.crossoverTitle}>Crossover</div>
+            {renderRow(example.parentA, COL_A, 'A')}
+            {renderRow(example.parentB, COL_B, 'B')}
+            <div className={styles.crossoverMarkerWrap}>
+                <div
+                    className={styles.crossoverMarkerLine}
+                    style={{ left: `${example.crossPoint * blockPct}%` }}
+                />
+                <span
+                    className={styles.crossoverMarkerText}
+                    style={{ left: `${example.crossPoint * blockPct}%` }}
+                >
+                    Punkt
+                </span>
+            </div>
+            <div className={styles.crossoverRow}>
+                <span className={styles.crossoverRowLabel} style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Kind
+                </span>
+                <div className={styles.crossoverBlocks}>
+                    {child.map((v, i) => {
+                        const fromA = i < example.crossPoint;
+                        return (
+                            <div
+                                key={i}
+                                className={styles.crossoverBlock}
+                                title={`${DNA_NAMES[i]}: ${v.toFixed(2)} (von ${fromA ? 'A' : 'B'})`}
+                                style={{
+                                    background:    fromA ? COL_A : COL_B,
+                                    opacity:       0.2 + v * 0.8,
+                                    outline:       `1.5px solid ${fromA ? COL_A : COL_B}`,
+                                    outlineOffset: '1px',
+                                }}
+                            />
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ---- Hilfsfunktionen ----
 
 const makeInitialGameState = (settings: ShooterSettings): GameState => ({
-    phase:       'idle',
-    roundTimer:  settings.roundDuration,
-    roundNumber: 0,
-    bullets:     [],
-    population:  null,
-    ghostFrames:    [],
-    lastAgentFrame: null,
+    phase:            'idle',
+    roundTimer:       settings.roundDuration,
+    roundNumber:      0,
+    bullets:          [],
+    population:       null,
+    ghostFrames:      [],
+    lastAgentFrame:   null,
+    crossoverExample: null,
     player: {
         id:       'player',
         position: { x: 200, y: ARENA.HEIGHT / 2 },
@@ -48,12 +125,10 @@ const makeInitialGameState = (settings: ShooterSettings): GameState => ({
         rotation:       Math.PI,
         radius:         GAME_CONFIG.AGENT_RADIUS,
         health:         100,
-        dna:            settings.starterDna.map(v =>
+        dna:   settings.starterDna.map(v =>
             Math.max(0, Math.min(1, v + (Math.random() - 0.5) * 0.1))
         ),
-        stats:          emptyStats(),
-        dodgeSide:      1,
-        dodgeSideTimer: 0,
+        stats: emptyStats(),
     },
 });
 
@@ -124,7 +199,7 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
         const currentState = gameStateRef.current!;
         const nextRound    = currentState.roundNumber + 1;
 
-        const population = currentState.population ?? initPopulation(shooterSettings.starterDna);
+        const population = currentState.population ?? initPopulation(shooterSettings.starterDna, eaSettings.populationSize);
 
         // Runden-Daten für Analytics speichern (nach Runde 1+)
         if (currentState.roundNumber > 0) {
@@ -145,6 +220,15 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
             });
         }
 
+        const crossoverExample: CrossoverExample | null =
+            currentState.roundNumber > 0 && population.individuals.length >= 2
+                ? {
+                    parentA:    population.individuals[0].dna,
+                    parentB:    population.individuals[1].dna,
+                    crossPoint: Math.floor(Math.random() * (DNA_LENGTH - 1)) + 1,
+                }
+                : null;
+
         const evolvedPopulation = currentState.roundNumber > 0
             ? (() => {
                 const ghost: PlayerGhost = {
@@ -152,12 +236,13 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                     roundDuration: shooterSettings.roundDuration,
                 };
                 return currentState.ghostFrames.length > 0
-                    ? presimulateAgainstGhost(eaSettings.presimGenerations, ghost, population)
+                    ? presimulateAgainstGhost(eaSettings.presimGenerations, ghost, population, eaSettings.crossoverType)
                     : evolve(
                         population,
                         calculateFitness(currentState.agent.stats),
                         eaSettings.mutationRate,
                         eaSettings.mutationStrength,
+                        eaSettings.crossoverType,
                     );
             })()
             : population;
@@ -166,11 +251,12 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
 
         const newState: GameState = {
             ...makeInitialGameState(shooterSettings),
-            phase:       'playing',
-            roundNumber: nextRound,
-            population:  evolvedPopulation,
-            ghostFrames:    [],
-            lastAgentFrame: null,
+            phase:            'playing',
+            roundNumber:      nextRound,
+            population:       evolvedPopulation,
+            ghostFrames:      [],
+            lastAgentFrame:   null,
+            crossoverExample,
             agent: {
                 ...makeInitialGameState(shooterSettings).agent,
                 dna: nextDna,
@@ -226,6 +312,9 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                             <span>Selbst getroffen: {gameStateRef.current?.agent.stats.hitsReceived}</span>
                             <span>Ausgewichen: {gameStateRef.current?.agent.stats.dodgedBullets}</span>
                         </div>
+                        {gameStateRef.current?.crossoverExample && (
+                            <CrossoverViz example={gameStateRef.current.crossoverExample} />
+                        )}
                         <button className={styles.startBtn} onClick={startRound}>
                             Nächste Runde →
                         </button>

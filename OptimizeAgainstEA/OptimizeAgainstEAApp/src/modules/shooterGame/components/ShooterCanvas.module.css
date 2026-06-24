@@ -72,3 +72,76 @@
     background: rgba(79, 195, 247, 0.08);
     border-color: rgba(79, 195, 247, 0.9);
 }
+
+/* ---- Crossover Visualization ---- */
+.crossover {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    width: 360px;
+}
+
+.crossoverTitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.35);
+    margin-bottom: 4px;
+}
+
+.crossoverRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.crossoverRowLabel {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    width: 20px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.crossoverBlocks {
+    display: flex;
+    gap: 3px;
+    flex: 1;
+}
+
+.crossoverBlock {
+    flex: 1;
+    height: 16px;
+    border-radius: 3px;
+}
+
+.crossoverMarkerWrap {
+    position: relative;
+    height: 14px;
+    margin-left: 30px;
+}
+
+.crossoverMarkerLine {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    border-radius: 1px;
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.crossoverMarkerText {
+    position: absolute;
+    top: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.3);
+    white-space: nowrap;
+    padding-left: 4px;
+}

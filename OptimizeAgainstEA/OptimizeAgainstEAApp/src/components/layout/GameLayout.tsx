@@ -1,23 +1,24 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode, RefObject } from 'react';
 
 // ---- Design Tokens ----
 export const LAYOUT = {
-    SPACING:      16,   // Basis-Spacing
-    LEFT_BAR:     240,  // Breite der linken Icon-Bar
-    RIGHT_PANEL:  220,  // Breite des rechten Panels
+    SPACING:      16,
+    LEFT_BAR:     240,  // Referenzwert – tatsächliche Breite via clamp() im Grid
+    RIGHT_PANEL:  220,  // Referenzwert – tatsächliche Breite via clamp() im Grid
     BORDER_COLOR: 'rgba(255, 255, 255, 0.06)',
     BG_PANEL:     'rgba(0, 0, 0, 0.25)',
 } as const;
 
 // ---- Types ----
 interface GameLayoutProps {
-    children:   ReactNode;  // Canvas
-    leftBar?:   ReactNode;  // Icon-Buttons links
-    sidebar?:   ReactNode;  // Stats/DNA rechts
+    children:   ReactNode;
+    leftBar?:   ReactNode;
+    sidebar?:   ReactNode;
+    canvasRef?: RefObject<HTMLDivElement>;  // wird direkt an das Canvas-Area-Div gehängt
 }
 
 // ---- Component ----
-export function GameLayout({ children, leftBar, sidebar }: GameLayoutProps) {
+export function GameLayout({ children, leftBar, sidebar, canvasRef }: GameLayoutProps) {
     return (
         <div style={styles.root}>
 
@@ -27,7 +28,7 @@ export function GameLayout({ children, leftBar, sidebar }: GameLayoutProps) {
             </div>
 
             {/* Canvas Bereich – zentriert */}
-            <div style={styles.canvasArea}>
+            <div style={styles.canvasArea} ref={canvasRef}>
                 {children}
             </div>
 
@@ -42,10 +43,10 @@ export function GameLayout({ children, leftBar, sidebar }: GameLayoutProps) {
     );
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
     root: {
         display:             'grid',
-        gridTemplateColumns: `${LAYOUT.LEFT_BAR}px 1fr ${LAYOUT.RIGHT_PANEL}px`,
+        gridTemplateColumns: 'var(--col-nav) 1fr var(--col-panel)',
         width:               '100%',
         height:              '100%',
         overflow:            'hidden',

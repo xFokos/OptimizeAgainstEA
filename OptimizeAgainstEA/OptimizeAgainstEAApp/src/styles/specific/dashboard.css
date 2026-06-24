@@ -1,7 +1,7 @@
 /* ---- Page grid ---- */
 .layout {
     display: grid;
-    grid-template-columns: clamp(200px, 18%, 260px) 1fr;
+    grid-template-columns: var(--col-sidebar) 1fr;
     height:  100vh;
     background: radial-gradient(circle at top, var(--bg-light), var(--bg));
     color:   var(--text);

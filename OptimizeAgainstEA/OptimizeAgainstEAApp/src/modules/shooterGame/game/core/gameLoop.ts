@@ -171,22 +171,17 @@ function updateAgent(
 
 
     // 2. Eingehende Bullets ausweichen
-    agent.dodgeSideTimer -= dt;
-    if (agent.dodgeSideTimer <= 0) {
-        agent.dodgeSide      = Math.random() > 0.5 ? 1 : -1;
-        agent.dodgeSideTimer = 1 + Math.random(); // 1–2 Sekunden
-    }
-
     const nearBullet = bullets
-        .filter(b => b.ownerId === 'player' && vec.distance(b.position, agent.position) < 180)
+        .filter(b => b.ownerId === 'player' && vec.distance(b.position, agent.position) < 120)
         .sort((a, b) => vec.distance(a.position, agent.position) - vec.distance(b.position, agent.position))[0];
 
-    const dodgeForce = nearBullet
-        ? vec.scale(
-            vec.scale(vec.perpendicular(vec.normalize(nearBullet.velocity)), agent.dodgeSide),
-            dna[DNA_INDEX.DODGE_WEIGHT]
-        )
-        : vec.zero();
+    const dodgeForce = (() => {
+        if (!nearBullet) return vec.zero();
+        const perp    = vec.perpendicular(vec.normalize(nearBullet.velocity));
+        const toAgent = vec.sub(agent.position, nearBullet.position);
+        const side    = perp.x * toAgent.x + perp.y * toAgent.y >= 0 ? 1 : -1;
+        return vec.scale(perp, side * dna[DNA_INDEX.DODGE_WEIGHT] * dna[DNA_INDEX.MOVEMENT_SPEED]);
+    })();
 
     // 3. Abstand zum Spieler regulieren
     const dist          = vec.distance(agent.position, player.position);

@@ -13,9 +13,12 @@ function tournamentSelect(individuals: Individual[], tournamentSize = 3): Indivi
 }
 
 // ---- Crossover ----
-function crossover(dnaA: number[], dnaB: number[]): number[] {
-    const point = Math.floor(Math.random() * DNA_LENGTH);
-    return [...dnaA.slice(0, point), ...dnaB.slice(point)];
+function crossover(dnaA: number[], dnaB: number[], type: 'uniform' | 'single-point' = 'uniform'): number[] {
+    if (type === 'single-point') {
+        const point = Math.floor(Math.random() * DNA_LENGTH);
+        return [...dnaA.slice(0, point), ...dnaB.slice(point)];
+    }
+    return dnaA.map((gene, i) => Math.random() < 0.5 ? gene : dnaB[i]);
 }
 
 // ---- Mutation ----
@@ -36,21 +39,25 @@ function mutate(
 // ---- Evolution ----
 export function evolve(
     population:       Population,
-    agentFitness:     number,
+    agentFitness?:    number,
     mutationRate:     number = GAME_CONFIG.MUTATION_RATE,
     mutationStrength: number = GAME_CONFIG.MUTATION_STRENGTH,
+    crossoverType:    'uniform' | 'single-point' = 'uniform',
 ): Population {
     const updatedIndividuals = [...population.individuals];
-    updatedIndividuals[0] = { ...updatedIndividuals[0], fitness: agentFitness };
+    if (agentFitness !== undefined) {
+        updatedIndividuals[0] = { ...updatedIndividuals[0], fitness: agentFitness };
+    }
 
-    const sorted = [...updatedIndividuals].sort((a, b) => b.fitness - a.fitness);
+    const sorted  = [...updatedIndividuals].sort((a, b) => b.fitness - a.fitness);
     const elites  = sorted.slice(0, GAME_CONFIG.ELITE_COUNT).map(i => ({ ...i }));
+    const popSize = population.individuals.length;
 
     const offspring: Individual[] = [];
-    while (offspring.length < GAME_CONFIG.POPULATION_SIZE - GAME_CONFIG.ELITE_COUNT) {
+    while (offspring.length < popSize - GAME_CONFIG.ELITE_COUNT) {
         const parent1  = tournamentSelect(sorted);
         const parent2  = tournamentSelect(sorted);
-        const childDna = mutate(crossover(parent1.dna, parent2.dna), mutationRate, mutationStrength);
+        const childDna = mutate(crossover(parent1.dna, parent2.dna, crossoverType), mutationRate, mutationStrength);
         offspring.push({ dna: childDna, fitness: 0 });
     }
 
@@ -69,12 +76,10 @@ export function getNextAgent(population: Population, roundNumber: number): numbe
 
 // ---- Simulation Types ----
 interface SimAgent {
-    pos:        { x: number; y: number };
-    vel:        { x: number; y: number };
-    rot:        number;
-    cooldown:   number;
-    dodgeSide:  1 | -1;
-    dodgeTimer: number;
+    pos:      { x: number; y: number };
+    vel:      { x: number; y: number };
+    rot:      number;
+    cooldown: number;
 }
 
 interface SimBullet {
@@ -111,22 +116,17 @@ function stepAgent(
     const chaseForce = vec.scale(toEnemy, dna[DNA_INDEX.AGGRESSION]);
 
     // 2. Ausweichen
-    agent.dodgeTimer -= dt;
-    if (agent.dodgeTimer <= 0) {
-        agent.dodgeSide  = Math.random() > 0.5 ? 1 : -1;
-        agent.dodgeTimer = 1 + Math.random();
-    }
-
     const nearBullet = enemyBullets
-        .filter(b => vec.distance(b.position, agent.pos) < 180)
+        .filter(b => vec.distance(b.position, agent.pos) < 120)
         .sort((a, b) => vec.distance(a.position, agent.pos) - vec.distance(b.position, agent.pos))[0];
 
-    const dodgeForce = nearBullet
-        ? vec.scale(
-            vec.scale(vec.perpendicular(vec.normalize(nearBullet.velocity)), agent.dodgeSide),
-            dna[DNA_INDEX.DODGE_WEIGHT]
-        )
-        : vec.zero();
+    const dodgeForce = (() => {
+        if (!nearBullet) return vec.zero();
+        const perp    = vec.perpendicular(vec.normalize(nearBullet.velocity));
+        const toAgent = vec.sub(agent.pos, nearBullet.position);
+        const side    = perp.x * toAgent.x + perp.y * toAgent.y >= 0 ? 1 : -1;
+        return vec.scale(perp, side * dna[DNA_INDEX.DODGE_WEIGHT] * dna[DNA_INDEX.MOVEMENT_SPEED]);
+    })();
 
     // 3. Abstand halten
     const dist          = vec.distance(agent.pos, enemy.pos);
@@ -173,17 +173,13 @@ function simulateFight(dnaA: DNA, dnaB: DNA): [number, number] {
         pos: { x: 200, y: ARENA.HEIGHT / 2 },
         vel: vec.zero(),
         rot: 0,
-        cooldown:   0,
-        dodgeSide:  1,
-        dodgeTimer: 1,
+        cooldown: 0,
     };
     let agentB: SimAgent = {
         pos: { x: ARENA.WIDTH - 200, y: ARENA.HEIGHT / 2 },
         vel: vec.zero(),
         rot: Math.PI,
-        cooldown:   0,
-        dodgeSide:  -1,
-        dodgeTimer: 1,
+        cooldown: 0,
     };
 
     let bulletsA: SimBullet[] = [];
@@ -258,7 +254,7 @@ export function presimulate(generations: number): Population {
             fitness: fitnesses[i],
         }));
 
-        pop = evolve(pop, Math.max(...fitnesses));
+        pop = evolve(pop);
     }
 
     return pop;
@@ -267,12 +263,10 @@ export function presimulate(generations: number): Population {
 // ---- Ghost Simulation ----
 function simulateAgainstGhost(dna: DNA, ghost: PlayerGhost): number {
     let agent: SimAgent = {
-        pos:        { x: ARENA.WIDTH - 200, y: ARENA.HEIGHT / 2 },
-        vel:        vec.zero(),
-        rot:        Math.PI,
-        cooldown:   0,
-        dodgeSide:  -1,
-        dodgeTimer: 1,
+        pos:      { x: ARENA.WIDTH - 200, y: ARENA.HEIGHT / 2 },
+        vel:      vec.zero(),
+        rot:      Math.PI,
+        cooldown: 0,
     };
 
     let agentBullets:  SimBullet[] = [];
@@ -294,12 +288,10 @@ function simulateAgainstGhost(dna: DNA, ghost: PlayerGhost): number {
 
         // Ghost als SimAgent damit stepAgent ihn versteht
         const ghostAsEnemy: SimAgent = {
-            pos:        { ...frame.position },
-            vel:        { ...frame.velocity },
-            rot:        frame.rotation,
-            cooldown:   0,
-            dodgeSide:  1,
-            dodgeTimer: 1,
+            pos:      { ...frame.position },
+            vel:      { ...frame.velocity },
+            rot:      frame.rotation,
+            cooldown: 0,
         };
 
         const dt = 1 / 60; // gleiche Rate wie Game Loop
@@ -338,6 +330,7 @@ export function presimulateAgainstGhost(
     generations:     number,
     ghost:           PlayerGhost,
     startPopulation: Population,
+    crossoverType:   'uniform' | 'single-point' = 'uniform',
 ): Population {
     let pop = startPopulation;
 
@@ -348,8 +341,7 @@ export function presimulateAgainstGhost(
             fitness: simulateAgainstGhost(ind.dna, ghost),
         }));
 
-        const bestFitness = Math.max(...pop.individuals.map(i => i.fitness));
-        pop = evolve(pop, bestFitness);
+        pop = evolve(pop, undefined, GAME_CONFIG.MUTATION_RATE, GAME_CONFIG.MUTATION_STRENGTH, crossoverType);
     }
 
     return pop;

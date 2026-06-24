@@ -3,10 +3,11 @@ import { STARTER_DNA, DNA_LENGTH } from '../modules/shooterGame/shooter.types';
 
 // ---- Allgemeine EA Settings (spielübergreifend) ----
 export interface EASettings {
-    mutationRate:      number; // 0–0.5
-    mutationStrength:  number; // 0–0.5
-    presimGenerations: number; // 0–10
-    populationSize:    number; // 5–50
+    mutationRate:      number;                      // 0–0.5
+    mutationStrength:  number;                      // 0–0.5
+    presimGenerations: number;                      // 0–10
+    populationSize:    number;                      // 5–50
+    crossoverType:     'uniform' | 'single-point';  // Gen-Mischmethode
 }
 
 export const defaultEASettings: EASettings = {
@@ -14,6 +15,7 @@ export const defaultEASettings: EASettings = {
     mutationStrength:  0.2,
     presimGenerations: 3,
     populationSize:    20,
+    crossoverType:     'uniform',
 };
 
 // ---- Shooter Settings ----

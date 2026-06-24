@@ -38,6 +38,12 @@
   --r-sm: 4px;
   --r-md: 8px;
   --r-lg: 12px;
+
+  /* Layout — fluid columns, single source of truth for all pages */
+  --col-nav:     clamp(180px, 14vw, 280px);  /* icon/nav bar (left column in games) */
+  --col-panel:   clamp(200px, 16vw, 360px);  /* right panel (DNA, stats, details) */
+  --col-sidebar: clamp(200px, 18%, 260px);   /* dashboard navigation sidebar */
+  --layout-gap:  clamp(12px, 1.2vw, 20px);  /* main layout gap / padding */
 }
 
 /* ============================================================
