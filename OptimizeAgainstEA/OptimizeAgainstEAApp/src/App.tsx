@@ -13,6 +13,7 @@ import DashboardPage from "./pages/DashboardPage.tsx";
 import MapGamePage from "./pages/MapGamePage.tsx";
 import ShooterGamePage from "./pages/ShooterGamePage.tsx";
 import BattleShipsPage from "./pages/BattleShipsPage.tsx";
+import MazeGamePage from "./pages/MazeGamePage.tsx";
 import ShooterLobbyPage from "./pages/lobby/ShooterLobbyPage";
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
                 <Route path="/JumpGame" element={<JumpGamePage />} />
                 <Route path="/TravelingSalesman" element={<TravelingSalesmanPage />} />
                 <Route path="/BattleShips" element={<BattleShipsPage />} />
+                <Route path="/MazeGame" element={<MazeGamePage />} />
                 <Route path="Problem" element={<ProblemPage />}/>
                 <Route path="Dashboard" element={<DashboardPage />}/>
                 <Route path="MapGame" element={<MapGamePage/>}/>
