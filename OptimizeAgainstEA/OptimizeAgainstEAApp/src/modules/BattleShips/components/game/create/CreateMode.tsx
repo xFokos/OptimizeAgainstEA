@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useState } from 'react';
 import type { CreateStep, GameMode } from '../../../types/game.ts';
 import { useGameMap } from '../../../hooks/useGameMap';
-import { copyCode } from '../../../engine/codeClipboard';
+import { copyCode } from
+    '../../../engine/codeClipboard';
 import { useSavedMaps } from '../../../hooks/useSavedMaps';
 import { useHints } from '../../../hints/HintContext';
 import type { HintId } from '../../../hints/hintContent';

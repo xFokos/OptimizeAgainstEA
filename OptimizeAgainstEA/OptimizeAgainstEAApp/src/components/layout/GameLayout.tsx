@@ -14,7 +14,7 @@ interface GameLayoutProps {
     children:   ReactNode;
     leftBar?:   ReactNode;
     sidebar?:   ReactNode;
-    canvasRef?: RefObject<HTMLDivElement>;  // wird direkt an das Canvas-Area-Div gehängt
+    canvasRef?: RefObject<HTMLDivElement | null>;  // wird direkt an das Canvas-Area-Div gehängt
 }
 
 // ---- Component ----
