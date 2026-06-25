@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSavedMaps } from '../../../hooks/useSavedMaps';
+import { copyCode } from '../../../engine/codeClipboard';
 
 const fmtDate = (ts: number): string =>
   new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -19,7 +20,7 @@ export function SavedMapsSidebar() {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const copy = (id: string, code: string) => {
-    void navigator.clipboard.writeText(code);
+    void copyCode(code);
     setCopiedId(id);
     setTimeout(() => setCopiedId((cur) => (cur === id ? null : cur)), 1500);
   };

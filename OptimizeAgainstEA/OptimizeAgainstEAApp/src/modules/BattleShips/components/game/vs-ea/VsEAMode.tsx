@@ -4,6 +4,7 @@ import type { EAConfig} from '../../../types/ea';
 import { DEFAULT_EA_CONFIG } from '../../../types/ea';
 import { createMapProblem } from '../../../engine/functionSurface';
 import { decodeMap, encodeMap, generateRandomMap } from '../../../engine/mapCodec';
+import { copyCode, pasteCode } from '../../../engine/codeClipboard';
 import { usePlaySession } from '../../../hooks/usePlaySession';
 import { useEARunner } from '../../../hooks/useEARunner';
 import { GameMap } from '../shared/GameMap';
@@ -61,6 +62,11 @@ function DualMapLoader({
   const set = (field: keyof DualLoaderState, value: string) =>
     setS((prev) => ({ ...prev, [field]: value }));
 
+  const pasteInto = async (field: 'playerCode' | 'eaCode') => {
+    const text = await pasteCode();
+    if (text) set(field, text);
+  };
+
   const handleGenerate = () => {
     const map  = generateRandomMap(5 + Math.floor(Math.random() * 4));
     const code = encodeMap(map);
@@ -109,7 +115,7 @@ function DualMapLoader({
             />
             <button
               className="btn btn--ghost btn--sm"
-              onClick={() => navigator.clipboard.writeText(s.generatedCode)}
+              onClick={() => void copyCode(s.generatedCode)}
             >
               Copy
             </button>
@@ -120,27 +126,45 @@ function DualMapLoader({
       <div className="dual-loader__grid">
         <div className="dual-loader__col">
           <div className="dual-loader__col-label">Your Map</div>
-          <input
-            className="map-loader__input"
-            placeholder="Paste map code…"
-            value={s.playerCode}
-            spellCheck={false}
-            onChange={(e) => set('playerCode', e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleStart()}
-          />
+          <div className="dual-loader__paste-row">
+            <input
+              className="map-loader__input"
+              placeholder="Paste map code…"
+              value={s.playerCode}
+              spellCheck={false}
+              onChange={(e) => set('playerCode', e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleStart()}
+            />
+            <button
+              className="btn btn--ghost btn--sm"
+              onClick={() => pasteInto('playerCode')}
+              title="Paste from clipboard"
+            >
+              📋
+            </button>
+          </div>
           {s.playerErr && <p className="map-loader__error">{s.playerErr}</p>}
         </div>
 
         <div className="dual-loader__col">
           <div className="dual-loader__col-label">EA Map</div>
-          <input
-            className="map-loader__input"
-            placeholder="Paste map code…"
-            value={s.eaCode}
-            spellCheck={false}
-            onChange={(e) => set('eaCode', e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleStart()}
-          />
+          <div className="dual-loader__paste-row">
+            <input
+              className="map-loader__input"
+              placeholder="Paste map code…"
+              value={s.eaCode}
+              spellCheck={false}
+              onChange={(e) => set('eaCode', e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleStart()}
+            />
+            <button
+              className="btn btn--ghost btn--sm"
+              onClick={() => pasteInto('eaCode')}
+              title="Paste from clipboard"
+            >
+              📋
+            </button>
+          </div>
           {s.eaErr && <p className="map-loader__error">{s.eaErr}</p>}
         </div>
       </div>
@@ -398,31 +422,9 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
               />
             )}
           </div>
-        </div>
 
-        {/* ── EA panel ── */}
-        <div className="vsea-panel">
-          <div className="vsea-panel__header">
-            <span className="vsea-panel__label">EA</span>
-            <span className="vsea-panel__meta">gen {ea.totalGenerations}</span>
-          </div>
-
-          <div className="vsea-banner">
-            {ea.status === 'running'   && <span className="vsea-banner__text vsea-banner__text--running">● Waiting for your move…</span>}
-            {ea.status === 'solved'    && <span className="vsea-banner__text vsea-banner__text--solved">✓ Solved in {ea.totalGenerations} generations</span>}
-            {ea.status === 'exhausted' && <span className="vsea-banner__text vsea-banner__text--exhausted">✗ Exhausted — no solution found</span>}
-            {ea.status === 'idle'      && <span className="vsea-banner__text">Initialising…</span>}
-            {ea.status === 'error'     && <span className="vsea-banner__text vsea-banner__text--error">Error: {ea.errorMessage}</span>}
-          </div>
-
-          {/* Chart — always shown, empty axes until first probe */}
-          <FitnessChart
-            series={chartSeries}
-            hoveredIndex={hoveredIndex}
-            onHover={handleHover}
-          />
-
-          {/* Replay buttons */}
+          {/* Replay buttons — under the map so they're reachable without
+              scrolling to the bottom of the EA panel on mobile. */}
           {(ea.latestReplay && ea.latestReplay.length > 0 || ea.status === 'solved') && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {ea.latestReplay && ea.latestReplay.length > 0 && (
@@ -451,6 +453,29 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
               )}
             </div>
           )}
+        </div>
+
+        {/* ── EA panel ── */}
+        <div className="vsea-panel">
+          <div className="vsea-panel__header">
+            <span className="vsea-panel__label">EA</span>
+            <span className="vsea-panel__meta">gen {ea.totalGenerations}</span>
+          </div>
+
+          <div className="vsea-banner">
+            {ea.status === 'running'   && <span className="vsea-banner__text vsea-banner__text--running">● Waiting for your move…</span>}
+            {ea.status === 'solved'    && <span className="vsea-banner__text vsea-banner__text--solved">✓ Solved in {ea.totalGenerations} generations</span>}
+            {ea.status === 'exhausted' && <span className="vsea-banner__text vsea-banner__text--exhausted">✗ Exhausted — no solution found</span>}
+            {ea.status === 'idle'      && <span className="vsea-banner__text">Initialising…</span>}
+            {ea.status === 'error'     && <span className="vsea-banner__text vsea-banner__text--error">Error: {ea.errorMessage}</span>}
+          </div>
+
+          {/* Chart — always shown, empty axes until first probe */}
+          <FitnessChart
+            series={chartSeries}
+            hoveredIndex={hoveredIndex}
+            onHover={handleHover}
+          />
 
         </div>
       </div>

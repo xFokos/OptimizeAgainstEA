@@ -54,11 +54,20 @@
 	--r-md: 8px;
 	--r-lg: 16px;
 
+	/* ── RESPONSIVE BREAKPOINTS ─────────────────
+	   Source of truth for the two layout breaks.
+	   (CSS can't read vars inside @media queries, so
+	   the media rules use the literal px — keep them
+	   in sync with these.)                          */
+	--bp-sm: 768px;   /* tablet & below → stack columns */
+	--bp-xs: 480px;   /* phone → tighten paddings/fonts */
+
 	/* ── SIZE KNOBS ─────────────────────────────
 	   Change these to resize the whole layout.   */
 
-	/* Max width of the map square in play & vs-ea modes */
-	--map-max-width: 480px;
+	/* Max width of the map square in play & vs-ea modes.
+	   Fluid: shrinks with the viewport on small screens. */
+	--map-max-width: min(480px, 92vw);
 	--map-min-width: 200px;
 
 	/* Play mode: sidebar | chart-col | map */
@@ -91,13 +100,47 @@ html, body, #root {
    APP SHELL
 ───────────────────────────────────────────── */
 .app {
-	min-height: 100vh;
+	/* index.css locks html/body/#root to 100vh with overflow:hidden (other
+	   games need a fixed full-viewport canvas). So this page can't rely on the
+	   document scrolling — instead .app fills the viewport and becomes its own
+	   scroll container, so tall content (stacked map + chart) scrolls here.
+	   Use dvh (dynamic viewport) so on mobile the height matches the *visible*
+	   area, not the area behind the browser toolbar — otherwise the bottom of
+	   the content hides behind the toolbar and can't be scrolled into view. */
+	height: 100vh;   /* fallback for older browsers */
+	height: 100dvh;
+	overflow-y: auto;
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	justify-content: center;
+	/* `safe center` centers content when it fits, but falls back to top/left
+	   alignment when it overflows — so tall maps in short windows stay fully
+	   visible and scrollable instead of being clipped by flex centering. */
+	align-items: safe center;
+	justify-content: safe center;
 	padding: var(--page-padding);
+	/* Reserve top room for the fixed corner toggles (hint / saved-maps) so
+	   right-aligned topbar buttons (Reset / Change Maps) never sit beneath
+	   them — on desktop and mobile alike. Explicit px on purpose: index.css
+	   also defines --sp-8 (32px) and wins the cascade, so the token is
+	   unreliable for this critical clearance. */
+	padding-top: 72px;
 	box-sizing: border-box;
+}
+
+/* On small screens, top-align content: tall stacked layouts shouldn't be
+   vertically centered (it crops them and fights the on-screen keyboard).
+   The base padding-top already clears the corner toggles. */
+@media (max-width: 768px) {
+	.app { justify-content: flex-start; }
+}
+
+/* Prevent iOS Safari from auto-zooming the page on input focus: any control
+   with font-size < 16px triggers it. Bump every text field / select to 16px
+   on touch-sized screens. (Applies app-wide — loaders, settings, modals.) */
+@media (max-width: 768px) {
+	.map-loader__input,
+	.saved-maps__rename-input,
+	.ea-select { font-size: 16px; }
 }
 
 /* ─────────────────────────────────────────────
@@ -194,6 +237,13 @@ html, body, #root {
 
 @media (max-width: 560px) { .mode-selector__grid { grid-template-columns: 1fr; } }
 
+/* Phone: the 48px header→grid gap is too airy when stacked; tighten it.
+   Keyboard-shortcut chips (C / P / E) are meaningless on touch — hide them. */
+@media (max-width: 480px) {
+	.mode-selector       { gap: var(--sp-5); }
+	.mode-card__key      { display: none; }
+}
+
 .mode-card {
 	display: flex;
 	flex-direction: column;
@@ -243,7 +293,13 @@ html, body, #root {
 	gap: var(--sp-6);
 	align-items: start;
 }
-@media (max-width: 680px) { .create-step { grid-template-columns: 1fr; } }
+@media (max-width: 768px) {
+	.create-step { grid-template-columns: 1fr; gap: var(--sp-4); }
+	/* The map is the primary interactive element and carries its own
+	   on-canvas instruction (overlayLabel), so float it above the
+	   heading/description/actions and let the action button sit below it. */
+	.create-step__map-wrap { order: -1; }
+}
 
 .create-step__info    { display: flex; flex-direction: column; gap: var(--sp-4); }
 .create-step__heading { display: flex; align-items: center; gap: var(--sp-3); font-family: var(--font-mono); font-size: 1rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text-primary); }
@@ -254,7 +310,9 @@ html, body, #root {
 .stat__value          { font-family: var(--font-mono); font-size: 1.8rem; font-weight: 700; color: var(--accent); line-height: 1; }
 .stat__label          { font-size: 0.75rem; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
 .create-step__actions { display: flex; flex-direction: column; gap: var(--sp-3); }
-.create-step__map-wrap{ display: flex; flex-direction: column; gap: var(--sp-2); }
+/* Cap the map so it doesn't balloon to full width when the side info column
+   disappears on stacking — keeps it the same size as play / vs-ea maps. */
+.create-step__map-wrap{ display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; max-width: var(--map-max-width); margin-inline: auto; }
 .map-hint             { font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); text-align: center; }
 
 .selection-preview     { display: flex; align-items: center; gap: var(--sp-3); font-size: 0.8rem; color: var(--accent-global); font-family: var(--font-mono); }
@@ -547,19 +605,51 @@ html, body, #root {
 .play-mode__topbar { display: flex; align-items: center; justify-content: space-between; width: 100%; }
 .play-mode__mapid  { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); letter-spacing: 0.08em; }
 
+/* Controls bar above the map: explanation text (left) + reveal slider (right) */
+.play-controls {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--sp-4);
+	flex-wrap: wrap;
+	width: 100%;
+}
+.play-controls__hint   { flex: 1 1 220px; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
+.play-controls__reveal { flex: 0 1 240px; min-width: 180px; display: flex; flex-direction: column; gap: var(--sp-1); }
+.play-controls__reveal-label {
+	display: flex; justify-content: space-between; align-items: baseline;
+	font-size: 0.7rem; color: var(--text-muted); font-family: var(--font-mono);
+	letter-spacing: 0.06em; text-transform: uppercase;
+}
+.play-controls__reveal-value { color: var(--accent); }
+
 .play-layout {
 	display: flex;
 	flex-direction: row;
 	gap: var(--sp-3);
 	align-items: flex-start;
 }
-@media (max-width: 640px) { .play-layout { flex-direction: column; } }
+/* Play stacks earlier than other pages (900px, not 768): its row needs
+   sidebar + map + chart, so it runs out of comfortable width sooner — stacking
+   early keeps the map from shrinking too far before it goes full-width. */
+@media (max-width: 900px) {
+	.play-mode   { width: 100%; }
+	.play-layout { flex-direction: column; align-items: stretch; }
+	/* Map on top, chart below — both sized to --map-max-width and centered so
+	   they line up at equal width and both fit without horizontal scrolling. */
+	.play-map-wrap  { margin-inline: auto; }
+	.play-chart-col { width: var(--map-max-width); max-width: 100%; min-width: 0; margin-inline: auto; }
+}
 
 /* Chart column — fixed width, height driven purely by aspect ratio */
 .play-chart-col {
 	/* ↓ KNOB: chart column width — wider = taller (aspect ratio is fixed) */
 	width: var(--play-chart-width);
-	flex-shrink: 0;
+	/* Shrink together with the map as the window narrows (instead of staying
+	   fixed and forcing the map to absorb all the shrink). Won't go below a
+	   readable min. */
+	flex-shrink: 1;
+	min-width: 260px;
 	align-self: flex-start;  /* don't stretch; let height come from SVG */
 }
 .play-chart-col .fitness-chart {
@@ -673,8 +763,9 @@ html, body, #root {
 .dual-loader__grid     { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); width: 100%; }
 @media (max-width: 500px) { .dual-loader__grid { grid-template-columns: 1fr; } }
 .dual-loader__col      { display: flex; flex-direction: column; gap: var(--sp-2); }
+.dual-loader__paste-row{ display: flex; gap: var(--sp-2); }
 .dual-loader__col-label{ font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; }
-.dual-loader__actions  { display: flex; gap: var(--sp-3); justify-content: space-between; width: 100%; }
+.dual-loader__actions  { display: flex; gap: var(--sp-3); justify-content: space-between; width: 100%; flex-wrap: wrap; }
 
 .dual-loader__generate-row { display: flex; flex-direction: column; gap: var(--sp-3); width: 100%; }
 .dual-loader__codebox      { display: flex; gap: var(--sp-2); align-items: center; width: 100%; }
@@ -704,7 +795,14 @@ html, body, #root {
 	gap: var(--sp-5);
 	align-items: flex-start;
 }
-@media (max-width: 640px) { .vsea-race__panels { flex-direction: column; } }
+/* Stack the two map panels at 768 (was 640) so they don't shrink too far
+   before going full-width — both panels already shrink together (flex-shrink),
+   so this just sets where they flip to vertical. Centered when stacked. */
+@media (max-width: 768px) {
+	.vsea-race         { width: 100%; }
+	.vsea-race__panels { flex-direction: column; align-items: center; }
+	.vsea-panel        { width: var(--map-max-width); }
+}
 
 /* Individual panel */
 .vsea-panel {
@@ -896,6 +994,16 @@ html, body, #root {
 .replay-win-check__bar   { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
 .replay-win-check__fill  { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
 
+/* Mobile: the body is a fixed row (map col 480px + panel col) that overflows
+   narrow screens. Stack it to a column, let both columns fill the width, and
+   make the modal height auto + scroll so the controls stay reachable. */
+@media (max-width: 768px) {
+	.replay-modal     { width: 96vw; height: auto; max-height: 94vh; }
+	.replay-body      { flex-direction: column; overflow-y: auto; }
+	.replay-map-col   { width: 100%; }
+	.replay-panel-col { width: 100%; }
+}
+
 /* ─────────────────────────────────────────────
    EA WIN OVERLAY
 ───────────────────────────────────────────── */
@@ -918,6 +1026,12 @@ html, body, #root {
 	min-width: 320px;
 	animation: slideUp 0.2s ease;
 	text-align: center;
+}
+
+/* Phone: drop the 320px min and tighten padding so the card doesn't overflow. */
+@media (max-width: 480px) {
+	.ea-win-card { min-width: 0; width: 92vw; padding: var(--sp-5); }
+	.ea-win-card__stats { gap: var(--sp-4); }
 }
 
 .ea-win-card__tag {

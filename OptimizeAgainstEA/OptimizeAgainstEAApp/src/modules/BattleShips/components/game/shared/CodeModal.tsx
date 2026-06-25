@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { copyCode } from '../../../engine/codeClipboard';
 
 interface CodeModalProps {
   code: string;
@@ -11,7 +12,7 @@ export function CodeModal({ code, mapId, onClose, onPlayNow }: CodeModalProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(code);
+    await copyCode(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

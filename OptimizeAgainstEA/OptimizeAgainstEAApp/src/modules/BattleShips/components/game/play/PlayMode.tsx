@@ -71,52 +71,31 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
         <button className="btn btn--ghost btn--sm btn--danger" onClick={reset}>Reset</button>
       </div>
 
-      {/* sidebar | map | chart */}
-      <div className="play-layout">
+      {/* Explanation + reveal slider, above the map */}
+      <div className="play-controls">
+        <p className="play-controls__hint">
+          {status === 'idle'    ? 'Click the map to place a probe.'
+            : status === 'playing' ? 'Lower values are closer to a minimum.'
+              :                        'Global minimum found!'}
+        </p>
 
-        <div className="play-sidebar">
-          <div className="play-sidebar__section">
-            <div className="play-sidebar__label">Probes placed</div>
-            <div className="play-sidebar__value">{probes.length}</div>
-          </div>
-
-          {bestProbe && (
-            <div className="play-sidebar__section">
-              <div className="play-sidebar__label">Best value</div>
-              <div className="play-sidebar__value play-sidebar__value--accent">
-                {bestProbe.value.toFixed(4)}
-              </div>
-            </div>
-          )}
-
-          {probes.length > 0 && (
-            <div className="play-sidebar__section">
-              <div className="play-sidebar__label">Last probe</div>
-              <div className="play-sidebar__value">
-                {probes[probes.length - 1].value.toFixed(4)}
-              </div>
-            </div>
-          )}
-
-          <div className="play-sidebar__hint">
-            {status === 'idle'    ? 'Click the map to place a probe.'
-              : status === 'playing' ? 'Lower values are closer to a minimum.'
-                :                        'Global minimum found!'}
-          </div>
-
-          <div className="play-sidebar__section">
-            <div className="play-sidebar__label">
-              Reveal radius <span className="play-sidebar__value">{revealRadius.toFixed(2)}</span>
-            </div>
-            <input
-              type="range"
-              className="ea-slider"
-              min={0.02} max={0.25} step={0.01}
-              value={revealRadius}
-              onChange={(e) => setRevealRadius(parseFloat(e.target.value))}
-            />
-          </div>
+        <div className="play-controls__reveal">
+          <label className="play-controls__reveal-label">
+            Reveal radius
+            <span className="play-controls__reveal-value">{revealRadius.toFixed(2)}</span>
+          </label>
+          <input
+            type="range"
+            className="ea-slider"
+            min={0.02} max={0.25} step={0.01}
+            value={revealRadius}
+            onChange={(e) => setRevealRadius(parseFloat(e.target.value))}
+          />
         </div>
+      </div>
+
+      {/* map | chart */}
+      <div className="play-layout">
 
         {/* Map */}
         <div className="play-map-wrap" style={{ position: 'relative' }}>

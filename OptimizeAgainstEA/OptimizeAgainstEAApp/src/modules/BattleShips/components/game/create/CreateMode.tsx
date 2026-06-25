@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import type { CreateStep, GameMode } from '../../../types/game.ts';
 import { useGameMap } from '../../../hooks/useGameMap';
+import { copyCode } from '../../../engine/codeClipboard';
 import { useSavedMaps } from '../../../hooks/useSavedMaps';
 import { useHints } from '../../../hints/HintContext';
 import type { HintId } from '../../../hints/hintContent';
@@ -86,7 +87,7 @@ export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
   };
 
   const handleCopy = async (code: string) => {
-    await navigator.clipboard.writeText(code);
+    await copyCode(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
