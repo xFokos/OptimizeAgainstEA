@@ -29,6 +29,8 @@ A React + TypeScript educational web app that teaches optimization concepts thro
 
 Global state: `SettingsProvider` wraps all routes in `App.tsx` (`src/context/SettingsContext.tsx`).
 
+**Target platforms:** The website must work on both mobile and desktop. Any new UI or layout work should be responsive and usable on small touch screens as well as large pointer-driven displays. (See "What's not built yet" — the mobile layout is not yet fully tested below 640px.)
+
 ---
 
 ## Code style rules

@@ -91,7 +91,7 @@ export function GenerationReplayOverlay({ generations, eaMap, onClose }: Generat
 
         {/* Map */}
         <div className="genreplay-body">
-          <GenerationMap gen={gen} />
+          <GenerationMap gen={gen} eaMap={eaMap} />
         </div>
 
         {/* Controls */}
@@ -121,9 +121,16 @@ export function GenerationReplayOverlay({ generations, eaMap, onClose }: Generat
   );
 }
 
-function GenerationMap({ gen }: { gen: Generation }) {
+function GenerationMap({ gen, eaMap }: { gen: Generation; eaMap: MapConfig }) {
   const sorted = [...gen.individuals].sort((a, b) => a.fitness - b.fitness);
   const worst  = sorted[sorted.length - 1]?.fitness ?? 1;
+
+  // Win zone: a ring of `winRadius` (normalized to map width) around the global
+  // minimum. Probes whose centre falls inside this ring are the `isSolution`
+  // dots highlighted below.
+  const globalMin = eaMap.minima.find((m) => m.isGlobal);
+  const winR      = eaMap.winRadius * 100; // viewBox units (0–100)
+  const solutionCount = sorted.filter((ind) => ind.isSolution).length;
 
   return (
     <div style={{
@@ -147,7 +154,42 @@ function GenerationMap({ gen }: { gen: Generation }) {
             <line x1={0} y1={v} x2={100} y2={v} stroke="rgba(255,255,255,.04)" strokeWidth=".3"/>
           </g>
         ))}
+
+        {/* Win radius — the zone probes must reach to count as solved */}
+        {globalMin && (
+          <circle
+            cx={globalMin.position.x * 100}
+            cy={globalMin.position.y * 100}
+            r={winR}
+            fill="var(--accent)"
+            fillOpacity={0.1}
+            stroke="var(--accent)"
+            strokeOpacity={0.7}
+            strokeWidth={0.6}
+            strokeDasharray="2 1.5"
+          />
+        )}
       </svg>
+
+      {/* Count badge — how many probes are currently inside the win radius */}
+      {globalMin && (
+        <div style={{
+          position: 'absolute',
+          top: 8,
+          left: 8,
+          padding: '2px 8px',
+          borderRadius: 999,
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--accent)',
+          background: 'rgba(0,0,0,.45)',
+          border: '1px solid var(--accent)',
+          pointerEvents: 'none',
+          zIndex: 5,
+        }}>
+          {solutionCount} in win radius
+        </div>
+      )}
 
       {sorted.map((ind, rank) => {
         const isBest  = rank === 0;

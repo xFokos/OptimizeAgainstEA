@@ -130,14 +130,21 @@ export function createEAStepper(
   );
   let genIndex  = 0;
   let hasSolved = false;
+  // Replay frames for the breeding that produced the CURRENT `population`
+  // (previous generation → current). Undefined for the initial random
+  // generation, which was never bred. This is paired with each reported
+  // generation so the replay's final frame shows exactly that generation's
+  // dots — keeping "Watch Last Replay" aligned with "Watch EA Movement"
+  // instead of one generation ahead.
+  let producingReplay: ReplayFrame[] | undefined;
 
   const step = (n: number): StepResult => {
     // n = 0 just returns current state without advancing
     if (n === 0) {
-      return { type: 'generation', generation: summarise(population, genIndex) };
+      return { type: 'generation', generation: summarise(population, genIndex), replay: producingReplay };
     }
 
-    let lastResult: StepResult = { type: 'generation', generation: summarise(population, genIndex) };
+    let lastResult: StepResult = { type: 'generation', generation: summarise(population, genIndex), replay: producingReplay };
 
     for (let i = 0; i < n; i++) {
       if (genIndex >= config.maxGenerations) {
@@ -148,21 +155,27 @@ export function createEAStepper(
       population.sort((a, b) => a.fitness - b.fitness);
       const generation = summarise(population, genIndex);
 
+      // The replay paired with THIS generation is the one that produced it
+      // (previous generation → this one), so its final frame matches these
+      // dots. The breeding of this generation into the next is computed below
+      // and carried forward to pair with the next generation.
+      const replayForThisGen = producingReplay;
+
       const eliteCount = Math.max(1, Math.floor(config.populationSize * 0.05));
       const winFraction = config.winPopulationFraction ?? WIN_POPULATION_FRACTION;
       const threshold  = Math.max(2, Math.ceil(config.populationSize * winFraction));
       const { next: nextPop, record } = breedNext(population, config, genIndex, select, crossover, mutate, problem, rng);
-      const replay     = buildReplayFrames(population, nextPop, eliteCount, config, threshold, record);
+      producingReplay  = buildReplayFrames(population, nextPop, eliteCount, config, threshold, record);
       population = nextPop;
       genIndex++;
 
       const solutionCount = generation.individuals.filter((ind) => ind.isSolution).length;
       if (solutionCount >= threshold && !hasSolved) {
         hasSolved = true;
-        return { type: 'solved', generation, totalGenerations: genIndex, replay };
+        return { type: 'solved', generation, totalGenerations: genIndex, replay: replayForThisGen };
       }
 
-      lastResult = { type: 'generation', generation, replay };
+      lastResult = { type: 'generation', generation, replay: replayForThisGen };
     }
 
     return lastResult;

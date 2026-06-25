@@ -175,7 +175,7 @@ export function buildReplayFrames(
     frames.push({
       phase:        'selection',
       headline:     'Tournament selection (k = 3)',
-      description:  `Three individuals are drawn at random — here rank ${list}. The fittest of the three wins and becomes a parent. A second tournament picks the other parent.`,
+      description:  `Three individuals are drawn at random — here rank ${list}. The fittest of the three wins and becomes a parent. A second tournament picks the other parent. The following process will be repeated to fill the rest of the new generation`,
       individuals:  sortedSnap,
       strategy:     'tournament',
       candidateIds,
@@ -190,7 +190,7 @@ export function buildReplayFrames(
     frames.push({
       phase:       'selection',
       headline:    'Roulette-wheel selection',
-      description: `Each individual is weighted by how far its fitness is below the worst. The best individual (fitness ${sorted[0].fitness.toFixed(3)}) is ~${ratio}× as likely to be selected as the worst (${sorted[n - 1].fitness.toFixed(3)}).`,
+      description: `Each individual is weighted by how far its fitness is below the worst. The best individual (fitness ${sorted[0].fitness.toFixed(3)}) is ~${ratio}× as likely to be selected as the worst (${sorted[n - 1].fitness.toFixed(3)}) The following process will be repeated to fill the rest of the new generation.`,
       individuals: sortedSnap,
       strategy:    'roulette',
       weights,
@@ -200,7 +200,7 @@ export function buildReplayFrames(
     frames.push({
       phase:         'selection',
       headline:      'Elitist selection',
-      description:   `Only the top 20% of the population (${eliteTopCount} of ${n} individuals) are eligible as parents. Selection is uniform within this pool — the remaining 80% have zero chance of being chosen.`,
+      description:   `Only the top 20% of the population (${eliteTopCount} of ${n} individuals) are eligible as parents. Selection is uniform within this pool — the remaining 80% have zero chance of being chosen. The following process will be repeated to fill the rest of the new generation`,
       individuals:   sortedSnap,
       strategy:      'elitist',
       eliteTopCount,
