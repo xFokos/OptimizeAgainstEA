@@ -1,0 +1,300 @@
+/* ============================================================
+   HINT SYSTEM — self-contained styles (website-wide)
+
+   Uses the global design tokens from index.css where available and
+   falls back to sensible defaults, so the hint UI looks right on any
+   page whether or not a game's own stylesheet is loaded.
+   ============================================================ */
+
+/* Local token aliases with fallbacks (BattleShips overrides --accent to green
+   on its own page; elsewhere this resolves to the site's blue accent). */
+.hint-toggle,
+.hint-toast,
+.hint-modal-backdrop,
+.hint-popover,
+.compi,
+.compi-backdrop {
+	--h-bg:        var(--bg-light, #1a1e26);
+	--h-text:      var(--text, #e8eaf0);
+	--h-text-dim:  var(--text-dim, #7a8099);
+	--h-border:    var(--border-strong, #353c52);
+	--h-accent:    var(--accent, #4fc3f7);
+	--h-accent-dim: var(--accent-dim, rgba(79, 195, 247, 0.14));
+	--h-mono:      var(--font-mono, 'Space Mono', ui-monospace, monospace);
+}
+
+/* ── Shared button styling (scoped to hint containers) ─────────────────────
+   Keeps hint buttons consistent even on pages without a global .btn. */
+.hint-toggle .btn,
+.hint-toast .btn,
+.hint-modal .btn,
+.hint-popover .btn,
+.compi .btn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sp-2, 8px);
+	padding: var(--sp-3, 12px) var(--sp-4, 16px);
+	border: 1px solid var(--h-border);
+	border-radius: var(--r-sm, 4px);
+	background: transparent;
+	color: var(--h-text);
+	font-family: var(--h-mono);
+	font-size: 0.8rem;
+	letter-spacing: 0.06em;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	white-space: nowrap;
+}
+.hint-toggle .btn:hover:not(:disabled),
+.hint-toast .btn:hover:not(:disabled),
+.hint-modal .btn:hover:not(:disabled),
+.hint-popover .btn:hover:not(:disabled),
+.compi .btn:hover:not(:disabled) { border-color: var(--h-accent); color: var(--h-accent); }
+
+.hint-toggle .btn--sm,
+.hint-toast .btn--sm,
+.hint-modal .btn--sm,
+.hint-popover .btn--sm,
+.compi .btn--sm { padding: var(--sp-2, 8px) var(--sp-3, 12px); font-size: 0.75rem; }
+
+.hint-toggle .btn--primary,
+.hint-toast .btn--primary,
+.hint-modal .btn--primary,
+.hint-popover .btn--primary,
+.compi .btn--primary,
+.hint-toggle .btn--active {
+	background: var(--h-accent);
+	border-color: var(--h-accent);
+	color: #060809;
+	font-weight: 700;
+}
+.hint-modal .btn--primary:hover:not(:disabled),
+.compi .btn--primary:hover:not(:disabled),
+.hint-popover .btn--primary:hover:not(:disabled),
+.hint-toast .btn--primary:hover:not(:disabled) {
+	color: #060809;
+	box-shadow: 0 0 16px var(--h-accent-dim);
+}
+
+/* ── On/off toggle (fixed top-right) ──────────────────────────────────────── */
+.hint-toggle {
+	position: fixed;
+	top: var(--sp-4, 16px);
+	right: var(--sp-4, 16px);
+	z-index: 200;
+	display: flex;
+	gap: var(--sp-2, 8px);
+}
+
+/* ── Plain modal hint (blocking) ──────────────────────────────────────────── */
+.hint-modal-backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.7);
+	backdrop-filter: blur(4px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* Above end-of-race win overlays so the educational hint isn't hidden. */
+	z-index: 300;
+	animation: hintFadeIn 0.2s ease;
+}
+.hint-modal {
+	background: var(--h-bg);
+	border: 1px solid var(--h-border);
+	border-radius: var(--r-lg, 12px);
+	padding: var(--sp-6, 24px);
+	width: min(480px, 90vw);
+	display: flex;
+	flex-direction: column;
+	gap: var(--sp-4, 16px);
+	animation: hintScaleIn 0.2s ease;
+}
+.hint-modal__tag {
+	font-family: var(--h-mono);
+	font-size: 0.7rem;
+	letter-spacing: 0.1em;
+	color: var(--h-accent);
+	background: var(--h-accent-dim);
+	padding: 3px 8px;
+	border-radius: 2px;
+	align-self: flex-start;
+}
+.hint-modal__title { font-family: var(--h-mono); font-size: 1.15rem; font-weight: 700; color: var(--h-text); }
+.hint-modal__body  { font-size: 0.9rem; color: var(--h-text-dim); line-height: 1.6; }
+.hint-modal__actions { display: flex; gap: var(--sp-3, 12px); justify-content: flex-end; flex-wrap: wrap; }
+
+/* ── Plain toast hint (corner, non-blocking) ──────────────────────────────── */
+.hint-toast {
+	position: fixed;
+	bottom: var(--sp-5, 20px);
+	right: var(--sp-5, 20px);
+	z-index: 200;
+	width: min(340px, 90vw);
+	background: var(--h-bg);
+	border: 1px solid var(--h-border);
+	border-left: 3px solid var(--h-accent);
+	border-radius: var(--r-md, 8px);
+	padding: var(--sp-4, 16px) var(--sp-5, 20px);
+	display: flex;
+	flex-direction: column;
+	gap: var(--sp-2, 8px);
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+	animation: hintSlideIn 0.3s ease;
+}
+.hint-toast__title { font-family: var(--h-mono); font-size: 0.85rem; font-weight: 700; color: var(--h-accent); }
+.hint-toast__body  { font-size: 0.85rem; color: var(--h-text-dim); line-height: 1.5; }
+.hint-toast__close,
+.hint-popover__close {
+	position: absolute;
+	top: var(--sp-2, 8px);
+	right: var(--sp-3, 12px);
+	background: none;
+	border: none;
+	color: var(--text-muted, #3d4259);
+	font-size: 1.1rem;
+	cursor: pointer;
+	line-height: 1;
+}
+.hint-toast__close:hover,
+.hint-popover__close:hover { color: var(--h-text); }
+
+/* ── Plain anchored popover (pinned to an element) ────────────────────────── */
+.hint-anchor { position: relative; display: inline-block; }
+/* When wrapping the EA settings drawer, fill height so the bubble centers. */
+.ea-settings-backdrop > .hint-anchor { display: flex; height: 100%; }
+
+.hint-popover {
+	position: absolute;
+	z-index: 150;
+	width: max-content;
+	max-width: 240px;
+	display: flex;
+	flex-direction: column;
+	gap: var(--sp-2, 8px);
+	background: var(--h-bg);
+	border: 1px solid var(--h-accent);
+	border-radius: var(--r-md, 8px);
+	padding: var(--sp-3, 12px) var(--sp-4, 16px);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+	animation: hintScaleIn 0.18s ease;
+}
+.hint-popover--top    { bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); }
+/* Left/right-anchored top variants — keep the bubble on screen for controls
+   near a viewport edge instead of centering (which overflows). */
+.hint-popover--top-start { bottom: calc(100% + 10px); left: 0;   transform: none; }
+.hint-popover--top-end   { bottom: calc(100% + 10px); right: 0;  transform: none; }
+.hint-popover--bottom { top:    calc(100% + 10px); left: 50%; transform: translateX(-50%); }
+.hint-popover--left   { right:  calc(100% + 10px); top: 50%;  transform: translateY(-50%); }
+.hint-popover--right  { left:   calc(100% + 10px); top: 50%;  transform: translateY(-50%); }
+
+.hint-popover__title   { font-family: var(--h-mono); font-size: 0.75rem; font-weight: 700; color: var(--h-accent); padding-right: var(--sp-4, 16px); }
+.hint-popover__body    { font-size: 0.8rem; color: var(--h-text-dim); line-height: 1.5; }
+.hint-popover__actions { display: flex; gap: var(--sp-2, 8px); flex-wrap: wrap; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   COMPI — the mascot speech bubble (used when COMPI_MODE is on)
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Dim backdrop for blocking (modal-style) Compi hints. */
+.compi-backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.55);
+	backdrop-filter: blur(2px);
+	z-index: 310;
+	animation: hintFadeIn 0.2s ease;
+}
+
+.compi {
+	position: fixed;
+	right: var(--sp-5, 20px);
+	bottom: var(--sp-4, 16px);
+	z-index: 320;
+	width: min(360px, 92vw);
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;     /* mascot hugs the right edge */
+	pointer-events: none;      /* re-enabled on the interactive children */
+	animation: compiPop 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.35);
+}
+
+.compi__bubble {
+	pointer-events: auto;
+	position: relative;
+	width: 100%;
+	background: var(--h-bg);
+	border: 2px solid var(--h-accent);
+	border-radius: 14px;
+	padding: var(--sp-4, 16px) var(--sp-5, 20px) var(--sp-4, 16px);
+	display: flex;
+	flex-direction: column;
+	gap: var(--sp-2, 8px);
+	box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+}
+
+/* Tail: a rotated square whose down-pointing corner shows two borders,
+   making it read as a speech-bubble tail aimed at Compi below-right. */
+.compi__tail {
+	position: absolute;
+	right: 46px;
+	bottom: -10px;
+	width: 18px;
+	height: 18px;
+	background: var(--h-bg);
+	border-right: 2px solid var(--h-accent);
+	border-bottom: 2px solid var(--h-accent);
+	transform: rotate(45deg);
+}
+
+.compi__title {
+	font-family: var(--h-mono);
+	font-size: 0.95rem;
+	font-weight: 700;
+	color: var(--h-accent);
+	padding-right: var(--sp-5, 20px);
+}
+.compi__body { font-size: 0.88rem; color: var(--h-text-dim); line-height: 1.55; }
+.compi__actions { display: flex; gap: var(--sp-2, 8px); flex-wrap: wrap; margin-top: var(--sp-1, 4px); }
+
+.compi__close {
+	position: absolute;
+	top: 6px;
+	right: 10px;
+	background: none;
+	border: none;
+	color: var(--text-muted, #3d4259);
+	font-size: 1.2rem;
+	cursor: pointer;
+	line-height: 1;
+}
+.compi__close:hover { color: var(--h-text); }
+
+.compi__mascot {
+	pointer-events: auto;
+	width: 132px;
+	max-width: 40%;
+	height: auto;
+	margin: -4px 6px 0 0;       /* tuck up under the bubble, hug the right */
+	image-rendering: pixelated; /* keep the pixel-art mascot crisp */
+	filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+	animation: compiBob 3.2s ease-in-out infinite;
+}
+
+/* ── Animations (hint-scoped names to avoid clashes) ──────────────────────── */
+@keyframes hintFadeIn  { from { opacity: 0; }                         to { opacity: 1; } }
+@keyframes hintScaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes hintSlideIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes compiPop {
+	from { opacity: 0; transform: translateY(24px) scale(0.96); }
+	to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes compiBob {
+	0%, 100% { transform: translateY(0); }
+	50%      { transform: translateY(-6px); }
+}
+
+/* Respect reduced-motion preferences. */
+@media (prefers-reduced-motion: reduce) {
+	.compi, .compi__mascot, .hint-toast, .hint-modal, .hint-popover { animation: none; }
+}

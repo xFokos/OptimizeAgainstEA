@@ -1,4 +1,5 @@
 import type { ProbeResult } from '../../../types/map.ts';
+import { valueToHeight } from '../../../engine/height';
 
 interface WinOverlayProps {
   probeCount:    number;
@@ -13,8 +14,8 @@ export function WinOverlay({ probeCount, bestProbe, mapId, onPlayAgain, onHome, 
   return (
     <div className="win-overlay">
       <div className="win-card">
-        <div className="win-card__tag">GLOBAL MIN FOUND</div>
-        <h2 className="win-card__title">You solved it</h2>
+        <div className="win-card__tag">SUMMIT REACHED</div>
+        <h2 className="win-card__title">You reached the peak</h2>
         <p className="win-card__sub">Map #{mapId}</p>
 
         <div className="win-card__stats">
@@ -23,8 +24,8 @@ export function WinOverlay({ probeCount, bestProbe, mapId, onPlayAgain, onHome, 
             <span className="win-stat__label">probes placed</span>
           </div>
           <div className="win-stat">
-            <span className="win-stat__value">{bestProbe.value.toFixed(3)}</span>
-            <span className="win-stat__label">best value</span>
+            <span className="win-stat__value">{valueToHeight(bestProbe.value).toFixed(3)}</span>
+            <span className="win-stat__label">best height</span>
           </div>
         </div>
 

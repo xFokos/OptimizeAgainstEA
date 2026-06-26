@@ -1,8 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────
-//  HINT CONTENT — single source of truth
+//  HINT CONTENT — single source of truth (website-wide)
 //
 //  This is the ONLY file you need to touch to edit, add, or remove hint text.
 //  Each entry maps a HintId to its wording and how it should be presented.
+//  Other games/pages can add their own entries here (prefix the id, e.g.
+//  'shooter.*') — the whole site shares this one registry.
 //
 //    style   'modal' = blocking pop-up (freezes the game until dismissed)
 //            'toast' = small non-blocking popup in the corner, auto-dismisses
@@ -18,6 +20,16 @@
 //  "once" hints are remembered in sessionStorage, so they reappear in a new
 //  browser session or after the player hits the "Reset hints" button.
 // ─────────────────────────────────────────────────────────────────────────
+
+// ── DEV CONFIG ────────────────────────────────────────────────────────────
+//  Compi is the website mascot (an old CRT PC with a face). Flip this flag to
+//  choose how ALL hints are presented site-wide:
+//    true  → every hint speaks through Compi, a Clippy-style speech bubble
+//            anchored bottom-right (modals, toasts, and button coachmarks alike)
+//    false → plain hints: corner toasts, centered modals, and popovers pinned
+//            to their button (the original behaviour)
+//  This is a developer switch, not a user-facing toggle.
+export const COMPI_MODE = true;
 
 export type HintId =
   | 'selector.welcome'
@@ -46,9 +58,9 @@ export interface HintDef {
 
 export const HINTS: Record<HintId, HintDef> = {
   'selector.welcome': {
-    title: 'Welcome to Battleships',
+    title: 'Welcome to Peak Finder',
     body:
-      'In this game you try to find the lowest point on an unexplored map. ' +
+      'In this game you try to find the highest peak on an unexplored map. ' +
       'Create your own map to get a feel on how they work.' +
       'Play your own, random or other player\'s maps, ' +
       'Or challenge yourself against an Evolutionary Algorithm. ' +
@@ -62,8 +74,8 @@ export const HINTS: Record<HintId, HintDef> = {
     title: 'Build a map',
     body:
       'You build your own map step by step here. ' +
-      'Start by placing minima, scatter strategically to trap players. ' +
-      'Select the global minimum, which is the only winning spot. ' +
+      'Start by placing mountains, scatter strategically to trap players. ' +
+      'Select the global peak, which is the only winning spot. ' +
       'Once you are done you will get a code to share and play your map.',
     style: 'modal',
     once: true,
@@ -72,7 +84,7 @@ export const HINTS: Record<HintId, HintDef> = {
 
   // ── Create mode: one per phase, fired once on first entry this session ────
   'create.place': {
-    title: 'Step 1 — Place Minima',
+    title: 'Step 1 — Place Mountains',
     body:
       'Scatter a few decoys away from where you\'ll hide the real one — ' +
       'the more tempting the traps, the harder the map. You need at least two.',
@@ -82,9 +94,9 @@ export const HINTS: Record<HintId, HintDef> = {
   },
 
   'create.pickGlobal': {
-    title: 'Step 2 — Pick the Global Minimum',
+    title: 'Step 2 — Pick the Global Peak',
     body:
-      'Click the dot that wins the game — the true lowest point players must ' +
+      'Click the dot that wins the game — the true highest peak players must ' +
       'find. Tucking it behind a cluster of deep decoys makes for a sneaky map.',
     style: 'toast',
     once: true,
@@ -103,11 +115,11 @@ export const HINTS: Record<HintId, HintDef> = {
 
   // ── Play mode: blocking modals (pauses = dismiss only via the button) ─────
   'play.start': {
-    title: 'Hunt the global minimum',
+    title: 'Hunt the global peak',
     body:
-      'Somewhere on this map is a hidden global minimum. Click anywhere to ' +
+      'Somewhere on this map is a hidden global peak. Click anywhere to ' +
       'drop a probe — it reveals the surface around that spot and reads a ' +
-      'value. Lower is better: 0 means you\'ve found it. Use the readings to ' +
+      'value. Higher is better: 1 means you\'ve found it. Use the readings to ' +
       'close in, and try to win in as few probes as possible. ',
     style: 'modal',
     once: true,
@@ -117,10 +129,10 @@ export const HINTS: Record<HintId, HintDef> = {
   'play.firstProbe': {
     title: 'Read the surface',
     body:
-      'That number is how close your probe is to a minimum — lower means ' +
+      'That number is how close your probe is to a peak — higher means ' +
       'closer. The colours around it show the slope: colder color leads to better result. ' +
-      'Beware deceptive local minima that look ' +
-      'good but aren\'t the true global one. There is only one true global minimum',
+      'Beware deceptive local peaks that look ' +
+      'good but aren\'t the true global one. There is only one true global peak',
     style: 'modal',
     once: true,
     pauses: true,
@@ -132,7 +144,7 @@ export const HINTS: Record<HintId, HintDef> = {
     body:
       'It works the same as play mode — but now you\'re racing an evolutionary algorithm. ' +
       'Each probe you drop lets the EA evolve its ' +
-      'population a step on its own map. Find the minimum in fewer moves than ' +
+      'population a step on its own map. Find the peak in fewer moves than ' +
       'it takes the EA to converge, and you win. ',
     style: 'modal',
     once: true,
@@ -164,7 +176,7 @@ export const HINTS: Record<HintId, HintDef> = {
     title: 'See what the EA did',
     body:
       'The EA has also made its move. To see how it evolves from ' +
-      'its current state to the next one you can always press this button',
+      'its current state to the next one you can always press the "Evolution Step" Button',
     style: 'toast',
     once: true,
   },
@@ -175,7 +187,8 @@ export const HINTS: Record<HintId, HintDef> = {
     title: 'Watch the EA move',
     body:
       'You\'ve made a few moves now and so did the EA. To watch' +
-      ' how all the probes shifted over all generations you can watch the replay here ',
+      ' how all the probes shifted over all generations you can' +
+      ' watch the replay with the "EA Movement" Button ',
     style: 'toast',
     once: true,
   },
@@ -184,7 +197,7 @@ export const HINTS: Record<HintId, HintDef> = {
   'vsEa.playerWon': {
     title: 'You beat the EA!',
     body:
-      'Despite the odds being against you, you reached the global minimum first. ' +
+      'Despite the odds being against you, you reached the global peak first. ' +
       'Can you keep it up though? Try adjusting the algorithm and see if you can keep beating it!',
     style: 'modal',
     once: true,
@@ -193,7 +206,7 @@ export const HINTS: Record<HintId, HintDef> = {
   'vsEa.eaWon': {
     title: 'The EA got there first',
     body:
-      'The algorithm found the global minimum first. Don\'t worry about it, ' +
+      'The algorithm found the global peak first. Don\'t worry about it, ' +
       'its tools are far more powerful than yours which makes them great for optimization. ' +
       'More importantly, did you understand how it got there in the first place? ' +
       'You can watch the replay as well as changing the settings and trying again',

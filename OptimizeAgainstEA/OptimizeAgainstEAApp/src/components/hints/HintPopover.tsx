@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { HintId } from './hintContent';
-import { HINTS } from './hintContent';
+import { HINTS, COMPI_MODE } from './hintContent';
 import { useHints, fillTemplate } from './HintContext';
 import type { HintAction } from './HintContext';
+import { CompiBubble } from './CompiBubble';
 
-type Placement = 'top' | 'bottom' | 'left' | 'right';
+type Placement = 'top' | 'top-start' | 'top-end' | 'bottom' | 'left' | 'right';
 
 interface HintPopoverProps {
   /** Which hint (from hintContent.ts) to show. */
@@ -28,6 +29,9 @@ interface HintPopoverProps {
  * An anchored, non-blocking hint bubble positioned next to whatever element
  * you wrap. Wording still comes from hintContent.ts; positioning is pure CSS
  * relative to the anchor, so it tracks the element on layout changes.
+ *
+ * When COMPI_MODE is on, the hint instead speaks through Compi (a fixed
+ * bottom-right speech bubble) rather than pinning to the wrapped element.
  *
  *   <HintPopover id="vsEa.replayButton" placement="top" show={canReplay}>
  *     <button>▶ Watch Last Replay</button>
@@ -62,6 +66,24 @@ export function HintPopover({
     { label: 'Got it', onClick: close, variant: 'primary' },
   ];
 
+  // ── Compi presentation: a fixed bottom-right mascot bubble ────────────────
+  if (COMPI_MODE) {
+    return (
+      <>
+        {children}
+        {visible && def && (
+          <CompiBubble
+            title={def.title}
+            body={fillTemplate(def.body, vars)}
+            actions={resolvedActions}
+            onClose={close}
+          />
+        )}
+      </>
+    );
+  }
+
+  // ── Plain presentation: a popover pinned to the wrapped element ────────────
   return (
     <span className="hint-anchor">
       {children}

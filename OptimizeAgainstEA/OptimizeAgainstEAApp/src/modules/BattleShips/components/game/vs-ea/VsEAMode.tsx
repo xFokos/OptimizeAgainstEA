@@ -3,6 +3,7 @@ import type { MapConfig, Coordinate } from '../../../types/map';
 import type { EAConfig} from '../../../types/ea';
 import { DEFAULT_EA_CONFIG } from '../../../types/ea';
 import { createMapProblem } from '../../../engine/functionSurface';
+import { valueToHeight } from '../../../engine/height';
 import { decodeMap, encodeMap, generateRandomMap } from '../../../engine/mapCodec';
 import { copyCode, pasteCode } from '../../../engine/codeClipboard';
 import { usePlaySession } from '../../../hooks/usePlaySession';
@@ -18,8 +19,7 @@ import { EAReplayOverlay } from './EAReplayOverlay';
 import { EAWinOverlay } from './EAWinOverlay';
 import { SecondSolveOverlay } from './SecondSolveOverlay';
 import { GenerationReplayOverlay } from './GenerationReplayOverlay';
-import { HintPopover } from '../../../hints/HintPopover';
-import { useHints } from '../../../hints/HintContext';
+import { HintPopover, useHints } from '../../../../../components/hints';
 
 interface VsEAModeProps {
   onBack: () => void;
@@ -172,7 +172,7 @@ function DualMapLoader({
       <div className="dual-loader__actions">
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
         <HintPopover id="vsEa.settingsButton" placement="bottom" dismissAfter={6000}>
-          <button className="btn btn--ghost btn--sm" onClick={() => setShowSettings((v) => !v)}>
+          <button className="btn btn--ghost btn--sm ea-settings-btn" onClick={() => setShowSettings((v) => !v)}>
             ⚙ EA Settings
           </button>
         </HintPopover>
@@ -314,10 +314,10 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
 
   // Must be before early return
   const chartSeries = useMemo((): FitnessSeries[] => {
-    const playerData  = play.probes.map((p) => p.value);
+    const playerData  = play.probes.map((p) => valueToHeight(p.value));
     const sampledGens = ea.generations.filter((_g, i: number) => (i + 1) % gensPerProbe === 0);
-    const eaMeanData  = sampledGens.map((g) => g.meanFitness);
-    const eaBestData  = sampledGens.map((g) => g.best.fitness);
+    const eaMeanData  = sampledGens.map((g) => valueToHeight(g.meanFitness));
+    const eaBestData  = sampledGens.map((g) => valueToHeight(g.best.fitness));
 
     const series: FitnessSeries[] = [
       { label: 'You',      data: playerData,  color: '#4af0a0' },
@@ -380,7 +380,7 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
             <span className="vsea-panel__label">You</span>
             <span className="vsea-panel__meta">
               {play.probes.length} probe{play.probes.length !== 1 ? 's' : ''}
-              {play.bestProbe && ` · best ${play.bestProbe.value.toFixed(4)}`}
+              {play.bestProbe && ` · best ${valueToHeight(play.bestProbe.value).toFixed(4)}`}
             </span>
             {playerSolved && (
               <button
@@ -426,28 +426,28 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
           {/* Replay buttons — under the map so they're reachable without
               scrolling to the bottom of the EA panel on mobile. */}
           {(ea.latestReplay && ea.latestReplay.length > 0 || ea.status === 'solved') && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8 }}>
               {ea.latestReplay && ea.latestReplay.length > 0 && (
-                <HintPopover id="vsEa.replayButton" placement="top">
+                <HintPopover id="vsEa.replayButton" placement="top-start">
                   <button
-                    className="btn btn--ghost btn--sm"
+                    className="btn btn--blue btn--sm"
                     onClick={() => setShowReplay(true)}
                   >
-                    ▶ Watch Last Replay
+                    ▶ Evolution Step
                   </button>
                 </HintPopover>
               )}
               {ea.generations.length > 0 && (
                 <HintPopover
                   id="vsEa.eaMovementButton"
-                  placement="top"
+                  placement="top-start"
                   show={play.probes.length >= 3 && !playerWon && !eaWon}
                 >
                   <button
-                    className="btn btn--ghost btn--sm"
+                    className="btn btn--blue btn--sm"
                     onClick={() => setShowGenReplay(true)}
                   >
-                    ▶ Watch EA Movement
+                    ▶ EA Movement
                   </button>
                 </HintPopover>
               )}

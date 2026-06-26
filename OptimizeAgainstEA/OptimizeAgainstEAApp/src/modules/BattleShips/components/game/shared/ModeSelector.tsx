@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type {GameMode} from '../../../types/game.ts';
-import { useHints } from '../../../hints/HintContext';
+import { useHints } from '../../../../../components/hints';
 
 interface ModeSelectorProps {
   onSelect: (mode: GameMode) => void;
@@ -10,19 +10,19 @@ const MODES: { id: GameMode; label: string; sub: string; key: string }[] = [
   {
     id: 'create',
     label: 'Create',
-    sub: 'Place minima and share a map',
+    sub: 'Create a Mountain Range',
     key: 'C',
   },
   {
     id: 'play',
     label: 'Play',
-    sub: 'Find the global minimum',
+    sub: 'Find the Tallest Peak',
     key: 'P',
   },
   {
     id: 'vs-ea',
     label: 'Vs EA',
-    sub: 'Race against an evolutionary algorithm',
+    sub: 'Race against an evolutionary algorithm to the top',
     key: 'E',
   },
 ];
@@ -37,9 +37,9 @@ export function ModeSelector({ onSelect }: ModeSelectorProps) {
   return (
     <div className="mode-selector">
       <div className="mode-selector__header">
-        <h1 className="mode-selector__title">Battleships</h1>
+        <h1 className="mode-selector__title">Peak Finder</h1>
         <p className="mode-selector__subtitle">
-          Like the board game, but made for optimization
+          Can you reach the top of this Mountain Range?
         </p>
       </div>
 

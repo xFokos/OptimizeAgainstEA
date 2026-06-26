@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { MapConfig } from '../../../types/map.ts';
-import { decodeMap, generateRandomMap } from '../../../engine/mapCodec';
-import { pasteCode } from '../../../engine/codeClipboard';
+import { decodeMap, encodeMap, generateRandomMap } from '../../../engine/mapCodec';
+import { copyCode, pasteCode } from '../../../engine/codeClipboard';
 import { SavedMapsSidebar } from '../shared/SavedMapsSidebar';
 
 interface MapLoaderProps {
@@ -12,8 +12,9 @@ interface MapLoaderProps {
 export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
-  const handlePaste = () => {
+  const handlePlay = () => {
     try {
       const config = decodeMap(code.trim());
       onLoad(config);
@@ -22,9 +23,16 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
     }
   };
 
+  // Generate a random map, drop its code into the field, and copy it to the
+  // clipboard so the player can share it. They press Play to start.
   const handleRandom = () => {
     const numMinima = 4 + Math.floor(Math.random() * 5); // 4–8
-    onLoad(generateRandomMap(numMinima));
+    const newCode = encodeMap(generateRandomMap(numMinima));
+    setCode(newCode);
+    setError('');
+    void copyCode(newCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleClipboardPaste = async () => {
@@ -39,8 +47,13 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
     <div className="map-loader">
       <h2 className="map-loader__heading">Load a Map</h2>
       <p className="map-loader__desc">
-        Paste a code from a friend, or generate a random map to start exploring.
+        Generate a random map, or paste a code from a friend, then press Play.
       </p>
+
+      <button className="btn btn--ghost map-loader__random" onClick={handleRandom}>
+        🎲 Generate Random Map
+      </button>
+      {copied && <p className="map-loader__copied">✓ Code copied to clipboard</p>}
 
       <div className="map-loader__input-row">
         <input
@@ -48,7 +61,7 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
           placeholder="Paste map code…"
           value={code}
           onChange={(e) => { setCode(e.target.value); setError(''); }}
-          onKeyDown={(e) => e.key === 'Enter' && handlePaste()}
+          onKeyDown={(e) => e.key === 'Enter' && handlePlay()}
           spellCheck={false}
         />
         <button
@@ -58,21 +71,16 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
         >
           📋 Paste
         </button>
-        <button
-          className="btn btn--primary"
-          disabled={!code.trim()}
-          onClick={handlePaste}
-        >
-          Load
-        </button>
       </div>
 
       {error && <p className="map-loader__error">{error}</p>}
 
-      <div className="map-loader__divider"><span>or</span></div>
-
-      <button className="btn btn--ghost map-loader__random" onClick={handleRandom}>
-        Generate Random Map
+      <button
+        className="btn btn--primary map-loader__play"
+        disabled={!code.trim()}
+        onClick={handlePlay}
+      >
+        ▶ Play
       </button>
 
       <button className="btn btn--ghost btn--sm" onClick={onBack} style={{ marginTop: 8 }}>

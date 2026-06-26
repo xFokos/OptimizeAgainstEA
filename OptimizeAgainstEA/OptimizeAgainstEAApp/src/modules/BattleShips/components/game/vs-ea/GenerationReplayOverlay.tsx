@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Generation } from '../../../types/ea';
 import type { MapConfig } from '../../../types/map';
 import { sampleGradientRgb } from '../../../engine/colorScale';
+import { valueToHeight } from '../../../engine/height';
 import { DOT_MOVE_DURATION, DOT_MOVE_DURATION_MS } from './replay/ReplayMap';
 
 /**
@@ -86,7 +87,7 @@ export function GenerationReplayOverlay({ generations, eaMap, onClose }: Generat
         </div>
 
         <p className="replay-description">
-          Best fitness: <strong>{best.fitness.toFixed(5)}</strong> at ({best.position.x.toFixed(3)}, {best.position.y.toFixed(3)}) · Mean: {gen.meanFitness.toFixed(5)}
+          Best height: <strong>{valueToHeight(best.fitness).toFixed(5)}</strong> at ({best.position.x.toFixed(3)}, {best.position.y.toFixed(3)}) · Mean: {valueToHeight(gen.meanFitness).toFixed(5)}
         </p>
 
         {/* Map */}

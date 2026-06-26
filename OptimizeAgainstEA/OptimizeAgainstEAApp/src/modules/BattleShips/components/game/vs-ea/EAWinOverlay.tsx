@@ -1,4 +1,5 @@
 import type { Individual } from '../../../types/ea';
+import { valueToHeight } from '../../../engine/height';
 
 interface EAWinOverlayProps {
   generationCount: number;
@@ -25,8 +26,8 @@ export function EAWinOverlay({
           </div>
           {best && (
             <div className="ea-win-stat">
-              <span className="ea-win-stat__value">{best.fitness.toFixed(4)}</span>
-              <span className="ea-win-stat__label">best fitness</span>
+              <span className="ea-win-stat__value">{valueToHeight(best.fitness).toFixed(4)}</span>
+              <span className="ea-win-stat__label">best height</span>
             </div>
           )}
         </div>

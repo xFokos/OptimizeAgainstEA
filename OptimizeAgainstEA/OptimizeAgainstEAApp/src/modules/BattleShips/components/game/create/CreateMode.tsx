@@ -4,8 +4,8 @@ import { useGameMap } from '../../../hooks/useGameMap';
 import { copyCode } from
     '../../../engine/codeClipboard';
 import { useSavedMaps } from '../../../hooks/useSavedMaps';
-import { useHints } from '../../../hints/HintContext';
-import type { HintId } from '../../../hints/hintContent';
+import { useHints } from '../../../../../components/hints';
+import type { HintId } from '../../../../../components/hints';
 import { MinimumPlacer } from './MinimumPlacer';
 import { GlobalMinimumPicker } from './GlobalMinimumPicker';
 

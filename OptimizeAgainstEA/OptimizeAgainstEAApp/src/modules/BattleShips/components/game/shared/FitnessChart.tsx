@@ -10,6 +10,8 @@ interface FitnessChartProps {
   series: FitnessSeries[];
   yMax?: number;
   compact?: boolean;
+  /** Vertical axis caption. Defaults to the PeakFinder "height". */
+  yLabel?: string;
   /** Index of the currently hovered probe (-1 = none) */
   hoveredIndex?: number;
   onHover?: (index: number) => void;
@@ -25,6 +27,7 @@ export function FitnessChart({
                                series,
                                yMax = 1,
                                compact = false,
+                               yLabel = 'height',
                                hoveredIndex = -1,
                                onHover,
                              }: FitnessChartProps) {
@@ -196,7 +199,7 @@ export function FitnessChart({
         })()}
 
         {/* Axis labels */}
-        <text x={PAD.left - 28} y={PAD.top + INNER_H / 2} textAnchor="middle" dominantBaseline="middle" fontSize={8} fill="rgba(255,255,255,0.3)" fontFamily="monospace" transform={`rotate(-90, ${PAD.left - 28}, ${PAD.top + INNER_H / 2})`}>fitness</text>
+        <text x={PAD.left - 28} y={PAD.top + INNER_H / 2} textAnchor="middle" dominantBaseline="middle" fontSize={8} fill="rgba(255,255,255,0.3)" fontFamily="monospace" transform={`rotate(-90, ${PAD.left - 28}, ${PAD.top + INNER_H / 2})`}>{yLabel}</text>
         <text x={PAD.left + INNER_W / 2} y={H - 4} textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.3)" fontFamily="monospace">probe #</text>
       </svg>
     </div>

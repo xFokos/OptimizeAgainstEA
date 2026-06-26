@@ -4,7 +4,7 @@ import type {
     CrossoverStrategy,
     MutationStrategy,
 } from '../../../types/ea';
-import { HintPopover } from '../../../hints/HintPopover';
+import { HintPopover } from '../../../../../components/hints';
 
 interface EASettingsPanelProps {
     config: EAConfig;

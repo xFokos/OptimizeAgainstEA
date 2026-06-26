@@ -52,15 +52,15 @@ export function GlobalMinimumPicker({
           )}
 
           <div className="create-step__actions">
-            <button className="btn btn--ghost" onClick={onBack}>
-              ← Back
-            </button>
             <button
                 className="btn btn--primary"
                 disabled={!selectedId}
                 onClick={onFinish}
             >
               Generate Code →
+            </button>
+            <button className="btn btn--ghost" onClick={onBack}>
+              ← Back
             </button>
           </div>
         </div>

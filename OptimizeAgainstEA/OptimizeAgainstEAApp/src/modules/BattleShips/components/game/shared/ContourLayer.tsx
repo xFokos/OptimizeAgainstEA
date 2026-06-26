@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { buildContours } from '../../../engine/contours';
 import { sampleGradientRgb } from '../../../engine/colorScale.ts';
+import { valueToHeight } from '../../../engine/height';
 import type { Coordinate } from '../../../types/map';
 
 type EvalFn = (x: number, y: number) => number;
@@ -131,7 +132,7 @@ export function ContourLayer({
                                         fontFamily="monospace"
                                         style={{ userSelect: 'none' }}
                                     >
-                                        {level.toFixed(2)}
+                                        {valueToHeight(level).toFixed(2)}
                                     </text>
                                 );
                             })()}

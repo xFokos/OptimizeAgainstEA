@@ -1,9 +1,10 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { MapConfig } from '../../../types/map';
 import { createMapProblem } from '../../../engine/functionSurface';
+import { valueToHeight } from '../../../engine/height';
 import { decodeMap } from '../../../engine/mapCodec';
 import { usePlaySession } from '../../../hooks/usePlaySession';
-import { useHints } from '../../../hints/HintContext';
+import { useHints } from '../../../../../components/hints';
 import { GameMap } from '../shared/GameMap';
 import { MapLoader } from './MapLoader';
 import { ProbeMarker } from './ProbeMarker';
@@ -50,7 +51,7 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
   const handlePlayAgain = () => { setMapConfig(null); reset(); setDismissedWin(false); };
 
   // Must be before early return
-  const playerSeries = useMemo(() => probes.map((p) => p.value), [probes]);
+  const playerSeries = useMemo(() => probes.map((p) => valueToHeight(p.value)), [probes]);
   const handleHover  = useCallback((i: number) => setHoveredIndex(i), []);
 
   if (!mapConfig || !problem) {
@@ -75,8 +76,8 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
       <div className="play-controls">
         <p className="play-controls__hint">
           {status === 'idle'    ? 'Click the map to place a probe.'
-            : status === 'playing' ? 'Lower values are closer to a minimum.'
-              :                        'Global minimum found!'}
+            : status === 'playing' ? 'Higher values are closer to the summit.'
+              :                        'Summit reached!'}
         </p>
 
         <div className="play-controls__reveal">

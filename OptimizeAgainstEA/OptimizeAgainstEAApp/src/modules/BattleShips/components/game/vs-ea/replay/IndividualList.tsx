@@ -1,4 +1,5 @@
 import { sampleGradientRgb } from '../../../../engine/colorScale';
+import { valueToHeight } from '../../../../engine/height';
 import type { IndividualSnapshot } from '../../../../engine/ea/eaReplayLog';
 
 export type IndividualRole =
@@ -78,7 +79,7 @@ export function IndividualList({ individuals, roles, annotations, title, maxRows
               color: style.textColor ?? 'var(--text-secondary)',
               flex: 1,
             }}>
-              {ind.fitness.toFixed(4)}
+              {valueToHeight(ind.fitness).toFixed(4)}
             </span>
 
             {/* Position */}

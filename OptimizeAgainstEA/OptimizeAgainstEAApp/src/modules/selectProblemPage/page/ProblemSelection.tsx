@@ -12,8 +12,8 @@ export function ProblemSelection({ value, onChange }: ProblemSelectionProps) {
             <h1 className="page-title">Choose Game</h1>
             <div className="problem-list">
                 <ProblemCard
-                    title="Battleships"
-                    description="Creates and Play maps"
+                    title="Peak Finder"
+                    description="Find your way to the highest peak"
                     active={value === "battleShips"}
                     onClick={() => onChange("battleShips")}
                 />

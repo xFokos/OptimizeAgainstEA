@@ -54,6 +54,10 @@
 	--r-md: 8px;
 	--r-lg: 16px;
 
+	/* Height of the fixed PeakFinder top bar (Home + hint controls). The app
+	   reserves this much room at the top so nothing renders under the bar. */
+	--peak-topbar-h: 56px;
+
 	/* ── RESPONSIVE BREAKPOINTS ─────────────────
 	   Source of truth for the two layout breaks.
 	   (CSS can't read vars inside @media queries, so
@@ -118,12 +122,10 @@ html, body, #root {
 	align-items: safe center;
 	justify-content: safe center;
 	padding: var(--page-padding);
-	/* Reserve top room for the fixed corner toggles (hint / saved-maps) so
-	   right-aligned topbar buttons (Reset / Change Maps) never sit beneath
-	   them — on desktop and mobile alike. Explicit px on purpose: index.css
-	   also defines --sp-8 (32px) and wins the cascade, so the token is
-	   unreliable for this critical clearance. */
-	padding-top: 72px;
+	/* Reserve room for the fixed PeakFinder top bar so no content ever renders
+	   beneath it. --peak-topbar-h is page-local, so (unlike --sp-*) it isn't
+	   shadowed by index.css and is reliable for this critical clearance. */
+	padding-top: calc(var(--peak-topbar-h) + var(--sp-4));
 	box-sizing: border-box;
 }
 
@@ -141,6 +143,36 @@ html, body, #root {
 	.map-loader__input,
 	.saved-maps__rename-input,
 	.ea-select { font-size: 16px; }
+}
+
+/* ─────────────────────────────────────────────
+   TOP BAR (Home + hint controls)
+───────────────────────────────────────────── */
+.peakfinder-topbar {
+	position: fixed;
+	top: 0; left: 0; right: 0;
+	height: var(--peak-topbar-h);
+	z-index: 150;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--sp-3);
+	padding: 0 var(--sp-4);
+	/* Opaque so page content scrolling underneath is fully hidden behind it. */
+	background: var(--bg-surface);
+	border-bottom: 1px solid var(--border-bright);
+	box-sizing: border-box;
+}
+
+/* The shared hint toggle is fixed by default; inside the bar it flows inline. */
+.peakfinder-topbar .hint-toggle {
+	position: static;
+	top: auto;
+	right: auto;
+}
+
+.peakfinder-topbar__home {
+	flex-shrink: 0;
 }
 
 /* ─────────────────────────────────────────────
@@ -179,8 +211,34 @@ html, body, #root {
 	box-shadow: 0 0 16px var(--accent-glow);
 }
 
+/* EA settings button — blue border to make it stand out from other controls.
+   Uses .btn.ea-settings-btn so it wins over the later .btn--ghost rule. */
+.btn.ea-settings-btn {
+	border-color: var(--accent-min);
+	color: var(--accent-min);
+	box-shadow: 0 0 0 1px var(--accent-min) inset;
+}
+.btn.ea-settings-btn:hover:not(:disabled) {
+	border-color: var(--accent-min);
+	color: var(--accent-min);
+	box-shadow: 0 0 12px rgba(74, 144, 240, 0.35);
+}
+
 .btn--ghost { background: transparent; border-color: var(--border); color: var(--text-secondary); }
 .btn--ghost:hover:not(:disabled) { border-color: var(--border-bright); color: var(--text-primary); }
+
+.btn--blue {
+	background: var(--accent-min);
+	color: #060809;
+	border-color: var(--accent-min);
+	font-weight: 700;
+}
+.btn--blue:hover:not(:disabled) {
+	background: #6aa8f5;
+	border-color: #6aa8f5;
+	color: #060809;
+	box-shadow: 0 0 16px rgba(74, 144, 240, 0.3);
+}
 
 .btn--sm { padding: var(--sp-2) var(--sp-3); font-size: 0.75rem; }
 .btn--danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
@@ -388,6 +446,7 @@ html, body, #root {
 
 .map-loader__input {
 	flex: 1;
+	min-width: 0;   /* allow the field to shrink so the row never overflows */
 	padding: var(--sp-3) var(--sp-4);
 	background: var(--bg-surface);
 	border: 1px solid var(--border-bright);
@@ -402,26 +461,28 @@ html, body, #root {
 .map-loader__input::placeholder{ color: var(--text-muted); }
 
 .map-loader__error   { font-size: 0.78rem; color: var(--danger); font-family: var(--font-mono); }
+.map-loader__copied  { font-size: 0.78rem; color: var(--accent); font-family: var(--font-mono); margin-top: calc(-1 * var(--sp-2)); }
 .map-loader__divider { display: flex; align-items: center; gap: var(--sp-3); width: 100%; color: var(--text-muted); font-size: 0.78rem; }
 .map-loader__divider::before,
 .map-loader__divider::after    { content: ''; flex: 1; height: 1px; background: var(--border); }
-.map-loader__random            { width: 100%; justify-content: center; }
+.map-loader__random,
+.map-loader__play              { width: 100%; justify-content: center; }
 
 /* ─────────────────────────────────────────────
    SAVED MAPS SIDEBAR (loader screens)
 ───────────────────────────────────────────── */
 .loader-with-saved {
 	display: flex;
-	justify-content: center;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--sp-4);
 	width: 100%;
 }
 
-/* Left-edge toggle button — always visible on loader screens. */
+/* Toggle button — flows above the loader, pinned to the left edge so the
+   loader's title always sits beneath it (never overlapping). */
 .saved-maps-toggle {
-	position: fixed;
-	top: var(--sp-4);
-	left: var(--sp-4);
-	z-index: 200;
+	align-self: flex-start;
 	display: flex;
 	align-items: center;
 	gap: var(--sp-2);
@@ -438,9 +499,10 @@ html, body, #root {
 }
 .saved-maps-toggle:hover { border-color: var(--accent); }
 
-/* Slide-in drawer (mirrors the EA settings drawer, anchored left). */
+/* Slide-in drawer (mirrors the EA settings drawer, anchored left). Starts
+   below the top bar so the Home/hint header stays visible and usable. */
 .saved-maps-backdrop {
-	position: fixed; inset: 0; z-index: 210;
+	position: fixed; inset: var(--peak-topbar-h) 0 0 0; z-index: 210;
 	background: rgba(0, 0, 0, 0.45);
 	backdrop-filter: blur(2px);
 	display: flex; justify-content: flex-start;
@@ -696,16 +758,17 @@ html, body, #root {
    WIN OVERLAY
 ───────────────────────────────────────────── */
 .win-overlay {
-	position: absolute; inset: 0;
+	position: fixed; inset: 0;
 	background: rgba(0, 0, 0, 0.6);
 	backdrop-filter: blur(4px);
 	display: flex; align-items: center; justify-content: center;
-	border-radius: 4px;
+	padding: var(--sp-4);
+	overflow-y: auto;
 	animation: fadeIn 0.3s ease;
-	z-index: 20;
+	z-index: 200;
 }
 
-.win-card { display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); padding: var(--sp-6); background: var(--bg-elevated); border: 1px solid var(--border-bright); border-radius: var(--r-lg); text-align: center; animation: scaleIn 0.25s ease; }
+.win-card { display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); padding: var(--sp-6); background: var(--bg-elevated); border: 1px solid var(--border-bright); border-radius: var(--r-lg); text-align: center; animation: scaleIn 0.25s ease; max-width: min(520px, 92vw); max-height: calc(100dvh - var(--sp-6)); overflow-y: auto; }
 .win-card__tag    { font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.12em; color: var(--accent); background: var(--accent-dim); padding: 3px 10px; border-radius: 2px; }
 .win-card__title  { font-family: var(--font-mono); font-size: 1.4rem; font-weight: 700; color: var(--text-primary); }
 .win-card__sub    { font-size: 0.78rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: -8px; }
@@ -713,7 +776,7 @@ html, body, #root {
 .win-stat         { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .win-stat__value  { font-family: var(--font-mono); font-size: 1.6rem; font-weight: 700; color: var(--accent); }
 .win-stat__label  { font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
-.win-card__actions{ display: flex; gap: var(--sp-3); }
+.win-card__actions{ display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-3); width: 100%; }
 
 /* ─────────────────────────────────────────────
    VS EA MODE (standalone stats screen)
@@ -832,8 +895,9 @@ html, body, #root {
 	/* Above the anchored hint popovers (z-index 150) so opening the panel
 	   covers any hint bubbles pinned to the buttons behind it. The backdrop
 	   also forms its own stacking context, so the panel's own HintPopover
-	   still layers correctly inside it. */
-	position: fixed; inset: 0; z-index: 250;
+	   still layers correctly inside it. Starts below the top bar so the
+	   Home/hint header stays visible and usable. */
+	position: fixed; inset: var(--peak-topbar-h) 0 0 0; z-index: 250;
 	background: rgba(0, 0, 0, 0.45);
 	backdrop-filter: blur(2px);
 	display: flex; justify-content: flex-end;
@@ -1013,6 +1077,7 @@ html, body, #root {
 	backdrop-filter: blur(4px);
 	display: flex; align-items: center; justify-content: center;
 	padding: var(--sp-4);
+	overflow-y: auto;
 	animation: fadeIn 0.15s ease;
 }
 
@@ -1024,6 +1089,9 @@ html, body, #root {
 	display: flex; flex-direction: column; align-items: center;
 	gap: var(--sp-4);
 	min-width: 320px;
+	max-width: min(440px, 92vw);
+	max-height: calc(100dvh - var(--sp-6));
+	overflow-y: auto;
 	animation: slideUp 0.2s ease;
 	text-align: center;
 }
@@ -1072,7 +1140,24 @@ html, body, #root {
 }
 
 .ea-win-card__actions {
-	display: flex; gap: var(--sp-3); margin-top: var(--sp-2);
+	display: flex; flex-wrap: wrap; justify-content: center;
+	gap: var(--sp-3); margin-top: var(--sp-2); width: 100%;
+}
+
+/* When the action buttons can't sit side by side, stack them in a centered
+   vertical column so the card stays compact and never needs scrolling. */
+@media (max-width: 560px) {
+	.win-card__actions,
+	.ea-win-card__actions {
+		flex-direction: column;
+		align-items: center;
+	}
+	.win-card__actions .btn,
+	.ea-win-card__actions .btn {
+		width: 100%;
+		max-width: 240px;
+		justify-content: center;
+	}
 }
 
 /* ─────────────────────────────────────────────
@@ -1095,104 +1180,3 @@ html, body, #root {
 	padding: var(--sp-4) var(--sp-5);
 	display: flex; align-items: center; justify-content: center;
 }
-
-/* ─────────────────────────────────────────────
-   HINTS
-───────────────────────────────────────────── */
-.hint-toggle {
-	position: fixed;
-	top: var(--sp-4);
-	right: var(--sp-4);
-	z-index: 200;
-	display: flex;
-	gap: var(--sp-2);
-}
-
-/* Hint modals must sit above the end-of-race win overlays (z-index 200) so the
-   educational hint isn't hidden behind the EA/player win card. */
-.hint-modal-backdrop { z-index: 300; }
-.hint-modal { gap: var(--sp-4); }
-.hint-modal__tag {
-	font-family: var(--font-mono);
-	font-size: 0.7rem;
-	letter-spacing: 0.1em;
-	color: var(--accent);
-	background: var(--accent-dim);
-	padding: 3px 8px;
-	border-radius: 2px;
-	align-self: flex-start;
-}
-.hint-modal__title { font-family: var(--font-mono); font-size: 1.15rem; font-weight: 700; }
-.hint-modal__body  { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
-
-.hint-toast {
-	position: fixed;
-	bottom: var(--sp-5);
-	right: var(--sp-5);
-	z-index: 200;
-	width: min(340px, 90vw);
-	background: var(--bg-elevated);
-	border: 1px solid var(--border-bright);
-	border-left: 3px solid var(--accent);
-	border-radius: var(--r-md);
-	padding: var(--sp-4) var(--sp-5);
-	display: flex;
-	flex-direction: column;
-	gap: var(--sp-2);
-	box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-	animation: slideInRight 0.3s ease;
-}
-.hint-toast__title { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--accent); }
-.hint-toast__body  { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
-.hint-toast__close {
-	position: absolute;
-	top: var(--sp-2);
-	right: var(--sp-3);
-	background: none;
-	border: none;
-	color: var(--text-muted);
-	font-size: 1.1rem;
-	cursor: pointer;
-	line-height: 1;
-}
-.hint-toast__close:hover { color: var(--text-primary); }
-
-/* Anchored popover — sits next to a wrapped element */
-.hint-anchor { position: relative; display: inline-block; }
-
-/* When the popover wraps the EA settings drawer, the anchor must fill the
-   backdrop height so the panel keeps full height and the bubble centers. */
-.ea-settings-backdrop > .hint-anchor { display: flex; height: 100%; }
-
-.hint-popover {
-	position: absolute;
-	z-index: 150;
-	width: max-content;
-	max-width: 240px;
-	display: flex;
-	flex-direction: column;
-	gap: var(--sp-2);
-	background: var(--bg-elevated);
-	border: 1px solid var(--accent);
-	border-radius: var(--r-md);
-	padding: var(--sp-3) var(--sp-4);
-	box-shadow: 0 8px 24px rgba(0,0,0,0.55);
-	animation: scaleIn 0.18s ease;
-}
-.hint-popover--top    { bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); }
-.hint-popover--bottom { top:    calc(100% + 10px); left: 50%; transform: translateX(-50%); }
-.hint-popover--left   { right:  calc(100% + 10px); top: 50%;  transform: translateY(-50%); }
-.hint-popover--right  { left:   calc(100% + 10px); top: 50%;  transform: translateY(-50%); }
-
-.hint-popover__title   { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; color: var(--accent); padding-right: var(--sp-4); }
-.hint-popover__body    { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; }
-.hint-popover__actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
-.hint-popover__close {
-	position: absolute;
-	top: 4px; right: 8px;
-	background: none; border: none;
-	color: var(--text-muted);
-	font-size: 1rem; line-height: 1;
-	cursor: pointer;
-}
-.hint-popover__close:hover { color: var(--text-primary); }

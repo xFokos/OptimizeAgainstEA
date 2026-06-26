@@ -1,4 +1,5 @@
 import type { ProbeResult } from '../../../types/map';
+import { valueToHeight } from '../../../engine/height';
 
 interface ProbeMarkerProps {
   probe: ProbeResult;
@@ -62,7 +63,7 @@ export function ProbeMarker({ probe, index, isBest, isHovered = false, onHover }
           whiteSpace: 'nowrap',
           pointerEvents: 'none',
         }}>
-          #{index + 1} · {probe.value.toFixed(3)}
+          #{index + 1} · {valueToHeight(probe.value).toFixed(3)}
         </div>
       )}
     </div>

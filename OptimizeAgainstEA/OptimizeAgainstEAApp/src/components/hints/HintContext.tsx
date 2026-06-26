@@ -6,8 +6,8 @@ import { HINTS } from './hintContent';
 // ── Persistence keys ──────────────────────────────────────────────────────
 // enabled → localStorage: a player's on/off choice survives across visits.
 // seen    → sessionStorage: one-time hints re-arm in a new browser session.
-const ENABLED_KEY = 'bs.hints.enabled';
-const SEEN_KEY = 'bs.hints.seen';
+const ENABLED_KEY = 'app.hints.enabled';
+const SEEN_KEY = 'app.hints.seen';
 
 export interface HintAction {
   label: string;
