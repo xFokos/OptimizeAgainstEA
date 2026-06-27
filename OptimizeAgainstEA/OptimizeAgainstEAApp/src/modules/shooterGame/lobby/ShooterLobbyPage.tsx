@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageContainer from '../../../components/layout/PageContainer';
 import { ShooterSettingsPanel } from '../settings/ShooterSettings';
@@ -6,6 +6,9 @@ import { EASettingsPanel } from '../../../components/settings/EASettings';
 import { vec } from '../game/core/vec';
 import { useSettings } from '../../../context/SettingsContext';
 import { DNA_INDEX } from '../shooter.types';
+import type { GamePhase } from '../shooter.types';
+import { gameStore } from '../game/gameStore';
+import { analyticsStore } from '../game/analyticsStore';
 
 // ---- Mini Preview Canvas ----
 // Zeigt zwei Agenten die gegeneinander kämpfen
@@ -222,10 +225,45 @@ function ShooterPreview() {
     );
 }
 
+// ---- Runden-Status Badge ----
+
+function phaseLabel(phase: GamePhase): string {
+    if (phase === 'playing')  return 'Läuft';
+    if (phase === 'roundEnd') return 'Beendet';
+    if (phase === 'evolving') return 'Evolving';
+    return '';
+}
+
 // ---- Lobby Page ----
 
 export default function ShooterLobbyPage() {
     const navigate = useNavigate();
+
+    const [savedRound, setSavedRound] = useState(gameStore.state?.roundNumber ?? 0);
+    const [savedPhase, setSavedPhase] = useState<GamePhase | null>(
+        gameStore.state ? gameStore.state.phase : null,
+    );
+
+    useEffect(() => {
+        const sync = () => {
+            const s = gameStore.state;
+            setSavedRound(s?.roundNumber ?? 0);
+            setSavedPhase(s ? s.phase : null);
+        };
+        sync();
+        return gameStore.subscribe(sync);
+    }, []);
+
+    const hasActiveGame = savedRound > 0;
+
+    const handleContinue = () => navigate('/ShooterGame');
+
+    const handleReset = () => {
+        gameStore.state = null as unknown as typeof gameStore.state;
+        gameStore.notify();
+        analyticsStore.clear();
+        navigate('/ShooterGame');
+    };
 
     return (
         <PageContainer>
@@ -263,11 +301,31 @@ export default function ShooterLobbyPage() {
                     </button>
                 </div>
 
-                {/* Rechts unten – Play */}
+                {/* Rechts unten – Session-Status + Buttons */}
                 <div style={styles.rightBottom}>
-                    <button style={styles.startBtn} onClick={() => navigate('/ShooterGame')}>
-                        Spielen →
-                    </button>
+                    {hasActiveGame ? (
+                        <div style={styles.sessionBlock}>
+                            <div style={styles.sessionStatus}>
+                                <span style={styles.sessionDot} />
+                                <span style={styles.sessionText}>
+                                    Runde {savedRound}
+                                    {savedPhase ? ` · ${phaseLabel(savedPhase)}` : ''}
+                                </span>
+                            </div>
+                            <div style={styles.sessionBtns}>
+                                <button style={styles.startBtn} onClick={handleContinue}>
+                                    Fortsetzen →
+                                </button>
+                                <button style={styles.resetBtn} onClick={handleReset}>
+                                    Neu starten
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <button style={styles.startBtn} onClick={() => navigate('/ShooterGame')}>
+                            Spielen →
+                        </button>
+                    )}
                 </div>
             </div>
         </PageContainer>
@@ -394,15 +452,61 @@ const styles: Record<string, React.CSSProperties> = {
         alignItems:          'start',
     },
     startBtn: {
-        padding:      '14px 40px',
-        background:   'rgba(79, 195, 247, 0.1)',
-        border:       '1px solid #4fc3f7',
-        borderRadius: '8px',
-        color:        '#4fc3f7',
-        fontFamily:   'monospace',
-        fontSize:     '16px',
+        padding:       '14px 40px',
+        background:    'rgba(79, 195, 247, 0.1)',
+        border:        '1px solid #4fc3f7',
+        borderRadius:  '8px',
+        color:         '#4fc3f7',
+        fontFamily:    'monospace',
+        fontSize:      '16px',
         letterSpacing: '0.06em',
-        cursor:       'pointer',
-        transition:   'background 0.15s',
+        cursor:        'pointer',
+        transition:    'background 0.15s',
+    },
+    sessionBlock: {
+        display:       'flex',
+        flexDirection: 'column',
+        alignItems:    'center',
+        gap:           '12px',
+    },
+    sessionStatus: {
+        display:     'flex',
+        alignItems:  'center',
+        gap:         '8px',
+        padding:     '6px 14px',
+        background:  'rgba(79, 195, 247, 0.07)',
+        border:      '1px solid rgba(79, 195, 247, 0.2)',
+        borderRadius: '999px',
+    },
+    sessionDot: {
+        width:        '7px',
+        height:       '7px',
+        borderRadius: '50%',
+        background:   '#4fc3f7',
+        flexShrink:    0,
+        boxShadow:    '0 0 6px #4fc3f7',
+    },
+    sessionText: {
+        fontFamily:    'monospace',
+        fontSize:      '12px',
+        letterSpacing: '0.08em',
+        color:         'rgba(79, 195, 247, 0.9)',
+        textTransform: 'uppercase' as const,
+    },
+    sessionBtns: {
+        display: 'flex',
+        gap:     '12px',
+    },
+    resetBtn: {
+        padding:       '14px 28px',
+        background:    'rgba(239, 83, 80, 0.07)',
+        border:        '1px solid rgba(239, 83, 80, 0.5)',
+        borderRadius:  '8px',
+        color:         'rgba(239, 83, 80, 0.8)',
+        fontFamily:    'monospace',
+        fontSize:      '14px',
+        letterSpacing: '0.06em',
+        cursor:        'pointer',
+        transition:    'background 0.15s',
     },
 };

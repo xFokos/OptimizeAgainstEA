@@ -1,7 +1,7 @@
 .wrapper {
     position: absolute;
     width: 800px;
-    height: 800px;
+    height: 844px; /* 800 canvas + 44 tug bar */
     border-radius: 8px;
     overflow: hidden;
     outline: none;
@@ -10,8 +10,90 @@
 
 .canvas {
     position: absolute;
-    inset: 0;
+    top: 44px;
+    left: 0;
+    right: 0;
+    bottom: 0;
     display: block;
+}
+
+/* ---- Tug of War Bar ---- */
+.tugBar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    background: rgba(0, 0, 0, 0.55);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    z-index: 1;
+}
+
+.tugLabelEA {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: #f97316;
+    font-weight: 700;
+    flex-shrink: 0;
+    width: 22px;
+}
+
+.tugLabelPlayer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: #60a5fa;
+    font-weight: 700;
+    flex-shrink: 0;
+    width: 22px;
+    text-align: right;
+}
+
+.tugTrack {
+    flex: 1;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    position: relative;
+    overflow: visible;
+}
+
+.tugFill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 6px;
+    opacity: 0.45;
+    transition: left 0.12s ease, width 0.12s ease;
+}
+
+.tugCenter {
+    position: absolute;
+    left: 50%;
+    top: -5px;
+    bottom: -5px;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.18);
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.tugKnot {
+    position: absolute;
+    top: 50%;
+    width: 22px;
+    height: 22px;
+    background: #ffffff;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 0 3px rgba(0, 0, 0, 0.6);
+    transition: left 0.12s ease;
+    pointer-events: none;
 }
 
 /* Overlay für idle/roundEnd – sitzt über dem Canvas */
@@ -77,12 +159,12 @@
 .crossover {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 12px 20px;
+    gap: 5px;
+    padding: 12px 16px;
     background: rgba(255, 255, 255, 0.04);
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.07);
-    width: 360px;
+    width: 380px;
 }
 
 .crossoverTitle {
@@ -91,57 +173,53 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.35);
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
-.crossoverRow {
-    display: flex;
+.crossoverGeneRow {
+    display: grid;
+    grid-template-columns: 62px 1fr 1fr 1fr;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
-.crossoverRowLabel {
+.crossoverGeneName {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
+    color: rgba(255, 255, 255, 0.45);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.crossoverColLabel {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
     font-weight: 700;
-    width: 20px;
+    text-align: center;
+    letter-spacing: 0.04em;
+}
+
+.crossoverBar {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.crossoverBarTrack {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.crossoverBarVal {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    width: 26px;
     text-align: right;
     flex-shrink: 0;
+    opacity: 0.85;
 }
 
-.crossoverBlocks {
-    display: flex;
-    gap: 3px;
-    flex: 1;
-}
-
-.crossoverBlock {
-    flex: 1;
-    height: 16px;
-    border-radius: 3px;
-}
-
-.crossoverMarkerWrap {
-    position: relative;
-    height: 14px;
-    margin-left: 30px;
-}
-
-.crossoverMarkerLine {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    border-radius: 1px;
-    background: rgba(255, 255, 255, 0.3);
-}
-
-.crossoverMarkerText {
-    position: absolute;
-    top: 0;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    color: rgba(255, 255, 255, 0.3);
-    white-space: nowrap;
-    padding-left: 4px;
-}

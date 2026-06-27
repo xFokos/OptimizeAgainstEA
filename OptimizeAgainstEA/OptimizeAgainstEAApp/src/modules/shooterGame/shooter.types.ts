@@ -13,12 +13,13 @@ export const ARENA = {
 // Index-Konstanten damit wir nie magic numbers im Code haben
 export const DNA_INDEX = {
     AGGRESSION:     0, // 0–1: wie stark der Agent den Spieler verfolgt
-    DODGE_WEIGHT:   1, // 0–1: wie stark er Bullets ausweicht
+    DODGE_WEIGHT:   1, // 0–1: Wahrscheinlichkeit pro Frame auszuweichen; Stärke kommt von MOVEMENT_SPEED
     SHOOT_ACCURACY: 2, // 0–1: Zielgenauigkeit (1 = perfekt)
     PREFERRED_RANGE:3, // 0–1: bevorzugter Kampfabstand (× 300px)
     MOVEMENT_SPEED: 4, // 0–1: Bewegungsgeschwindigkeit (× 200px/s)
     PREDICT_LEAD:   5, // 0–1: wie stark er den Spieler "predicted" beim Zielen
     FIRE_RATE:      6, // 0-1: Wie schnell der Agent schießt
+    BULLET_SPEED:   7, // 0–1: Bullet-Geschwindigkeit (BULLET_SPEED_MIN–BULLET_SPEED_MAX)
 } as const;
 
 
@@ -141,7 +142,9 @@ export const GAME_CONFIG = {
     ELITE_COUNT:       4,    // Top-N die direkt überleben
     MUTATION_RATE:     0.1,  // 10 % Chance pro Gen-Wert
     MUTATION_STRENGTH: 0.2,  // wie stark ein Wert sich ändert
-    BULLET_SPEED:      500,  // px/s
+    BULLET_SPEED:      500,  // px/s – Default für Spieler
+    BULLET_SPEED_MIN:  150,  // px/s – Agent-DNA Minimum
+    BULLET_SPEED_MAX:  900,  // px/s – Agent-DNA Maximum
     BULLET_LIFETIME:   2,    // Sekunden
     SHOOT_COOLDOWN:    0.4,  // Sekunden zwischen Schüssen
     SHOOT_COOLDOWN_MIN: 0.3,  // minimal so schnell möglich
@@ -159,10 +162,11 @@ export const STARTER_DNA: DNA = [
     0.1,  // AGGRESSION     – sehr passiv
     0.1,  // DODGE_WEIGHT   – weicht kaum aus
     0.1,  // SHOOT_ACCURACY – sehr ungenau
-    0.3 ,  // PREFERRED_RANGE – bleibt nah
+    0.3,  // PREFERRED_RANGE – bleibt nah
     0.1,  // MOVEMENT_SPEED – sehr langsam
     0.1,  // PREDICT_LEAD   – kein Vorauszielen
     0.1,  // FIRE_RATE      – schießt sehr langsam
+    0.5,  // BULLET_SPEED   – mittlere Geschwindigkeit (~525 px/s)
 ];
 
 // ---- Player Ghosting ----
@@ -183,4 +187,12 @@ export interface AgentGhostFrame {
 export interface PlayerGhost {
     frames:        PlayerGhostFrame[];
     roundDuration: number;
+}
+
+// ---- Spieler-Konfiguration ----
+
+export interface PlayerStats {
+    bulletSpeed:   number;  // px/s
+    moveSpeed:     number;  // px/s
+    shootCooldown: number;  // Sekunden zwischen Schüssen
 }

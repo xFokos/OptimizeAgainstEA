@@ -44,6 +44,51 @@ export function ShooterSettingsPanel() {
                     />
                     <span style={styles.value}>{s.roundDuration}s</span>
                 </div>
+                <div style={styles.row}>
+                    <label style={styles.label}>Tug-of-War Ziel</label>
+                    <input
+                        type="range" min={3} max={30} step={1}
+                        value={s.tugWinThreshold}
+                        onChange={e => setShooterSettings({ ...s, tugWinThreshold: parseInt(e.target.value) })}
+                        style={styles.slider}
+                    />
+                    <span style={styles.value}>{s.tugWinThreshold}</span>
+                </div>
+            </section>
+
+            {/* Spieler */}
+            <section style={styles.section}>
+                <h3 style={styles.sectionTitle}>Spieler</h3>
+                <div style={styles.row}>
+                    <label style={styles.label}>Bullet Speed</label>
+                    <input
+                        type="range" min={100} max={1000} step={10}
+                        value={s.playerStats.bulletSpeed}
+                        onChange={e => setShooterSettings({ ...s, playerStats: { ...s.playerStats, bulletSpeed: parseInt(e.target.value) } })}
+                        style={styles.slider}
+                    />
+                    <span style={styles.value}>{s.playerStats.bulletSpeed}</span>
+                </div>
+                <div style={styles.row}>
+                    <label style={styles.label}>Move Speed</label>
+                    <input
+                        type="range" min={50} max={600} step={10}
+                        value={s.playerStats.moveSpeed}
+                        onChange={e => setShooterSettings({ ...s, playerStats: { ...s.playerStats, moveSpeed: parseInt(e.target.value) } })}
+                        style={styles.slider}
+                    />
+                    <span style={styles.value}>{s.playerStats.moveSpeed}</span>
+                </div>
+                <div style={styles.row}>
+                    <label style={styles.label}>Shoot Cooldown</label>
+                    <input
+                        type="range" min={0.05} max={2} step={0.05}
+                        value={s.playerStats.shootCooldown}
+                        onChange={e => setShooterSettings({ ...s, playerStats: { ...s.playerStats, shootCooldown: parseFloat(e.target.value) } })}
+                        style={styles.slider}
+                    />
+                    <span style={styles.value}>{s.playerStats.shootCooldown.toFixed(2)}s</span>
+                </div>
             </section>
 
             <button style={styles.resetBtn} onClick={() => setShooterSettings(resetShooterSettings())}>

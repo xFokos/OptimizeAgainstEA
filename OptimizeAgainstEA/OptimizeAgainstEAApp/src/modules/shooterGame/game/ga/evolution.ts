@@ -69,9 +69,8 @@ export function evolve(
     });
 }
 
-export function getNextAgent(population: Population, roundNumber: number): number[] {
-    const index = (roundNumber - 1) % population.individuals.length;
-    return population.individuals[index].dna;
+export function getNextAgent(population: Population): number[] {
+    return population.individuals[0].dna;
 }
 
 // ---- Simulation Types ----
@@ -122,10 +121,11 @@ function stepAgent(
 
     const dodgeForce = (() => {
         if (!nearBullet) return vec.zero();
+        if (Math.random() > dna[DNA_INDEX.DODGE_WEIGHT]) return vec.zero();
         const perp    = vec.perpendicular(vec.normalize(nearBullet.velocity));
         const toAgent = vec.sub(agent.pos, nearBullet.position);
         const side    = perp.x * toAgent.x + perp.y * toAgent.y >= 0 ? 1 : -1;
-        return vec.scale(perp, side * dna[DNA_INDEX.DODGE_WEIGHT] * dna[DNA_INDEX.MOVEMENT_SPEED]);
+        return vec.scale(perp, side * dna[DNA_INDEX.MOVEMENT_SPEED]);
     })();
 
     // 3. Abstand halten
@@ -156,9 +156,10 @@ function stepAgent(
         agent.cooldown = GAME_CONFIG.SHOOT_COOLDOWN_MIN +
             (1 - dna[DNA_INDEX.FIRE_RATE]) * GAME_CONFIG.SHOOT_COOLDOWN_MAX;
 
+        const bulletSpeed = GAME_CONFIG.BULLET_SPEED_MIN + dna[DNA_INDEX.BULLET_SPEED] * (GAME_CONFIG.BULLET_SPEED_MAX - GAME_CONFIG.BULLET_SPEED_MIN);
         newBullet = {
             position: { ...agent.pos },
-            velocity: vec.scale(vec.fromAngle(agent.rot + scatter), GAME_CONFIG.BULLET_SPEED),
+            velocity: vec.scale(vec.fromAngle(agent.rot + scatter), bulletSpeed),
             lifetime: GAME_CONFIG.BULLET_LIFETIME,
             radius:   GAME_CONFIG.BULLET_RADIUS,
         };
@@ -269,16 +270,21 @@ function simulateAgainstGhost(dna: DNA, ghost: PlayerGhost): number {
         cooldown: 0,
     };
 
-    let agentBullets:  SimBullet[] = [];
-    let playerBullets: SimBullet[] = [];
-    const stats = emptyStats();
+    type TrackedBullet = SimBullet & { _id: number };
+
+    let agentBullets:  SimBullet[]     = [];
+    let playerBullets: TrackedBullet[] = [];
+    const stats        = emptyStats();
+    let nextBulletId   = 0;
+    const dodgedIds    = new Set<number>();
 
     for (let step = 0; step < ghost.frames.length; step++) {
         const frame = ghost.frames[step];
+        const dt    = 1 / 60;
 
-        // Ghost schießt wenn er in diesem Frame geschossen hat
         if (frame.shot) {
             playerBullets.push({
+                _id:      nextBulletId++,
                 position: { ...frame.position },
                 velocity: vec.scale(vec.fromAngle(frame.rotation), GAME_CONFIG.BULLET_SPEED),
                 lifetime: GAME_CONFIG.BULLET_LIFETIME,
@@ -286,7 +292,6 @@ function simulateAgainstGhost(dna: DNA, ghost: PlayerGhost): number {
             });
         }
 
-        // Ghost als SimAgent damit stepAgent ihn versteht
         const ghostAsEnemy: SimAgent = {
             pos:      { ...frame.position },
             vel:      { ...frame.velocity },
@@ -294,13 +299,20 @@ function simulateAgainstGhost(dna: DNA, ghost: PlayerGhost): number {
             cooldown: 0,
         };
 
-        const dt = 1 / 60; // gleiche Rate wie Game Loop
         const [newAgent, agentBullet] = stepAgent(dna, agent, ghostAsEnemy, playerBullets, dt);
         agent = newAgent;
-        if (agentBullet) agentBullets.push(agentBullet);
+        if (agentBullet) {
+            agentBullets.push(agentBullet);
+            stats.bulletsFired++;
+        }
 
-        agentBullets  = moveBullets(agentBullets,  dt);
-        playerBullets = moveBullets(playerBullets, dt);
+        agentBullets  = moveBullets(agentBullets, dt);
+        // moveBullets verwendet { ...b } spread, daher bleibt _id bei Runtime erhalten
+        playerBullets = moveBullets(playerBullets as SimBullet[], dt) as TrackedBullet[];
+
+        // Distanz-Tracking
+        stats.distanceSum     += vec.distance(agent.pos, frame.position);
+        stats.distanceSamples += 1;
 
         // Agent-Bullet trifft Ghost
         agentBullets = agentBullets.filter(b => {
@@ -311,11 +323,16 @@ function simulateAgainstGhost(dna: DNA, ghost: PlayerGhost): number {
             return true;
         });
 
-        // Player-Bullet trifft Agent
+        // Player-Bullet trifft Agent oder knapper Vorbeiflug
         playerBullets = playerBullets.filter(b => {
-            if (vec.distance(b.position, agent.pos) < GAME_CONFIG.AGENT_RADIUS + b.radius) {
+            const d = vec.distance(b.position, agent.pos);
+            if (d < GAME_CONFIG.AGENT_RADIUS + b.radius) {
                 stats.hitsReceived++;
                 return false;
+            }
+            if (d < GAME_CONFIG.NEAR_MISS_RADIUS && !dodgedIds.has(b._id)) {
+                stats.dodgedBullets++;
+                dodgedIds.add(b._id);
             }
             return true;
         });
@@ -327,19 +344,27 @@ function simulateAgainstGhost(dna: DNA, ghost: PlayerGhost): number {
 }
 
 export function presimulateAgainstGhost(
-    generations:     number,
-    ghost:           PlayerGhost,
-    startPopulation: Population,
-    crossoverType:   'uniform' | 'single-point' = 'uniform',
+    generations:      number,
+    ghost:            PlayerGhost,
+    startPopulation:  Population,
+    crossoverType:    'uniform' | 'single-point' = 'uniform',
+    hallOfFameGhost?: PlayerGhost,
 ): Population {
     let pop = startPopulation;
 
     for (let i = 0; i < generations; i++) {
-        // Jeder Agent kämpft gegen den Ghost – linear statt Round Robin
-        pop.individuals = pop.individuals.map(ind => ({
-            ...ind,
-            fitness: simulateAgainstGhost(ind.dna, ghost),
-        }));
+        pop.individuals = pop.individuals.map(ind => {
+            const lastFitness = simulateAgainstGhost(ind.dna, ghost);
+            const hofFitness  = hallOfFameGhost
+                ? simulateAgainstGhost(ind.dna, hallOfFameGhost)
+                : 0;
+            return {
+                ...ind,
+                fitness: hallOfFameGhost
+                    ? (lastFitness + hofFitness) / 2
+                    : lastFitness,
+            };
+        });
 
         pop = evolve(pop, undefined, GAME_CONFIG.MUTATION_RATE, GAME_CONFIG.MUTATION_STRENGTH, crossoverType);
     }

@@ -4,23 +4,10 @@ import type { RoundStats } from '../../shooter.types';
 // Höher = besser. Der GA maximiert diesen Wert.
 
 export function calculateFitness(stats: RoundStats): number {
-    // Genauigkeit: Treffer / Schüsse (0–1), nur wenn geschossen wurde
-    const accuracy = stats.bulletsFired > 0
-        ? stats.hitsLanded / stats.bulletsFired
-        : 0;
-
-    // Durchschnittliche Distanz zum Spieler
-    const avgDistance = stats.distanceSamples > 0
-        ? stats.distanceSum / stats.distanceSamples
-        : 0;
 
     return (
         stats.hitsLanded      * 100    // Treffer auf Spieler → wichtigstes Kriterium
       - stats.hitsReceived    * 100    // Selbst getroffen → gleich wie Treffer landen
-      + accuracy              *  50    // Gute Genauigkeit belohnen
-      + stats.timeAlive       *   2    // Überleben belohnen
-      + stats.dodgedBullets   *  15    // Aktives Ausweichen belohnen
-      - avgDistance           *   0.05 // Zu passives Campen leicht bestrafen
     );
 }
 

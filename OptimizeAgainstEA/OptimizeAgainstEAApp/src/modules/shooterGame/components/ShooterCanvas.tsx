@@ -31,25 +31,29 @@ import styles                from './ShooterCanvas.module.css';
 const COL_A = '#60a5fa';
 const COL_B = '#f97316';
 
-function CrossoverViz({ example }: { example: CrossoverExample }) {
-    const blockPct = 100 / example.parentA.length;
+const GENE_LABELS: Record<string, string> = {
+    AGGRESSION:      'Aggression',
+    DODGE_WEIGHT:    'Dodge',
+    SHOOT_ACCURACY:  'Accuracy',
+    PREFERRED_RANGE: 'Range',
+    MOVEMENT_SPEED:  'Speed',
+    PREDICT_LEAD:    'Lead',
+    FIRE_RATE:       'Fire Rate',
+    BULLET_SPEED:    'Bullet Speed',
+};
 
-    const renderRow = (dna: number[], color: string, label: string) => (
-        <div className={styles.crossoverRow}>
-            <span className={styles.crossoverRowLabel} style={{ color }}>{label}</span>
-            <div className={styles.crossoverBlocks}>
-                {dna.map((v, i) => (
-                    <div
-                        key={i}
-                        className={styles.crossoverBlock}
-                        title={`${DNA_NAMES[i]}: ${v.toFixed(2)}`}
-                        style={{ background: color, opacity: 0.2 + v * 0.8 }}
-                    />
-                ))}
+function Bar({ value, color }: { value: number; color: string }) {
+    return (
+        <div className={styles.crossoverBar}>
+            <div className={styles.crossoverBarTrack}>
+                <div style={{ width: `${value * 100}%`, background: color, height: '100%', borderRadius: 3, opacity: 0.8 }} />
             </div>
+            <span className={styles.crossoverBarVal} style={{ color }}>{value.toFixed(2)}</span>
         </div>
     );
+}
 
+function CrossoverViz({ example }: { example: CrossoverExample }) {
     const child = [
         ...example.parentA.slice(0, example.crossPoint),
         ...example.parentB.slice(example.crossPoint),
@@ -57,44 +61,54 @@ function CrossoverViz({ example }: { example: CrossoverExample }) {
 
     return (
         <div className={styles.crossover}>
-            <div className={styles.crossoverTitle}>Crossover</div>
-            {renderRow(example.parentA, COL_A, 'A')}
-            {renderRow(example.parentB, COL_B, 'B')}
-            <div className={styles.crossoverMarkerWrap}>
-                <div
-                    className={styles.crossoverMarkerLine}
-                    style={{ left: `${example.crossPoint * blockPct}%` }}
-                />
-                <span
-                    className={styles.crossoverMarkerText}
-                    style={{ left: `${example.crossPoint * blockPct}%` }}
-                >
-                    Punkt
-                </span>
+            <div className={styles.crossoverTitle}>Neue DNA</div>
+
+            <div className={styles.crossoverGeneRow}>
+                <span className={styles.crossoverGeneName} />
+                <span className={styles.crossoverColLabel} style={{ color: COL_A }}>DNA A</span>
+                <span className={styles.crossoverColLabel} style={{ color: COL_B }}>DNA B</span>
+                <span className={styles.crossoverColLabel} style={{ color: 'rgba(255,255,255,0.7)' }}>Neu</span>
             </div>
-            <div className={styles.crossoverRow}>
-                <span className={styles.crossoverRowLabel} style={{ color: 'rgba(255,255,255,0.5)' }}>
-                    Kind
-                </span>
-                <div className={styles.crossoverBlocks}>
-                    {child.map((v, i) => {
-                        const fromA = i < example.crossPoint;
-                        return (
-                            <div
-                                key={i}
-                                className={styles.crossoverBlock}
-                                title={`${DNA_NAMES[i]}: ${v.toFixed(2)} (von ${fromA ? 'A' : 'B'})`}
-                                style={{
-                                    background:    fromA ? COL_A : COL_B,
-                                    opacity:       0.2 + v * 0.8,
-                                    outline:       `1.5px solid ${fromA ? COL_A : COL_B}`,
-                                    outlineOffset: '1px',
-                                }}
-                            />
-                        );
-                    })}
+
+            {DNA_NAMES.map((name, i) => (
+                <div key={i} className={styles.crossoverGeneRow}>
+                    <span className={styles.crossoverGeneName}>{GENE_LABELS[name] ?? name}</span>
+                    <Bar value={example.parentA[i]} color={COL_A} />
+                    <Bar value={example.parentB[i]} color={COL_B} />
+                    <Bar value={child[i]}           color={i < example.crossPoint ? COL_A : COL_B} />
                 </div>
+            ))}
+        </div>
+    );
+}
+
+// ---- Tug of War Bar ----
+
+const BAR_HEIGHT = 44;
+
+function TugOfWarBar({ score, threshold }: { score: number; threshold: number }) {
+    const pct         = (score / threshold) * 50 + 50; // 0–100 %
+    const playerWins  = score > 0;
+    const fillWidth   = Math.abs(score / threshold) * 50;
+
+    return (
+        <div className={styles.tugBar}>
+            <span className={styles.tugLabelEA}>EA</span>
+            <div className={styles.tugTrack}>
+                {score !== 0 && (
+                    <div
+                        className={styles.tugFill}
+                        style={{
+                            left:       playerWins ? '50%' : `${50 - fillWidth}%`,
+                            width:      `${fillWidth}%`,
+                            background: playerWins ? '#60a5fa' : '#f97316',
+                        }}
+                    />
+                )}
+                <div className={styles.tugCenter} />
+                <div className={styles.tugKnot} style={{ left: `${pct}%` }} />
             </div>
+            <span className={styles.tugLabelPlayer}>DU</span>
         </div>
     );
 }
@@ -141,10 +155,18 @@ interface ShooterCanvasProps {
 export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
     const { eaSettings, shooterSettings } = useSettings();
 
-    const canvasRef      = useRef<HTMLCanvasElement>(null);
-    const gameStateRef   = useRef<GameState | null>(null);
-    const agentFramesRef = useRef<AgentGhostFrame[]>([]);
-    const inputRef       = useInput();
+    const canvasRef            = useRef<HTMLCanvasElement>(null);
+    const gameStateRef         = useRef<GameState | null>(null);
+    const agentFramesRef       = useRef<AgentGhostFrame[]>([]);
+    const matchScoreRef        = useRef(0);
+    const prevHitsRef          = useRef({ landed: 0, received: 0 });
+    const analyticsLoggedRef   = useRef(false);
+    const hallOfFameGhostRef   = useRef<PlayerGhost | null>(null);
+    const hallOfFameHitsRef    = useRef<number>(-1);
+    const inputRef             = useInput();
+
+    const [matchScore, setMatchScore] = useState(0);
+
     const saved = gameStore.state;
     const restoredPhase: GamePhase =
         saved?.roundNumber > 0
@@ -162,13 +184,33 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
         gameStore.state      = state;
     }
 
+    const pushRoundAnalytics = useCallback((roundState: GameState) => {
+        if (analyticsLoggedRef.current || roundState.roundNumber === 0) return;
+        analyticsLoggedRef.current = true;
+        const s = roundState.agent.stats;
+        analyticsStore.push({
+            round:        roundState.roundNumber,
+            hitsLanded:   s.hitsLanded,
+            hitsReceived: s.hitsReceived,
+            bulletsFired: s.bulletsFired,
+            accuracy:     s.bulletsFired > 0 ? s.hitsLanded / s.bulletsFired : 0,
+            dodged:       s.dodgedBullets,
+            fitness:      calculateFitness(s),
+            generation:   roundState.population?.generation ?? 1,
+            bestFitness:  roundState.population?.bestFitness ?? 0,
+            playerFrames: roundState.ghostFrames,
+            agentFrames:  agentFramesRef.current,
+            agentDna:     roundState.agent.dna,
+        });
+    }, []);
+
     // onUpdate: Spiellogik – gibt neuen State zurück
     const onUpdate = useCallback((
         state: GameState,
         dt:    number,
         input: InputState,
     ): GameState => {
-        const next = update(state, dt, input);
+        const next = update(state, dt, input, shooterSettings.playerStats);
 
         if (next.lastAgentFrame) {
             agentFramesRef.current.push(next.lastAgentFrame);
@@ -176,6 +218,23 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
 
         if (next.phase !== state.phase) {
             setPhase(next.phase);
+            if (next.phase === 'roundEnd') pushRoundAnalytics(next);
+        }
+
+        // Tug of war: live hit tracking
+        const landedDelta   = next.agent.stats.hitsLanded   - prevHitsRef.current.landed;
+        const receivedDelta = next.agent.stats.hitsReceived  - prevHitsRef.current.received;
+        if (landedDelta > 0 || receivedDelta > 0) {
+            prevHitsRef.current = { landed: next.agent.stats.hitsLanded, received: next.agent.stats.hitsReceived };
+            const threshold = shooterSettings.tugWinThreshold;
+            const newScore = Math.max(-threshold,
+                Math.min(threshold, matchScoreRef.current + receivedDelta - landedDelta));
+            matchScoreRef.current = newScore;
+            setMatchScore(newScore);
+            if (Math.abs(newScore) >= threshold) {
+                setPhase('roundEnd');
+                pushRoundAnalytics(next);
+            }
         }
 
         gameStore.state = next;
@@ -196,29 +255,20 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
     });
 
     const startRound = () => {
+        prevHitsRef.current   = { landed: 0, received: 0 };
+        matchScoreRef.current = 0;
+        setMatchScore(0);
         const currentState = gameStateRef.current!;
         const nextRound    = currentState.roundNumber + 1;
 
-        const population = currentState.population ?? initPopulation(shooterSettings.starterDna, eaSettings.populationSize);
-
-        // Runden-Daten für Analytics speichern (nach Runde 1+)
-        if (currentState.roundNumber > 0) {
-            const s = currentState.agent.stats;
-            analyticsStore.push({
-                round:        currentState.roundNumber,
-                hitsLanded:   s.hitsLanded,
-                hitsReceived: s.hitsReceived,
-                bulletsFired: s.bulletsFired,
-                accuracy:     s.bulletsFired > 0 ? s.hitsLanded / s.bulletsFired : 0,
-                dodged:       s.dodgedBullets,
-                fitness:      calculateFitness(s),
-                generation:   currentState.population?.generation ?? 1,
-                bestFitness:  currentState.population?.bestFitness ?? 0,
-                playerFrames: currentState.ghostFrames,
-                agentFrames:  agentFramesRef.current,
-                agentDna:     currentState.agent.dna,
-            });
+        // Frische Session: Analytics der alten Session leeren
+        if (currentState.roundNumber === 0) {
+            analyticsStore.clear();
         }
+
+        analyticsLoggedRef.current = false;
+
+        const population = currentState.population ?? initPopulation(shooterSettings.starterDna, eaSettings.populationSize);
 
         const crossoverExample: CrossoverExample | null =
             currentState.roundNumber > 0 && population.individuals.length >= 2
@@ -229,25 +279,41 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                 }
                 : null;
 
+        const realFitness = calculateFitness(currentState.agent.stats);
         const evolvedPopulation = currentState.roundNumber > 0
             ? (() => {
                 const ghost: PlayerGhost = {
                     frames:        currentState.ghostFrames,
                     roundDuration: shooterSettings.roundDuration,
                 };
-                return currentState.ghostFrames.length > 0
-                    ? presimulateAgainstGhost(eaSettings.presimGenerations, ghost, population, eaSettings.crossoverType)
-                    : evolve(
-                        population,
-                        calculateFitness(currentState.agent.stats),
-                        eaSettings.mutationRate,
-                        eaSettings.mutationStrength,
-                        eaSettings.crossoverType,
-                    );
+
+                // Hall of Fame: Runde mit den meisten Spieler-Treffern merken
+                const playerHitsThisRound = currentState.agent.stats.hitsReceived;
+                if (playerHitsThisRound > hallOfFameHitsRef.current && currentState.ghostFrames.length > 0) {
+                    hallOfFameHitsRef.current  = playerHitsThisRound;
+                    hallOfFameGhostRef.current = ghost;
+                }
+
+                // Nicht gegen HoF trainieren wenn es derselbe Ghost ist (erste Runde)
+                const hofGhost = hallOfFameGhostRef.current !== ghost
+                    ? hallOfFameGhostRef.current ?? undefined
+                    : undefined;
+
+                const ghostPop = currentState.ghostFrames.length > 0
+                    ? presimulateAgainstGhost(eaSettings.presimGenerations, ghost, population, eaSettings.crossoverType, hofGhost)
+                    : population;
+                // Echte Spieler-Runde immer als finalen Selektionsdruck einbauen
+                return evolve(
+                    ghostPop,
+                    realFitness,
+                    eaSettings.mutationRate,
+                    eaSettings.mutationStrength,
+                    eaSettings.crossoverType,
+                );
             })()
             : population;
 
-        const nextDna = getNextAgent(evolvedPopulation, nextRound);
+        const nextDna = getNextAgent(evolvedPopulation);
 
         const newState: GameState = {
             ...makeInitialGameState(shooterSettings),
@@ -274,7 +340,7 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
     return (
         <div style={{
             width:    ARENA.WIDTH  * scale,
-            height:   ARENA.HEIGHT * scale,
+            height:   (ARENA.HEIGHT + BAR_HEIGHT) * scale,
             position: 'relative',
         }}>
             <div
@@ -287,6 +353,8 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                     left: 0,
                 }}
             >
+                <TugOfWarBar score={matchScore} threshold={shooterSettings.tugWinThreshold} />
+
                 <canvas
                     ref={canvasRef}
                     width={ARENA.WIDTH}
@@ -294,7 +362,7 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                     className={styles.canvas}
                 />
 
-                {phase === 'idle' && (
+                {phase === 'idle' ? (
                     <div className={styles.overlay}>
                         <h2 className={styles.title}>Shooter vs GA</h2>
                         <p className={styles.subtitle}>WASD bewegen · Maus zielen · Linksklick schießen</p>
@@ -302,9 +370,8 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                             Runde starten
                         </button>
                     </div>
-                )}
+                ) : phase === 'roundEnd' ? (
 
-                {phase === 'roundEnd' && (
                     <div className={styles.overlay}>
                         <h2 className={styles.title}>Runde beendet</h2>
                         <div className={styles.stats}>
@@ -319,7 +386,7 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                             Nächste Runde →
                         </button>
                     </div>
-                )}
+                ) : null}
             </div>
         </div>
     );

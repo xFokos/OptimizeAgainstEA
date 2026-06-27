@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import { STARTER_DNA, DNA_LENGTH } from '../modules/shooterGame/shooter.types';
+import { STARTER_DNA, DNA_LENGTH, GAME_CONFIG, type PlayerStats } from '../modules/shooterGame/shooter.types';
 
 // ---- Allgemeine EA Settings (spielübergreifend) ----
 export interface EASettings {
@@ -20,13 +20,21 @@ export const defaultEASettings: EASettings = {
 
 // ---- Shooter Settings ----
 export interface ShooterSettings {
-    starterDna:    number[];
-    roundDuration: number;
+    starterDna:      number[];
+    roundDuration:   number;
+    tugWinThreshold: number;
+    playerStats:     PlayerStats;
 }
 
 export const defaultShooterSettings: ShooterSettings = {
-    starterDna:    [...STARTER_DNA],
-    roundDuration: 20,
+    starterDna:      [...STARTER_DNA],
+    roundDuration:   20,
+    tugWinThreshold: 15,
+    playerStats: {
+        bulletSpeed:   GAME_CONFIG.BULLET_SPEED,
+        moveSpeed:     GAME_CONFIG.PLAYER_SPEED,
+        shootCooldown: GAME_CONFIG.SHOOT_COOLDOWN,
+    },
 };
 
 // ---- Horde Settings ----

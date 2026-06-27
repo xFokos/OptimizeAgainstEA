@@ -536,10 +536,7 @@ export default function AnalyticsPage() {
                     <span style={{ fontSize: 15, fontWeight: 600, fontFamily: C.mono, letterSpacing: '0.05em' }}>Analytics</span>
                     <span style={{ fontSize: 10, color: C.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Shooter vs EA</span>
                 </div>
-                {hasData
-                    ? <button style={sh.clearBtn} onClick={() => analyticsStore.clear()}>Zurücksetzen</button>
-                    : <div style={{ width: 100 }} />
-                }
+                <div style={{ width: 100 }} />
             </div>
 
             {/* Tab bar */}
