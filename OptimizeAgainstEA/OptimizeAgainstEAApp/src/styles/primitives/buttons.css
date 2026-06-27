@@ -1,0 +1,87 @@
+/* ============================================================
+   Button primitive — the single source of truth for action buttons.
+
+   Loaded globally (see main.tsx) so every page/game can use `.btn` and its
+   modifiers without shipping its own copy. All colours/fonts come from the
+   app-wide tokens in index.css, so buttons match the shared blue + Inter theme.
+
+   Usage:
+     <button class="btn">…</button>             default (outlined)
+     <button class="btn btn--primary">…</button> primary call-to-action
+     <button class="btn btn--ghost">…</button>   quiet / secondary
+     <button class="btn btn--blue">…</button>    secondary-blue action
+     <button class="btn btn--danger">…</button>  destructive
+     <button class="btn btn--sm">…</button>      smaller padding
+     <button class="btn btn--active">…</button>  selected / toggled-on state
+     <button class="btn btn--block">…</button>   stretch to container width
+
+   NOTE: this is for *action* buttons only. Image/nav buttons (.button in
+   Button.css) and sidebar nav items (.menu-item) are separate components.
+   ============================================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn:disabled             { opacity: 0.35; cursor: not-allowed; }
+
+/* Stretch to the container and centre the label (full-width buttons). */
+.btn--block { width: 100%; justify-content: center; }
+
+.btn--primary {
+  background: var(--accent);
+  color: #060809;
+  border-color: var(--accent);
+  font-weight: 700;
+}
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+  color: #060809;
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.btn--ghost { background: transparent; border-color: var(--border); color: var(--text-secondary); }
+.btn--ghost:hover:not(:disabled) { border-color: var(--border-bright); color: var(--text-primary); }
+
+.btn--blue {
+  background: var(--accent-min);
+  color: #060809;
+  border-color: var(--accent-min);
+  font-weight: 700;
+}
+.btn--blue:hover:not(:disabled) {
+  background: #6aa8f5;
+  border-color: #6aa8f5;
+  color: #060809;
+  box-shadow: 0 0 16px rgba(74, 144, 240, 0.3);
+}
+
+.btn--sm { padding: var(--sp-2) var(--sp-3); font-size: 0.75rem; }
+.btn--danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+
+.btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #060809;
+  font-weight: 700;
+}
+.btn--active:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: #060809;
+  box-shadow: 0 0 16px var(--accent-glow);
+}
