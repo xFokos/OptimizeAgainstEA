@@ -161,29 +161,11 @@
     margin-top:      var(--sp-8);
 }
 
+/* Appearance comes from `.btn btn--primary`; this only fixes the launch
+   button's size so the launch row keeps its layout. */
 .launch-btn {
-    width:         180px;
-    height:        48px;
-    border-radius: var(--r-md);
-    border:        1px solid var(--accent);
-    background:    var(--accent-dim);
-    color:         var(--accent);
-    font-size:     14px;
-    font-family:   var(--font);
-    letter-spacing: 0.03em;
-    transition:    background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
-    cursor:        pointer;
-}
-
-.launch-btn:hover:not(:disabled) {
-    background: rgba(79, 195, 247, 0.22);
-}
-
-.launch-btn:disabled {
-    border-color: var(--border-strong);
-    background:   transparent;
-    color:        var(--text-muted);
-    cursor:       default;
+    width:  180px;
+    height: 48px;
 }
 
 /* ---- Misc ---- */
@@ -196,16 +178,3 @@
     text-align:     center;
 }
 
-.primary-button {
-    padding:       12px 28px;
-    border-radius: var(--r-md);
-    border:        1px solid var(--accent);
-    background:    var(--accent-dim);
-    color:         var(--accent);
-    font-size:     14px;
-    transition:    background 0.15s, border-color 0.15s;
-}
-
-.primary-button:hover {
-    background: rgba(79, 195, 247, 0.2);
-}

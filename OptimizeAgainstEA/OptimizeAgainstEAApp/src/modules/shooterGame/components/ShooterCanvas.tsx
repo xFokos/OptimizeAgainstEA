@@ -366,7 +366,7 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                     <div className={styles.overlay}>
                         <h2 className={styles.title}>Shooter vs GA</h2>
                         <p className={styles.subtitle}>WASD bewegen · Maus zielen · Linksklick schießen</p>
-                        <button className={styles.startBtn} onClick={startRound}>
+                        <button className="btn btn--primary" onClick={startRound}>
                             Runde starten
                         </button>
                     </div>
@@ -382,7 +382,7 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                         {gameStateRef.current?.crossoverExample && (
                             <CrossoverViz example={gameStateRef.current.crossoverExample} />
                         )}
-                        <button className={styles.startBtn} onClick={startRound}>
+                        <button className="btn btn--primary" onClick={startRound}>
                             Nächste Runde →
                         </button>
                     </div>

@@ -43,7 +43,7 @@ export default function SelectionOverview({ config }: { config: GameConfig }) {
                         height="50px"
                     />
                 ) : (
-                    <button className="primary-button" disabled>
+                    <button className="btn btn--primary" disabled>
                         Bitte wähle zuerst ein Problem
                     </button>
                 )}
