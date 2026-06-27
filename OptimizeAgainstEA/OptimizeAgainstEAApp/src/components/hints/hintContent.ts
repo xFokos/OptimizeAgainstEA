@@ -61,10 +61,10 @@ export const HINTS: Record<HintId, HintDef> = {
     title: 'Welcome to Peak Finder',
     body:
       'In this game you try to find the highest peak on an unexplored map. ' +
-      'Create your own map to get a feel on how they work.' +
-      'Play your own, random or other player\'s maps, ' +
-      'Or challenge yourself against an Evolutionary Algorithm. ' +
-      'You can Toggle hints anytime in the top right corner',
+      'Create your own map to get a feel for how they work, ' +
+      'play your own, random, or other players\' maps, ' +
+      'or challenge yourself against an Evolutionary Algorithm. ' +
+      'You can toggle hints anytime in the top-right corner.',
     style: 'modal',
     once: true,
   },
@@ -74,9 +74,9 @@ export const HINTS: Record<HintId, HintDef> = {
     title: 'Build a map',
     body:
       'You build your own map step by step here. ' +
-      'Start by placing mountains, scatter strategically to trap players. ' +
+      'Start by placing mountains — scatter them strategically to trap players. ' +
       'Select the global peak, which is the only winning spot. ' +
-      'Once you are done you will get a code to share and play your map.',
+      'Once you are done, you will get a code to share and play your map.',
     style: 'modal',
     once: true,
     pauses: true,
@@ -130,9 +130,9 @@ export const HINTS: Record<HintId, HintDef> = {
     title: 'Read the surface',
     body:
       'That number is how close your probe is to a peak — higher means ' +
-      'closer. The colours around it show the slope: colder color leads to better result. ' +
+      'closer. The colours around it show the slope: a colder colour leads to a better result. ' +
       'Beware deceptive local peaks that look ' +
-      'good but aren\'t the true global one. There is only one true global peak',
+      'good but aren\'t the true global one. There is only one true global peak.',
     style: 'modal',
     once: true,
     pauses: true,
@@ -176,7 +176,7 @@ export const HINTS: Record<HintId, HintDef> = {
     title: 'See what the EA did',
     body:
       'The EA has also made its move. To see how it evolves from ' +
-      'its current state to the next one you can always press the "Evolution Step" Button',
+      'its current state to the next one, you can always press the "Evolution Step" button.',
     style: 'toast',
     once: true,
   },
@@ -186,9 +186,9 @@ export const HINTS: Record<HintId, HintDef> = {
   'vsEa.eaMovementButton': {
     title: 'Watch the EA move',
     body:
-      'You\'ve made a few moves now and so did the EA. To watch' +
-      ' how all the probes shifted over all generations you can' +
-      ' watch the replay with the "EA Movement" Button ',
+      'You\'ve made a few moves now, and so has the EA. To see' +
+      ' how all the probes shifted across the generations, you can' +
+      ' watch the replay with the "EA Movement" button.',
     style: 'toast',
     once: true,
   },
@@ -206,10 +206,10 @@ export const HINTS: Record<HintId, HintDef> = {
   'vsEa.eaWon': {
     title: 'The EA got there first',
     body:
-      'The algorithm found the global peak first. Don\'t worry about it, ' +
-      'its tools are far more powerful than yours which makes them great for optimization. ' +
+      'The algorithm found the global peak first. Don\'t worry about it — ' +
+      'its tools are far more powerful than yours, which makes them great for optimization. ' +
       'More importantly, did you understand how it got there in the first place? ' +
-      'You can watch the replay as well as changing the settings and trying again',
+      'You can watch the replay, as well as change the settings and try again.',
     style: 'modal',
     once: true,
   },

@@ -198,3 +198,66 @@ Route is live at **`/MazeGame`** (registered in `src/App.tsx`).
 - Replay steps through every phase with correct parent/splice/mutation highlights; the arrow-string
   genome matches the drawn path.
 - `npm run build` + `npm run lint` stay clean for the module.
+
+---
+
+# v2 direction — map creator, mobile, EA-only (planning, 2026-06-26)
+
+New goals agreed with the user, in priority order:
+1. **Make the maze game work on mobile.**
+2. **Center the experience on experimenting with the EA.**
+3. **Add a map creator that lets players build mazes at varying sizes.**
+
+## Decisions (these intentionally override some v1 "locked" decisions)
+
+- **Handcrafted mazes are now in.** This reverses the v1 "procedural seed only / no
+  handcrafted mazes" decision. The *reason* for that decision — reproducibility for the
+  fitness-comparison demo — is preserved: a hand-built maze is a fixed maze, and the worker
+  is fed that one maze, so the fitness dropdown still re-runs **the same custom maze** under
+  Manhattan/geodesic/length/novelty. Procedural-from-seed stays as an option; the creator is
+  an addition, not a replacement.
+  - Caveat: the crisp teaching contrasts (esp. novelty-vs-objective) were tuned on *braided
+    procedural* mazes. A player's hand-drawn maze may not exhibit them as cleanly. Acceptable —
+    the creator is for open-ended experimentation, not the guaranteed marquee demo.
+- **Player-placed start & goal.** No longer forced to opposite corners. Needs a reachability
+  check (goal reachable from start via the geodesic flood) before a run is allowed.
+- **EA-only focus; blind arrow-key play retired.** This reverses "blind play IS in v1." The
+  EA exhibit + creator become the whole experience. `MazePlayMode` / `usePlayerWalk` to be
+  removed or hidden from the menu.
+- **Cell-based painting editor** (implementation choice): tap/drag cells to toggle floor vs.
+  solid wall block, then place start/goal. Chosen over edge-wall drawing because it is the
+  only wall-drawing model usable on touch. It compiles to the existing edge-bitmask `Grid`
+  via `gridFromWallCells()` (a floor cell opens a passage to each adjacent floor cell), so the
+  geodesic/EA/replay stack is unchanged. Trade-off: produces "block" mazes, not thin-corridor
+  mazes — readable and fine.
+- **In-session hand-off** from creator → EA exhibit first. A shareable maze **code** (like
+  PeakFinder's base64 codec + "Your Maps") is a deferred follow-up, not in this pass.
+
+## Phased plan
+
+### Phase 1 — Engine/worker foundation ✅ DONE (2026-06-26)
+Keeps the procedural path working; adds the custom-maze path. Builds green, behavior unchanged.
+- `types/maze.ts`: `SerializedMaze` (walls + arbitrary start/goal).
+- `engine/mazeGen.ts`: `gridFromWallCells(cols, rows, isWall)` adapter (paint map → `Grid`).
+- `engine/mazeProblem.ts`: `createMazeProblem` accepts optional `grid` + `start`/`goal`
+  (falls back to procedural generation + corner start/goal).
+- `types/ea.ts` + `maze.worker.ts` + `hooks/useMazeEARunner.ts`: `START` / `init` accept an
+  optional `maze: SerializedMaze`; geodesic recomputed worker-side.
+
+### Phase 2 — Creator UI (`MazeCreateMode`) — NEXT
+- Size picker (target 5×5 … 30×30), tools: Wall / Erase / Start / Goal.
+- Tap/drag to paint walls; tap to place start/goal.
+- Live reachability check; "▶ Run EA on this maze" disabled with a warning if unreachable.
+- Hands the `SerializedMaze` to the EA exhibit in-session.
+- Touch-first interaction from the outset.
+
+### Phase 3 — Mobile + EA focus
+- Responsive exhibit + creator (stack the fixed `1fr 360px` grid, touch controls, canvas-fit).
+- Retire "Explore blind" from the menu; make the EA exhibit the centerpiece.
+- Add a Home/top-bar treatment; move the worst inline styles to shared CSS where it helps.
+
+## Still-open / deferred
+- Shareable maze codes + a "your mazes" library (codec, like PeakFinder). Deferred.
+- Whether to keep procedural seed generation reachable from the new creator-centric flow
+  (lean yes — it's the reproducible fitness-comparison demo).
+- Visitation heatmap + path draw-on animation (carried over from v1 polish list).

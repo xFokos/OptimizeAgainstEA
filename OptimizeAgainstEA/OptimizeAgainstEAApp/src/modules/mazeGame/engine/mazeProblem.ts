@@ -85,10 +85,17 @@ const FITNESS_FNS: Record<FitnessFnId, FitnessFn> = {
 export interface BuildMazeOptions {
   cols: number;
   rows: number;
-  seed: number;
   fitnessFnId: FitnessFnId;
+  /** Seed for procedural generation (ignored when `grid` is supplied). */
+  seed?: number;
   /** Fraction of dead-ends to open (0 = perfect maze). Shortens solution paths. */
   braid?: number;
+  /** Use this exact grid instead of generating one (hand-built creator mazes). */
+  grid?: Grid;
+  /** Start cell. Defaults to the top-left corner. */
+  start?: Cell;
+  /** Goal cell. Defaults to the bottom-right corner. */
+  goal?: Cell;
 }
 
 /** Default braiding — keeps the maze solvable and exploration-rich. */
@@ -101,10 +108,10 @@ export const DEFAULT_BRAID = 0.5;
  * the SAME maze with a different `evaluate` — the comparison demo.
  */
 export function createMazeProblem(opts: BuildMazeOptions): MazeProblem {
-  const { cols, rows, seed, fitnessFnId, braid = DEFAULT_BRAID } = opts;
-  const grid: Grid = generateMaze(cols, rows, seed, braid);
-  const start: Cell = { x: 0, y: 0 };
-  const goal: Cell = { x: cols - 1, y: rows - 1 };
+  const { cols, rows, fitnessFnId, seed = 0, braid = DEFAULT_BRAID } = opts;
+  const grid: Grid = opts.grid ?? generateMaze(cols, rows, seed, braid);
+  const start: Cell = opts.start ?? { x: 0, y: 0 };
+  const goal: Cell = opts.goal ?? { x: cols - 1, y: rows - 1 };
 
   const geo = computeGeodesic(grid, goal, start);
   const pathLength = Math.min(

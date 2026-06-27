@@ -6,7 +6,7 @@ export default function SelectionOverview({ config }: { config: GameConfig }) {
         tsp: "/TravelingSalesman",
         mapGame: "/MapGame",
         knapsack: "/",
-        battleShips: "/Battleships",
+        battleShips: "/PeakFinder",
         shooter:     "/lobby/shooter",
         horde:       "/lobby/horde",
         placeHolder: "/Game",
