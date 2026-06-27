@@ -1,93 +1,149 @@
-# B-Ahrens-und-Sehne
+# Optimize Against EA
 
+An educational web app that teaches **optimization concepts** (in particular Evolutionary Algorithms) through a collection of interactive mini-games. Players explore search spaces, compete against or learn from an EA, and watch how populations evolve toward an optimum.
 
+Built with **React 19 + TypeScript + Vite**.
 
-## Getting started
+> ⚠️ **Project status: work in progress.** This project is part of the GameLab 2 course and is not yet complete. Some games and features are still under development (see [What's not built yet](#whats-not-built-yet)). The structure may still be extended.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+---
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## Authors
 
-## Add your files
+| Name | Email | Student ID |
+|---|---|---|
+| Philipp Sehne | sehne.philipp@gmail.com | ❓ **TODO: add student ID** |
+| Ahrens (first name?) | ❓ **TODO: add email** | ❓ **TODO: add student ID** |
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+> 🔴 **TODO:** Confirm the full name(s) of the second team member ("Ahrens") and fill in all missing emails and student IDs above.
 
+Repository: https://gitlab2.informatik.uni-wuerzburg.de/GE/Teaching/gl2/projects/2025/b-ahrens-und-sehne
+
+---
+
+## Presentation of results
+
+> 🔴 **TODO:** Add a link to / reference for the presentation of the project results once it exists (slides, recording, or live deployment URL).
+
+A live deployment is configured via Firebase Hosting (Firebase project `optimizeagainstea`), but the public URL still needs to be confirmed and linked here.
+
+---
+
+## What's inside
+
+The app is a single React SPA with multiple routed mini-games. The most developed games are:
+
+| Route | Game | Concept |
+|---|---|---|
+| `/PeakFinder` | **Peak Finder** ("Schiffe Versenken"-style) | Probe a hidden function surface to find its global minimum — play solo or against an EA, with a full step-by-step EA replay viewer |
+| `/ShooterGame` | **Shooter Game** | A genetic algorithm evolves enemy agent behaviour each round, adapting to the player's style |
+| `/MazeGame` | **Maze Game** | EA-based maze solving / generation |
+| `/TravelingSalesman` | **Traveling Salesman** | Classic TSP optimization game |
+| `/MapGame` | **Map Game** | Map-based analytics game |
+
+Additional routes exist for navigation and tooling: `/` (home), `/Settings`, `/Dashboard`, `/Analytics`, `Problem` (problem selection), `/JumpGame`, and `/lobby/shooter`. Some of these are scaffolding for features still in progress.
+
+---
+
+## Software environment
+
+- **Runtime:** A modern web browser (latest Chrome / Firefox / Edge / Safari). The app runs entirely client-side.
+- **Build toolchain:** [Node.js](https://nodejs.org/) (developed and tested with **Node v24.x**; Node 20+ should also work) and npm.
+- **No joypad / gamepad required.** All games are played with **keyboard and mouse** (and the app is also intended to be usable on touch / mobile, though the mobile layout is not yet fully tested below 640px width — see below).
+
+---
+
+## How to build and run
+
+All commands are run from the app directory:
+
+```bash
+cd OptimizeAgainstEA/OptimizeAgainstEAApp
 ```
-cd existing_repo
-git remote add origin https://gitlab2.informatik.uni-wuerzburg.de/GE/Teaching/gl2/projects/2025/b-ahrens-und-sehne.git
-git branch -M main
-git push -uf origin main
+
+### 1. Install dependencies
+
+```bash
+npm install
 ```
 
-## Integrate with your tools
+### 2. Run in development (hot reload)
 
-- [ ] [Set up project integrations](https://gitlab2.informatik.uni-wuerzburg.de/GE/Teaching/gl2/projects/2025/b-ahrens-und-sehne/-/settings/integrations)
+```bash
+npm run dev
+```
 
-## Collaborate with your team
+Vite prints a local URL (default http://localhost:5173). Open it in your browser.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+### 3. Build a production bundle
 
-## Test and Deploy
+```bash
+npm run build      # runs: tsc -b && vite build
+```
 
-Use the built-in continuous integration in GitLab.
+The compiled, runnable output (the "binary") is written to `OptimizeAgainstEAApp/dist/`. It is a set of static files.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### 4. Preview / run the production build locally
 
-***
+```bash
+npm run preview
+```
 
-# Editing this README
+This serves the contents of `dist/` locally so you can run the built app exactly as it would be deployed. Because the output is plain static files, `dist/` can also be served by any static web server.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### Lint
 
-## Suggestions for a good README
+```bash
+npm run lint       # eslint
+```
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+### Deployment (optional)
 
-## Name
-Choose a self-explaining name for your project.
+The repo is set up for **Firebase Hosting** (`OptimizeAgainstEA/firebase.json`, serving `OptimizeAgainstEAApp/dist`). After a build:
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+```bash
+# from OptimizeAgainstEA/
+firebase deploy
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+> Note: deployment requires the Firebase CLI and access to the `optimizeagainstea` Firebase project.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+---
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+## External code, libraries, packages and assets
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+This project is bootstrapped from the official **Vite `react-ts` template** (React + TypeScript + Vite).
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+### Runtime dependencies
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+| Package | Purpose | License |
+|---|---|---|
+| [`react`](https://react.dev/) / `react-dom` (^19) | UI framework | MIT |
+| [`react-router-dom`](https://reactrouter.com/) (^7) | Client-side routing | MIT |
+| [`recharts`](https://recharts.org/) (^3) | Charts (e.g. fitness graphs) | MIT |
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+### Development dependencies
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Vite, TypeScript, ESLint (with `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`), `@vitejs/plugin-react`, and associated type packages — all MIT-licensed. See `OptimizeAgainstEAApp/package.json` for exact versions.
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+All algorithmic code (the evolutionary / genetic algorithms, game engines, rendering, hint system, etc.) was written by the team for this project.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+### Assets
 
-## License
-For open source projects, say how it is licensed.
+The following background / image assets are bundled under `OptimizeAgainstEAApp/src/assets/`:
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+- `HomePageBG.jpg`, `JumpGameBG.jpg`, `TravelingSalesmanBG.PNG`, `TestBG1.jpg`, `TestBG2.jpg`
+- `react.svg`, `public/vite.svg` (from the Vite/React template)
+
+> 🔴 **TODO:** Clarify and reference the **source and license** of every image asset in `src/assets/` (self-made, stock, generated, etc.). Any asset that is not original work must be attributed with its source and license here. Placeholder/test backgrounds (`TestBG1/2`) should be replaced or removed before final submission.
+
+---
+
+## What's not built yet
+
+- **Mobile layout** — responsive breakpoints exist but are not fully tested below 640px.
+- **Analytic function problems** (Rastrigin, Ackley, Rosenbrock) for Peak Finder — the problem abstraction is ready, the functions are not yet wired in.
+- **Shooter population overlay** — visualizing all individuals on the canvas during the evolution phase.
+- Several routes (Map Game, Dashboard, Analytics, Jump Game, problem selection) are still partly scaffolding.
+
+> This list is non-exhaustive; the project is actively being extended.

@@ -11,7 +11,7 @@ export type GameConfig = {
 };
 
 const ROUTES: Record<ProblemId, string> = {
-    battleShips: "/Battleships",
+    battleShips: "/PeakFinder",
     shooter:     "/lobby/shooter",
     horde:       "/lobby/horde",
 };

@@ -43,6 +43,19 @@ export interface Grid {
   walls: Uint8Array;
 }
 
+/**
+ * A maze ready to run, decoupled from procedural generation — used to hand a
+ * hand-built (creator) maze to the EA worker. `walls` is the same edge-bitmask
+ * layout as Grid; start/goal are arbitrary (not forced to the corners).
+ */
+export interface SerializedMaze {
+  cols: number;
+  rows: number;
+  walls: Uint8Array;
+  start: Cell;
+  goal: Cell;
+}
+
 /** Result of simulating a path through the maze (the phenotype). */
 export interface WalkResult {
   /** Set of visited cell indices (y*cols + x). */

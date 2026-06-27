@@ -15,12 +15,22 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
 
   if (msg.type === 'START') {
     try {
-      const problem = createMazeProblem({
-        cols: msg.cols,
-        rows: msg.rows,
-        seed: msg.seed,
-        fitnessFnId: msg.config.fitnessFnId,
-      });
+      const problem = msg.maze
+        ? createMazeProblem({
+            cols: msg.maze.cols,
+            rows: msg.maze.rows,
+            grid: { cols: msg.maze.cols, rows: msg.maze.rows, walls: msg.maze.walls },
+            start: msg.maze.start,
+            goal: msg.maze.goal,
+            fitnessFnId: msg.config.fitnessFnId,
+            seed: msg.seed,
+          })
+        : createMazeProblem({
+            cols: msg.cols,
+            rows: msg.rows,
+            seed: msg.seed,
+            fitnessFnId: msg.config.fitnessFnId,
+          });
       // The EA RNG is seeded too, so the only thing that varies between fitness
       // functions on the same maze seed is `evaluate` — the comparison demo.
       stepper = createMazeEAStepper(problem, msg.config, msg.seed);

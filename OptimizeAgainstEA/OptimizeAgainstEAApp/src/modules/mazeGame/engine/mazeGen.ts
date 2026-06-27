@@ -96,6 +96,36 @@ function braidMaze(cols: number, rows: number, walls: Uint8Array, braid: number,
 }
 
 /**
+ * Builds a Grid from a hand-painted cell map (the maze creator's model): each
+ * cell is either floor or a solid wall block. A floor cell opens a passage to
+ * every in-bounds neighbour that is ALSO floor; wall cells stay fully closed
+ * and isolated. This turns the touch-friendly "paint cells" editor into the
+ * edge-bitmask Grid the EA/geodesic already understand.
+ */
+export function gridFromWallCells(
+  cols: number,
+  rows: number,
+  isWall: (x: number, y: number) => boolean,
+): Grid {
+  const walls = new Uint8Array(cols * rows);
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (isWall(x, y)) continue; // solid block — no passages
+      let bits = 0;
+      for (let d = 0; d < 4; d++) {
+        const nx = x + MOVE_DELTAS[d][0];
+        const ny = y + MOVE_DELTAS[d][1];
+        if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+        if (isWall(nx, ny)) continue;
+        bits |= MOVE_WALL_BIT[d];
+      }
+      walls[cellIndex(x, y, cols)] = bits;
+    }
+  }
+  return { cols, rows, walls };
+}
+
+/**
  * Debug helper: renders a maze as ASCII art. Used to eyeball generation while
  * developing; not referenced by the running app.
  */

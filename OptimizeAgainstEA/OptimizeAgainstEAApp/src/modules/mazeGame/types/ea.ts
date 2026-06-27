@@ -1,4 +1,4 @@
-import type { FitnessFnId, Path, WalkResult } from './maze';
+import type { FitnessFnId, Path, SerializedMaze, WalkResult } from './maze';
 
 /**
  * Discrete-genome EA types. Mirrors BattleShips' types/ea.ts in shape, but an
@@ -64,7 +64,9 @@ export const DEFAULT_MAZE_EA_CONFIG: EAConfig = {
 import type { ReplayFrame } from '../engine/ea/eaReplayLog';
 
 export type WorkerInMessage =
-  | { type: 'START'; config: EAConfig; seed: number; cols: number; rows: number }
+  // `maze` (a hand-built creator maze) takes precedence; otherwise the maze is
+  // generated procedurally from seed + cols/rows.
+  | { type: 'START'; config: EAConfig; seed: number; cols: number; rows: number; maze?: SerializedMaze }
   | { type: 'STEP'; count: number }
   | { type: 'STOP' };
 

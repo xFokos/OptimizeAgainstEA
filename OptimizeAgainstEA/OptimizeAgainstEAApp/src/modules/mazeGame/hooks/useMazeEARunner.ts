@@ -4,6 +4,7 @@ import type {
   WorkerInMessage, WorkerOutMessage,
 } from '../types/ea';
 import { DEFAULT_MAZE_EA_CONFIG } from '../types/ea';
+import type { SerializedMaze } from '../types/maze';
 import type { ReplayFrame } from '../engine/ea/eaReplayLog';
 
 export type EAStatus = 'idle' | 'running' | 'solved' | 'exhausted' | 'error';
@@ -12,6 +13,8 @@ export interface MazeRunParams {
   seed: number;
   cols: number;
   rows: number;
+  /** A hand-built maze to run instead of generating from the seed. */
+  maze?: SerializedMaze;
 }
 
 export interface EAState {
@@ -119,6 +122,7 @@ export function useMazeEARunner() {
       seed: params.seed,
       cols: params.cols,
       rows: params.rows,
+      maze: params.maze,
     } as WorkerInMessage);
   }, [attachWorker]);
 
