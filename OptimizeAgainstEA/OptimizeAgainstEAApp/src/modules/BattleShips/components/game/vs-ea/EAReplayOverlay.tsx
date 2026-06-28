@@ -304,7 +304,7 @@ function PhasePanel({ frame }: { frame: ReplayFrame }) {
     case 'mutating': {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div className="replay-mutation-card">
+          <div className="panel panel--inset replay-mutation-card">
             <div className="replay-mutation-card__row">
               <span className="replay-mutation-card__label">Before</span>
               <span className="replay-mutation-card__val">

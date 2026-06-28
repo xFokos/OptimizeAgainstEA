@@ -14,7 +14,7 @@ export function WinOverlay({ probeCount, bestProbe, mapId, onPlayAgain, onHome, 
   return (
     <div className="win-overlay">
       <div className="win-card">
-        <div className="win-card__tag">SUMMIT REACHED</div>
+        <div className="badge">SUMMIT REACHED</div>
         <h2 className="win-card__title">You reached the peak</h2>
         <p className="win-card__sub">Map #{mapId}</p>
 

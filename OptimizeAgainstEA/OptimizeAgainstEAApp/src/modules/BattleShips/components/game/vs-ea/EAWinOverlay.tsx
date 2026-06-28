@@ -15,7 +15,7 @@ export function EAWinOverlay({
   return (
     <div className="ea-win-backdrop" onClick={onDismiss}>
       <div className="ea-win-card" onClick={(e) => e.stopPropagation()}>
-        <div className="ea-win-card__tag">EA SOLVED IT</div>
+        <div className="badge badge--outline badge--gold">EA SOLVED IT</div>
         <h2 className="ea-win-card__title">The algorithm won</h2>
         <p className="ea-win-card__sub">Map #{mapId}</p>
 

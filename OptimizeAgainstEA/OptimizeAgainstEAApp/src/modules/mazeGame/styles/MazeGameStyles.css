@@ -95,11 +95,8 @@
   transition: width 0.3s ease;
 }
 
+/* Surface recipe: .panel panel--inset (primitives/panels.css). */
 .maze-replay-card {
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;

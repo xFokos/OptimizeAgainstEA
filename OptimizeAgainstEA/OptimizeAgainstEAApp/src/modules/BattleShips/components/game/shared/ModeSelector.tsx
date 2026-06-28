@@ -47,7 +47,7 @@ export function ModeSelector({ onSelect }: ModeSelectorProps) {
         {MODES.map((mode) => (
           <button
             key={mode.id}
-            className="mode-card"
+            className="panel panel--surface panel--md panel--interactive mode-card"
             onClick={() => onSelect(mode.id)}
           >
             <span className="mode-card__key">{mode.key}</span>

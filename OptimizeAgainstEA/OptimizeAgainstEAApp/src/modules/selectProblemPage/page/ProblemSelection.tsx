@@ -46,7 +46,7 @@ function ProblemCard({
     onClick: () => void;
 }) {
     return (
-        <div className={`problem-card ${active ? "active" : ""}`} onClick={onClick}>
+        <div className={`panel panel--interactive problem-card ${active ? "active" : ""}`} onClick={onClick}>
             <div className="problem-image" />
             <div className="problem-text">
                 <h3>{title}</h3>

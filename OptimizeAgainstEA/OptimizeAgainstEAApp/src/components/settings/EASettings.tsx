@@ -15,6 +15,7 @@ export function EASettingsPanel() {
                     type="range" min={0} max={0.5} step={0.01}
                     value={s.mutationRate}
                     onChange={e => setEaSettings({ ...s, mutationRate: parseFloat(e.target.value) })}
+                    className="slider"
                     style={styles.slider}
                 />
                 <span style={styles.value}>{s.mutationRate.toFixed(2)}</span>
@@ -26,6 +27,7 @@ export function EASettingsPanel() {
                     type="range" min={0} max={0.5} step={0.01}
                     value={s.mutationStrength}
                     onChange={e => setEaSettings({ ...s, mutationStrength: parseFloat(e.target.value) })}
+                    className="slider"
                     style={styles.slider}
                 />
                 <span style={styles.value}>{s.mutationStrength.toFixed(2)}</span>
@@ -37,6 +39,7 @@ export function EASettingsPanel() {
                     type="range" min={0} max={10} step={1}
                     value={s.presimGenerations}
                     onChange={e => setEaSettings({ ...s, presimGenerations: parseInt(e.target.value) })}
+                    className="slider"
                     style={styles.slider}
                 />
                 <span style={styles.value}>{s.presimGenerations}</span>
@@ -48,6 +51,7 @@ export function EASettingsPanel() {
                     type="range" min={5} max={50} step={5}
                     value={s.populationSize}
                     onChange={e => setEaSettings({ ...s, populationSize: parseInt(e.target.value) })}
+                    className="slider"
                     style={styles.slider}
                 />
                 <span style={styles.value}>{s.populationSize}</span>

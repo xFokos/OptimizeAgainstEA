@@ -1,0 +1,42 @@
+/* ============================================================
+   Badge primitive — the single source of truth for inline pill labels.
+
+   Loaded globally (see main.tsx). Collapses the per-component pill recipes
+   (.step-badge, .modal__tag, .win-card__tag, .ea-win-card__tag, …) that all
+   rendered the same "tiny mono text in a coloured box".
+
+   Usage:
+     <span class="badge">MAP CREATED</span>            filled accent pill
+     <span class="badge badge--outline">…</span>        outlined (no fill)
+     <span class="badge badge--gold">…</span>           gold preset
+
+   Themeable: the colour comes from --badge-color (default = accent). Recolour a
+   single badge with any colour (handy for the replay role badges):
+     <span class="badge" style={{ '--badge-color': '#e0b341' }}>ELITE</span>
+   The translucent fill is derived from --badge-color, so any colour works.
+   ============================================================ */
+
+.badge {
+  --badge-color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 3px 8px;
+  border-radius: 2px;
+  white-space: nowrap;
+  color: var(--badge-color);
+  background: color-mix(in srgb, var(--badge-color) 14%, transparent);
+}
+
+/* Outlined — border instead of fill (e.g. the gold "EA SOLVED IT" tag). */
+.badge--outline {
+  background: transparent;
+  border: 1px solid var(--badge-color);
+}
+
+/* Colour presets — set --badge-color. */
+.badge--gold   { --badge-color: var(--accent-global); }
+.badge--danger { --badge-color: var(--danger); }

@@ -146,7 +146,7 @@ export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
             const code = getCode();
             return (
                 <div className="create-done">
-                  <span className="modal__tag">MAP CREATED</span>
+                  <span className="badge">MAP CREATED</span>
                   <span className="modal__id">#{mapId}</span>
                   <p className="create-done__desc">
                     Share this code so others can load your map.
@@ -172,9 +172,9 @@ export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
         })()}
 
         {showNameModal && (
-            <div className="modal-backdrop">
+            <div className="overlay">
               <div className="modal">
-                <span className="modal__tag">SAVE MAP</span>
+                <span className="badge">SAVE MAP</span>
                 <p className="modal__desc">
                   Give your map a name so you can find it later in “Your Maps”.
                   Leave it blank to keep the id #{mapId}.

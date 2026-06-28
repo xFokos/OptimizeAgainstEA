@@ -1,0 +1,62 @@
+/* ============================================================
+   Overlay + modal primitive — the single source of truth for dialogs.
+
+   Loaded globally (see main.tsx). Collapses the repeated "fixed full-screen
+   backdrop + centred box" recipe that every dialog used to re-declare
+   (.modal-backdrop, .win-overlay, .hint-modal-backdrop, …).
+
+   Usage:
+     <div class="overlay">                     full-screen dimmed backdrop
+       <div class="modal">…</div>              standard centred dialog box
+     </div>
+
+   Modifiers:
+     .modal--wide   wider box (min(720px, 94vw))
+     .modal--flush  no padding + clipped corners (for edge-to-edge content
+                    like a replay canvas that manages its own chrome)
+
+   Stacking: backdrops default to z-index 100. Layer a dialog above another by
+   raising --overlay-z inline, e.g. style={{ '--overlay-z': 300 }}.
+
+   Colours/spacing come from the app-wide tokens in index.css.
+   ============================================================ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: var(--overlay-z, 100);
+  animation: overlayFadeIn 0.2s ease;
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  width: min(480px, 90vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: var(--sp-6);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--r-lg);
+  animation: modalScaleIn 0.2s ease;
+}
+
+.modal--wide  { width: min(720px, 94vw); }
+.modal--flush { padding: 0; overflow: hidden; }
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modalScaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}

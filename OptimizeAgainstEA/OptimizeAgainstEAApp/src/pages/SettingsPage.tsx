@@ -24,7 +24,7 @@ export default function SettingsPage() {
 
                 {/* Divider */}
                 <div style={styles.divider}>
-                    <span style={styles.dividerText}>Spiel-spezifische Einstellungen</span>
+                    <span className="eyebrow" style={{ whiteSpace: 'nowrap' }}>Spiel-spezifische Einstellungen</span>
                 </div>
 
                 {/* Tabs */}
@@ -77,13 +77,6 @@ const styles: Record<string, React.CSSProperties> = {
         alignItems:   'center',
         gap:          '12px',
         margin:       '24px 0 16px 0',
-    },
-    dividerText: {
-        fontSize:      '11px',
-        color:         'rgba(255,255,255,0.25)',
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        whiteSpace:    'nowrap',
     },
     tabs: {
         display:      'flex',

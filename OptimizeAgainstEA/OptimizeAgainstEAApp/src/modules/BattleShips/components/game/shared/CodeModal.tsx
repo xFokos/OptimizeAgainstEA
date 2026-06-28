@@ -18,13 +18,13 @@ export function CodeModal({ code, mapId, onClose, onPlayNow }: CodeModalProps) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="overlay" onClick={onClose}>
       <div
         className="modal"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal__header">
-          <span className="modal__tag">MAP CREATED</span>
+          <span className="badge">MAP CREATED</span>
           <span className="modal__id">#{mapId}</span>
         </div>
 

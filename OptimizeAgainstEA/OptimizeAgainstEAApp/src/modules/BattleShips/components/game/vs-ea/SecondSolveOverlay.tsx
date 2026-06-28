@@ -13,7 +13,7 @@ export function SecondSolveOverlay({ who, onClose }: SecondSolveOverlayProps) {
   return (
     <div className="ea-win-backdrop" onClick={onClose}>
       <div className="ea-win-card" onClick={(e) => e.stopPropagation()}>
-        <div className="ea-win-card__tag">{isEA ? 'EA CAUGHT UP' : 'YOU CAUGHT UP'}</div>
+        <div className="badge badge--outline badge--gold">{isEA ? 'EA CAUGHT UP' : 'YOU CAUGHT UP'}</div>
         <h2 className="ea-win-card__title">
           {isEA ? 'The EA found it too' : 'You found it too!'}
         </h2>
