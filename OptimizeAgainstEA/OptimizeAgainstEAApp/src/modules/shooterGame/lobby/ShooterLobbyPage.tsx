@@ -317,7 +317,7 @@ export default function ShooterLobbyPage() {
 
                 {/* Links unten – Back */}
                 <div style={styles.leftBottom}>
-                    <button style={styles.backBtn} onClick={() => navigate('/dashboard')}>
+                    <button className="btn btn--outline btn--c-danger" onClick={() => navigate('/dashboard')}>
                         ← Back
                     </button>
                 </div>
@@ -335,16 +335,16 @@ export default function ShooterLobbyPage() {
                                     </span>
                                 </div>
                                 <div style={styles.sessionBtns}>
-                                    <button style={styles.startBtn} onClick={handleContinue}>
+                                    <button className="btn btn--primary" onClick={handleContinue}>
                                         Fortsetzen →
                                     </button>
-                                    <button style={styles.resetBtn} onClick={handleReset}>
+                                    <button className="btn btn--outline btn--c-danger" onClick={handleReset}>
                                         Neu starten
                                     </button>
                                 </div>
                             </div>
                         ) : (
-                            <button style={styles.startBtn} onClick={() => navigate('/ShooterGame')}>
+                            <button className="btn btn--primary" onClick={() => navigate('/ShooterGame')}>
                                 Spielen →
                             </button>
                         )}
@@ -365,7 +365,8 @@ export default function ShooterLobbyPage() {
                                 <span style={styles.raidbossInfo}>Noch kein Boss trainiert — sei der Erste!</span>
                             )}
                             <button
-                                style={{ ...styles.raidbossBtn, opacity: raidbossLoading ? 0.6 : 1 }}
+                                className="btn btn--outline"
+                                style={{ '--btn-color': '#a855f7' } as React.CSSProperties}
                                 onClick={handleRaidboss}
                                 disabled={raidbossLoading}
                             >
@@ -446,18 +447,6 @@ const styles: Record<string, React.CSSProperties> = {
         textAlign:     'center' as const,
         fontFamily:    'monospace',
     },
-    backBtn: {
-        padding:       '14px 40px',
-        background:    'rgba(239, 83, 80, 0.08)',
-        border:        '1px solid #ef5350',
-        borderRadius:  '8px',
-        color:         '#ef5350',
-        fontFamily:    'monospace',
-        fontSize:      '16px',
-        letterSpacing: '0.06em',
-        cursor:        'pointer',
-        transition:    'background 0.15s',
-    },
     previewLabel: {
         fontSize:      '11px',
         color:         'rgba(255,255,255,0.25)',
@@ -498,18 +487,6 @@ const styles: Record<string, React.CSSProperties> = {
         gap:                 '16px',
         alignItems:          'start',
     },
-    startBtn: {
-        padding:       '14px 40px',
-        background:    'rgba(79, 195, 247, 0.1)',
-        border:        '1px solid #4fc3f7',
-        borderRadius:  '8px',
-        color:         '#4fc3f7',
-        fontFamily:    'monospace',
-        fontSize:      '16px',
-        letterSpacing: '0.06em',
-        cursor:        'pointer',
-        transition:    'background 0.15s',
-    },
     sessionBlock: {
         display:       'flex',
         flexDirection: 'column',
@@ -543,18 +520,6 @@ const styles: Record<string, React.CSSProperties> = {
     sessionBtns: {
         display: 'flex',
         gap:     '12px',
-    },
-    resetBtn: {
-        padding:       '14px 28px',
-        background:    'rgba(239, 83, 80, 0.07)',
-        border:        '1px solid rgba(239, 83, 80, 0.5)',
-        borderRadius:  '8px',
-        color:         'rgba(239, 83, 80, 0.8)',
-        fontFamily:    'monospace',
-        fontSize:      '14px',
-        letterSpacing: '0.06em',
-        cursor:        'pointer',
-        transition:    'background 0.15s',
     },
     bottomBtns: {
         display:    'flex',
@@ -601,17 +566,5 @@ const styles: Record<string, React.CSSProperties> = {
         fontFamily: 'monospace',
         fontSize:   '13px',
         color:      'rgba(192, 158, 255, 0.7)',
-    },
-    raidbossBtn: {
-        padding:       '10px 16px',
-        background:    'rgba(124, 58, 237, 0.15)',
-        border:        '1px solid rgba(124, 58, 237, 0.6)',
-        borderRadius:  '7px',
-        color:         'rgba(167, 139, 250, 0.95)',
-        fontFamily:    'monospace',
-        fontSize:      '13px',
-        letterSpacing: '0.05em',
-        cursor:        'pointer',
-        transition:    'background 0.15s',
     },
 };

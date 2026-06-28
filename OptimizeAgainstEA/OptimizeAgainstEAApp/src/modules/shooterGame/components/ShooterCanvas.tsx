@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState, useEffect } from 'react';
+import { useRef, useCallback, useState, useEffect, type CSSProperties, type RefObject } from 'react';
 import {
     ARENA,
     GAME_CONFIG,
@@ -272,7 +272,7 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
     }, []);
 
     useGameLoop({
-        gameState:  gameStateRef as React.RefObject<GameState>,
+        gameState:  gameStateRef as RefObject<GameState>,
         inputState: inputRef,
         onUpdate,
         onRender,
@@ -472,7 +472,7 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                                 <p className={styles.subtitle}>WASD bewegen · Maus zielen · Linksklick schießen</p>
                             </>
                         )}
-                        <button className={styles.startBtn} onClick={() => startRound()}>
+                        <button className="btn btn--primary" onClick={() => startRound()}>
                             Runde starten
                         </button>
                     </div>
@@ -490,16 +490,16 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                         {isRaidbossRound ? (
                             <div style={{ display: 'flex', gap: 10 }}>
                                 <button
-                                    className={styles.startBtn}
-                                    style={{ borderColor: '#a855f7', color: '#a855f7', opacity: trainNextLoading ? 0.6 : 1 }}
+                                    className="btn btn--outline"
+                                    style={{ '--btn-color': '#a855f7' } as CSSProperties}
                                     onClick={handleTrainNext}
                                     disabled={trainNextLoading}
                                 >
                                     {trainNextLoading ? 'Lade...' : 'Weiter beitragen →'}
                                 </button>
                                 <button
-                                    className={styles.startBtn}
-                                    style={{ borderColor: 'rgba(168,85,247,0.4)', color: 'rgba(168,85,247,0.6)', fontSize: 13 }}
+                                    className="btn btn--soft"
+                                    style={{ '--btn-color': '#a855f7' } as CSSProperties}
                                     onClick={() => { submitCurrentRaidbossFitness(); window.location.href = '/lobby/shooter'; }}
                                     disabled={trainNextLoading}
                                 >
@@ -507,7 +507,7 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                                 </button>
                             </div>
                         ) : (
-                            <button className={styles.startBtn} onClick={startRound}>
+                            <button className="btn btn--primary" onClick={startRound}>
                                 Nächste Runde →
                             </button>
                         )}
