@@ -3,19 +3,23 @@ import { STARTER_DNA, DNA_LENGTH, GAME_CONFIG, type PlayerStats } from '../modul
 
 // ---- Allgemeine EA Settings (spielübergreifend) ----
 export interface EASettings {
-    mutationRate:      number;                      // 0–0.5
-    mutationStrength:  number;                      // 0–0.5
-    presimGenerations: number;                      // 0–10
-    populationSize:    number;                      // 5–50
-    crossoverType:     'uniform' | 'single-point';  // Gen-Mischmethode
+    mutationRate:        number;                      // 0–0.5
+    mutationStrength:    number;                      // 0–0.5
+    presimGenerations:   number;                      // 0–10
+    populationSize:      number;                      // 5–50
+    crossoverType:       'uniform' | 'single-point';  // Gen-Mischmethode
+    useHallOfFame:       boolean;                     // Beste Spieler-Runde als Extra-Trainingsdruck
+    maxAnalyticsRounds:  number;                      // Wie viele Runden im Analytics-Store behalten
 }
 
 export const defaultEASettings: EASettings = {
-    mutationRate:      0.1,
-    mutationStrength:  0.2,
-    presimGenerations: 3,
-    populationSize:    20,
-    crossoverType:     'uniform',
+    mutationRate:        0.1,
+    mutationStrength:    0.2,
+    presimGenerations:   3,
+    populationSize:      20,
+    crossoverType:       'uniform',
+    useHallOfFame:       true,
+    maxAnalyticsRounds:  20,
 };
 
 // ---- Shooter Settings ----

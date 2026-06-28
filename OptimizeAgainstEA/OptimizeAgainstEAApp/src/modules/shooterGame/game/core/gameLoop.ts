@@ -12,13 +12,15 @@ import {
 import { GAME_CONFIG, ARENA } from '../../shooter.types';
 import { vec } from './vec';
 
-let bulletIdCounter    = 0;
+let bulletIdCounter     = 0;
 let playerShootCooldown = 0;
 let agentShootCooldown  = 0;
+const dodgedBulletIdSet = new Set<string>();
 
 export function resetGameLoop() {
     playerShootCooldown = 0;
     agentShootCooldown  = 0;
+    dodgedBulletIdSet.clear();
 }
 
 // Update-Funktion – kriegt alten State, gibt neuen zurück
@@ -103,41 +105,35 @@ export function update(
 
     // ---- Kollisions-Detection ----
     const newStats = { ...agent.stats, timeAlive: agent.stats.timeAlive + dt };
-    let   newBullets = [...bullets];
 
     // Distanz-Tracking für Fitness
     const dist = vec.distance(player.position, agent.position);
     newStats.distanceSum     = (agent.stats.distanceSum     ?? 0) + dist;
     newStats.distanceSamples = (agent.stats.distanceSamples ?? 0) + 1;
 
-    newBullets = newBullets.filter(bullet => {
+    const newBullets = bullets.filter(bullet => {
         if (bullet.ownerId === 'agent') {
             if (vec.distance(bullet.position, player.position) < GAME_CONFIG.PLAYER_RADIUS + bullet.radius) {
                 newStats.hitsLanded++;
                 return false;
             }
-        }
-
-        if (bullet.ownerId === 'player') {
+        } else {
             if (vec.distance(bullet.position, agent.position) < GAME_CONFIG.AGENT_RADIUS + bullet.radius) {
                 newStats.hitsReceived++;
                 return false;
             }
-            if (
-                !newStats.dodgedBulletIds.includes(bullet.id) &&
-                vec.distance(bullet.position, agent.position) < GAME_CONFIG.NEAR_MISS_RADIUS
-            ) {
+            if (!dodgedBulletIdSet.has(bullet.id) &&
+                vec.distance(bullet.position, agent.position) < GAME_CONFIG.NEAR_MISS_RADIUS) {
                 newStats.dodgedBullets++;
-                newStats.dodgedBulletIds = [...newStats.dodgedBulletIds, bullet.id];
+                dodgedBulletIdSet.add(bullet.id);
             }
         }
-
         return true;
     });
 
     agent = { ...agent, stats: newStats };
 
-    const ghostFrame: PlayerGhostFrame = {
+    const lastPlayerFrame: PlayerGhostFrame = {
         position: { ...player.position },
         velocity: { ...player.velocity },
         rotation: player.rotation,
@@ -145,7 +141,7 @@ export function update(
         time:     state.roundTimer,
     };
 
-    const agentFrame: AgentGhostFrame = {
+    const lastAgentFrame: AgentGhostFrame = {
         position: { ...agent.position },
         rotation: agent.rotation,
         shot:     agentBullet !== null,
@@ -156,9 +152,9 @@ export function update(
         roundTimer,
         player,
         agent,
-        bullets:     newBullets,
-        ghostFrames:    [...state.ghostFrames, ghostFrame],
-        lastAgentFrame: agentFrame,
+        bullets:        newBullets,
+        lastPlayerFrame,
+        lastAgentFrame,
     };
 }
 
@@ -176,17 +172,30 @@ function updateAgent(
     let chaseForce = vec.scale(toPlayer, dna[DNA_INDEX.AGGRESSION]);
 
 
-    // 2. Eingehende Bullets ausweichen
-    const nearBullet = bullets
-        .filter(b => b.ownerId === 'player' && vec.distance(b.position, agent.position) < 120)
-        .sort((a, b) => vec.distance(a.position, agent.position) - vec.distance(b.position, agent.position))[0];
+    // 2. Eingehende Bullets ausweichen – single-pass statt filter+sort
+    let nearBullet: Bullet | undefined;
+    let nearDist = 120;
+    for (const b of bullets) {
+        if (b.ownerId !== 'player') continue;
+        const d = vec.distance(b.position, agent.position);
+        if (d < nearDist) { nearBullet = b; nearDist = d; }
+    }
 
     const dodgeForce = (() => {
         if (!nearBullet) return vec.zero();
         if (Math.random() > dna[DNA_INDEX.DODGE_WEIGHT]) return vec.zero();
         const perp    = vec.perpendicular(vec.normalize(nearBullet.velocity));
         const toAgent = vec.sub(agent.position, nearBullet.position);
-        const side    = perp.x * toAgent.x + perp.y * toAgent.y >= 0 ? 1 : -1;
+        let side      = perp.x * toAgent.x + perp.y * toAgent.y >= 0 ? 1 : -1;
+        const margin  = GAME_CONFIG.AGENT_RADIUS + 40;
+        const dx = perp.x * side;
+        const dy = perp.y * side;
+        const intoWall =
+            (dx > 0 && agent.position.x > ARENA.WIDTH  - margin) ||
+            (dx < 0 && agent.position.x < margin) ||
+            (dy > 0 && agent.position.y > ARENA.HEIGHT - margin) ||
+            (dy < 0 && agent.position.y < margin);
+        if (intoWall) side = -side;
         return vec.scale(perp, side * dna[DNA_INDEX.MOVEMENT_SPEED]);
     })();
 

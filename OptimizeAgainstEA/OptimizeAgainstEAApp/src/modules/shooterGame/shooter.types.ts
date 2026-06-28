@@ -74,14 +74,13 @@ export interface Bullet {
 // ---- Stats & Fitness ----
 
 export interface RoundStats {
-    hitsLanded:    number; // Treffer auf Gegner
-    hitsReceived:  number; // Selbst getroffen
-    bulletsFired:  number;
-    timeAlive:     number; // Sekunden
-    dodgedBullets: number; // Bullets die nah vorbeigingen (<40px)
-    distanceSum:   number; // Summe aller Distanzen (für Durchschnitt)
+    hitsLanded:      number; // Treffer auf Gegner
+    hitsReceived:    number; // Selbst getroffen
+    bulletsFired:    number;
+    timeAlive:       number; // Sekunden
+    dodgedBullets:   number; // Bullets die nah vorbeigingen (<40px)
+    distanceSum:     number; // Summe aller Distanzen (für Durchschnitt)
     distanceSamples: number;
-    dodgedBulletIds:  string[];
 }
 
 export const emptyStats = (): RoundStats => ({
@@ -92,7 +91,6 @@ export const emptyStats = (): RoundStats => ({
     dodgedBullets:   0,
     distanceSum:     0,
     distanceSamples: 0,
-    dodgedBulletIds:  [],
 });
 
 // ---- Game State ----
@@ -117,7 +115,7 @@ export interface GameState {
     agent:            AgentState;
     bullets:          Bullet[];
     population:       Population | null;
-    ghostFrames:      PlayerGhostFrame[];
+    lastPlayerFrame:  PlayerGhostFrame | null;
     lastAgentFrame:   AgentGhostFrame | null;
     crossoverExample: CrossoverExample | null;
 }

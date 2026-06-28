@@ -68,6 +68,32 @@ export function EASettingsPanel() {
                 </div>
             </div>
 
+            <div style={styles.row}>
+                <label style={styles.label}>Max. Runden (Analytics)</label>
+                <input
+                    type="range" min={5} max={50} step={5}
+                    value={s.maxAnalyticsRounds}
+                    onChange={e => setEaSettings({ ...s, maxAnalyticsRounds: parseInt(e.target.value) })}
+                    style={styles.slider}
+                />
+                <span style={styles.value}>{s.maxAnalyticsRounds}</span>
+            </div>
+
+            <div style={styles.row}>
+                <label style={styles.label}>Hall of Fame</label>
+                <div style={styles.toggleGroup}>
+                    {([true, false] as const).map(val => (
+                        <button
+                            key={String(val)}
+                            onClick={() => setEaSettings({ ...s, useHallOfFame: val })}
+                            style={s.useHallOfFame === val ? styles.toggleActive : styles.toggleInactive}
+                        >
+                            {val ? 'An' : 'Aus'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             <button style={styles.resetBtn} onClick={() => setEaSettings(resetEASettings())}>
                 Zurücksetzen
             </button>

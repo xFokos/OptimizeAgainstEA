@@ -19,8 +19,11 @@ export const analyticsStore = {
     rounds:    [] as RoundRecord[],
     listeners: new Set<() => void>(),
 
-    push(record: RoundRecord) {
-        this.rounds = [...this.rounds, record];
+    push(record: RoundRecord, maxRounds = 20) {
+        const trimmed = this.rounds.length >= maxRounds
+            ? this.rounds.slice(this.rounds.length - maxRounds + 1)
+            : this.rounds;
+        this.rounds = [...trimmed, record];
         this.listeners.forEach(fn => fn());
     },
 

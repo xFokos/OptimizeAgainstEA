@@ -131,7 +131,16 @@ function stepAgent(
         if (Math.random() > dna[DNA_INDEX.DODGE_WEIGHT]) return vec.zero();
         const perp    = vec.perpendicular(vec.normalize(nearBullet.velocity));
         const toAgent = vec.sub(agent.pos, nearBullet.position);
-        const side    = perp.x * toAgent.x + perp.y * toAgent.y >= 0 ? 1 : -1;
+        let side      = perp.x * toAgent.x + perp.y * toAgent.y >= 0 ? 1 : -1;
+        const margin  = GAME_CONFIG.AGENT_RADIUS + 40;
+        const dx = perp.x * side;
+        const dy = perp.y * side;
+        const intoWall =
+            (dx > 0 && agent.pos.x > ARENA.WIDTH  - margin) ||
+            (dx < 0 && agent.pos.x < margin) ||
+            (dy > 0 && agent.pos.y > ARENA.HEIGHT - margin) ||
+            (dy < 0 && agent.pos.y < margin);
+        if (intoWall) side = -side;
         return vec.scale(perp, side * dna[DNA_INDEX.MOVEMENT_SPEED]);
     })();
 

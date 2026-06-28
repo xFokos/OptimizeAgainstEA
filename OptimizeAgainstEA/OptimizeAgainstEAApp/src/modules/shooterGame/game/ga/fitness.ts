@@ -4,9 +4,12 @@ import type { RoundStats } from '../../shooter.types';
 // Höher = besser. Der GA maximiert diesen Wert.
 
 export function calculateFitness(stats: RoundStats): number {
+    const net = stats.hitsLanded - stats.hitsReceived;
+    const outcomeBonus = net > 0 ? 120 : net < 0 ? -80 : 0;
     return (
         stats.hitsLanded   * 100
       - stats.hitsReceived * 100
+      + outcomeBonus
     );
 }
 

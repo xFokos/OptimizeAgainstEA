@@ -13,7 +13,8 @@ import {
     type CrossoverExample,
 } from '../shooter.types';
 
-import { evolve, getNextAgent, presimulateAgainstGhost } from '../game/ga/evolution';
+import { evolve, getNextAgent } from '../game/ga/evolution';
+import type { EvolutionWorkerIn, EvolutionWorkerOut } from '../game/ga/evolution.worker';
 import { initPopulation } from '../game/ga/population';
 import { consumePendingSlot, submitRaidbossFitness, claimRaidbossSlot, setRaidbossActive } from '../game/raidbossStore';
 import type { RaidbossSlot } from '../game/raidbossStore';
@@ -123,7 +124,7 @@ const makeInitialGameState = (settings: ShooterSettings): GameState => ({
     roundNumber:      0,
     bullets:          [],
     population:       null,
-    ghostFrames:      [],
+    lastPlayerFrame:  null,
     lastAgentFrame:   null,
     crossoverExample: null,
     player: {
@@ -158,11 +159,19 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
     const canvasRef            = useRef<HTMLCanvasElement>(null);
     const gameStateRef         = useRef<GameState | null>(null);
     const agentFramesRef       = useRef<AgentGhostFrame[]>([]);
+    const playerFramesRef      = useRef<PlayerGhostFrame[]>([]);
     const matchScoreRef        = useRef(0);
     const prevHitsRef          = useRef({ landed: 0, received: 0 });
     const analyticsLoggedRef   = useRef(false);
     const hallOfFameGhostRef   = useRef<PlayerGhost | null>(null);
     const hallOfFameHitsRef    = useRef<number>(-1);
+    const evolutionWorkerRef   = useRef<Worker | null>(null);
+    const pendingRoundDataRef  = useRef<{
+        nextRound:        number;
+        crossoverExample: CrossoverExample | null;
+        overrideDna:      number[] | null;
+        settings:         typeof shooterSettings;
+    } | null>(null);
     const inputRef             = useInput();
 
     const [matchScore, setMatchScore]           = useState(0);
@@ -190,6 +199,37 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
             gameStore.notify();
         }
         return () => { setRaidbossActive(false); };
+    }, []);
+
+    useEffect(() => {
+        return () => { evolutionWorkerRef.current?.terminate(); };
+    }, []);
+
+    // Wird aufgerufen sobald die Evolution (Worker oder sync) eine neue Population hat
+    const completeRound = useCallback((evolvedPopulation: Population) => {
+        const pending = pendingRoundDataRef.current;
+        if (!pending) return;
+        pendingRoundDataRef.current = null;
+
+        const nextDna = pending.overrideDna ?? getNextAgent(evolvedPopulation);
+        const base    = makeInitialGameState(pending.settings);
+        const newState: GameState = {
+            ...base,
+            phase:            'playing',
+            roundNumber:      pending.nextRound,
+            population:       evolvedPopulation,
+            lastPlayerFrame:  null,
+            lastAgentFrame:   null,
+            crossoverExample: pending.crossoverExample,
+            agent: { ...base.agent, dna: nextDna },
+        };
+
+        playerFramesRef.current = [];
+        agentFramesRef.current  = [];
+        gameStateRef.current    = newState;
+        gameStore.state         = newState;
+        gameStore.notify();
+        setPhase('playing');
     }, []);
 
     const saved = gameStore.state;
@@ -223,11 +263,11 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
             fitness:      calculateFitness(s),
             generation:   roundState.population?.generation ?? 1,
             bestFitness:  roundState.population?.bestFitness ?? 0,
-            playerFrames: roundState.ghostFrames,
+            playerFrames: playerFramesRef.current,
             agentFrames:  agentFramesRef.current,
             agentDna:     roundState.agent.dna,
-        });
-    }, []);
+        }, eaSettings.maxAnalyticsRounds);
+    }, [eaSettings.maxAnalyticsRounds]);
 
     // onUpdate: Spiellogik – gibt neuen State zurück
     const onUpdate = useCallback((
@@ -237,9 +277,8 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
     ): GameState => {
         const next = update(state, dt, input, shooterSettings.playerStats);
 
-        if (next.lastAgentFrame) {
-            agentFramesRef.current.push(next.lastAgentFrame);
-        }
+        if (next.lastPlayerFrame) playerFramesRef.current.push(next.lastPlayerFrame);
+        if (next.lastAgentFrame)  agentFramesRef.current.push(next.lastAgentFrame);
 
         if (next.phase !== state.phase) {
             setPhase(next.phase);
@@ -334,17 +373,15 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
         prevHitsRef.current   = { landed: 0, received: 0 };
         matchScoreRef.current = 0;
         setMatchScore(0);
+
         const currentState = gameStateRef.current!;
         const nextRound    = currentState.roundNumber + 1;
 
-        // Frische Session: Analytics der alten Session leeren
-        if (currentState.roundNumber === 0) {
-            analyticsStore.clear();
-        }
-
+        if (currentState.roundNumber === 0) analyticsStore.clear();
         analyticsLoggedRef.current = false;
 
-        const population = currentState.population ?? initPopulation(shooterSettings.starterDna, eaSettings.populationSize);
+        const population = currentState.population
+            ?? initPopulation(shooterSettings.starterDna, eaSettings.populationSize);
 
         const crossoverExample: CrossoverExample | null =
             currentState.roundNumber > 0 && population.individuals.length >= 2
@@ -355,80 +392,88 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                 }
                 : null;
 
-        const realFitness = calculateFitness(currentState.agent.stats);
-        const evolvedPopulation = currentState.roundNumber > 0
-            ? (() => {
-                const ghost: PlayerGhost = {
-                    frames:        currentState.ghostFrames,
-                    roundDuration: shooterSettings.roundDuration,
-                };
-
-                // Hall of Fame: Runde mit den meisten Spieler-Treffern merken
-                const playerHitsThisRound = currentState.agent.stats.hitsReceived;
-                if (playerHitsThisRound > hallOfFameHitsRef.current && currentState.ghostFrames.length > 0) {
-                    hallOfFameHitsRef.current  = playerHitsThisRound;
-                    hallOfFameGhostRef.current = ghost;
-                }
-
-                // Nicht gegen HoF trainieren wenn es derselbe Ghost ist (erste Runde)
-                const hofGhost = hallOfFameGhostRef.current !== ghost
-                    ? hallOfFameGhostRef.current ?? undefined
-                    : undefined;
-
-                const ghostPop = currentState.ghostFrames.length > 0
-                    ? presimulateAgainstGhost(eaSettings.presimGenerations, ghost, population, eaSettings.crossoverType, hofGhost)
-                    : population;
-                // Echte Spieler-Runde immer als finalen Selektionsdruck einbauen
-                return evolve(
-                    ghostPop,
-                    realFitness,
-                    eaSettings.mutationRate,
-                    eaSettings.mutationStrength,
-                    eaSettings.crossoverType,
-                );
-            })()
-            : population;
-
-        // Raidboss: Slot nur beim ersten Mal (roundNumber === 0) als DNA nutzen.
-        // Nach der gespielten Runde Fitness einreichen und Slot leeren.
+        // Raidboss: Fitness einreichen und Slot leeren
         const slot = raidbossSlotRef.current;
         const useRaidbossDna = slot !== null && currentState.roundNumber === 0;
-
         if (slot && currentState.roundNumber > 0) {
             const raidbossFitness = calculateRaidbossFitness(currentState.agent.stats, shooterSettings.roundDuration);
             submitRaidbossFitness(slot.index, raidbossFitness, slot.doc).catch(console.error);
-            raidbossSlotRef.current  = null;
-            raidbossInfoRef.current  = null;
+            raidbossSlotRef.current = null;
+            raidbossInfoRef.current = null;
             setIsRaidbossRound(false);
             setRaidbossActive(false);
         }
 
-        const nextDna = useRaidbossDna
-            ? slot!.dna
-            : currentState.roundNumber === 0
-                ? [...shooterSettings.starterDna]
-                : getNextAgent(evolvedPopulation);
-
-        const newState: GameState = {
-            ...makeInitialGameState(shooterSettings),
-            phase:            'playing',
-            roundNumber:      nextRound,
-            population:       evolvedPopulation,
-            ghostFrames:      [],
-            lastAgentFrame:   null,
+        pendingRoundDataRef.current = {
+            nextRound,
             crossoverExample,
-            agent: {
-                ...makeInitialGameState(shooterSettings).agent,
-                dna: nextDna,
-            },
+            overrideDna: useRaidbossDna
+                ? slot!.dna
+                : currentState.roundNumber === 0
+                    ? [...shooterSettings.starterDna]
+                    : null,
+            settings: shooterSettings,
         };
 
-        agentFramesRef.current = [];
-        gameStateRef.current   = newState;
-        gameStore.state        = newState;
-        gameStore.notify();
+        // Runde 0 oder kein Presim → direkt synchron
+        if (currentState.roundNumber === 0) {
+            completeRound(population);
+            return;
+        }
 
-        setPhase('playing');
+        const realFitness = calculateFitness(currentState.agent.stats);
+
+        if (eaSettings.presimGenerations === 0 || playerFramesRef.current.length === 0) {
+            completeRound(evolve(population, realFitness, eaSettings.mutationRate, eaSettings.mutationStrength, eaSettings.crossoverType));
+            return;
+        }
+
+        // Schwere Arbeit → Web Worker
+        const ghost: PlayerGhost = {
+            frames:        playerFramesRef.current,
+            roundDuration: shooterSettings.roundDuration,
+        };
+
+        const playerHitsThisRound = currentState.agent.stats.hitsReceived;
+        if (playerHitsThisRound > hallOfFameHitsRef.current) {
+            hallOfFameHitsRef.current  = playerHitsThisRound;
+            hallOfFameGhostRef.current = ghost;
+        }
+
+        const hofGhost = eaSettings.useHallOfFame && hallOfFameGhostRef.current !== ghost
+            ? hallOfFameGhostRef.current ?? undefined
+            : undefined;
+
+        setPhase('evolving');
+
+        evolutionWorkerRef.current?.terminate();
+        const worker = new Worker(
+            new URL('../game/ga/evolution.worker.ts', import.meta.url),
+            { type: 'module' },
+        );
+        worker.onmessage = (e: MessageEvent<EvolutionWorkerOut>) => {
+            if (e.data.type === 'DONE') {
+                completeRound(e.data.population);
+            } else {
+                console.error('[EvolutionWorker]', (e.data as { message: string }).message);
+                // Fallback: synchron ohne Presim
+                completeRound(evolve(population, realFitness, eaSettings.mutationRate, eaSettings.mutationStrength, eaSettings.crossoverType));
+            }
+            worker.terminate();
+            evolutionWorkerRef.current = null;
+        };
+        evolutionWorkerRef.current = worker;
+        worker.postMessage({
+            type: 'PRESIM',
+            ghost,
+            hofGhost,
+            population,
+            realFitness,
+            generations:      eaSettings.presimGenerations,
+            mutationRate:     eaSettings.mutationRate,
+            mutationStrength: eaSettings.mutationStrength,
+            crossoverType:    eaSettings.crossoverType,
+        } satisfies EvolutionWorkerIn);
     };
 
     return (
@@ -479,24 +524,28 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                 ) : phase === 'roundEnd' ? (
                     <div className={styles.overlay}>
                         <h2 className={styles.title}>Runde beendet</h2>
-                        <div className={styles.stats}>
-                            <span>Treffer gelandet: {gameStateRef.current?.agent.stats.hitsLanded}</span>
-                            <span>Selbst getroffen: {gameStateRef.current?.agent.stats.hitsReceived}</span>
-                            <span>Ausgewichen: {gameStateRef.current?.agent.stats.dodgedBullets}</span>
+                        <div className={styles.roundStats}>
+                            <div className={styles.roundStatSide}>
+                                <span className={styles.roundStatLabel} style={{ color: '#f97316' }}>EA</span>
+                                <span className={styles.roundStatCount} style={{ color: '#f97316' }}>
+                                    {gameStateRef.current?.agent.stats.hitsLanded ?? 0}
+                                </span>
+                                <span className={styles.roundStatSub}>Treffer</span>
+                            </div>
+                            <span className={styles.roundStatDivider}>:</span>
+                            <div className={styles.roundStatSide}>
+                                <span className={styles.roundStatLabel} style={{ color: '#60a5fa' }}>DU</span>
+                                <span className={styles.roundStatCount} style={{ color: '#60a5fa' }}>
+                                    {gameStateRef.current?.agent.stats.hitsReceived ?? 0}
+                                </span>
+                                <span className={styles.roundStatSub}>Treffer</span>
+                            </div>
                         </div>
                         {!isRaidbossRound && gameStateRef.current?.crossoverExample && (
                             <CrossoverViz example={gameStateRef.current.crossoverExample} />
                         )}
                         {isRaidbossRound ? (
                             <div style={{ display: 'flex', gap: 10 }}>
-                                <button
-                                    className="btn btn--outline"
-                                    style={{ '--btn-color': '#a855f7' } as CSSProperties}
-                                    onClick={handleTrainNext}
-                                    disabled={trainNextLoading}
-                                >
-                                    {trainNextLoading ? 'Lade...' : 'Weiter beitragen →'}
-                                </button>
                                 <button
                                     className="btn btn--soft"
                                     style={{ '--btn-color': '#a855f7' } as CSSProperties}
@@ -505,12 +554,27 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                                 >
                                     ← Lobby
                                 </button>
+                                <button
+                                    className="btn btn--outline"
+                                    style={{ '--btn-color': '#a855f7' } as CSSProperties}
+                                    onClick={handleTrainNext}
+                                    disabled={trainNextLoading}
+                                >
+                                    {trainNextLoading ? 'Lade...' : 'Weiter beitragen →'}
+                                </button>
                             </div>
                         ) : (
                             <button className="btn btn--primary" onClick={startRound}>
                                 Nächste Runde →
                             </button>
                         )}
+                    </div>
+                ) : phase === 'evolving' ? (
+                    <div className={styles.overlay}>
+                        <h2 className={styles.title}>EA evoliert...</h2>
+                        <p className={styles.subtitle}>
+                            Generation {(gameStateRef.current?.population?.generation ?? 0) + 1}
+                        </p>
                     </div>
                 ) : null}
             </div>

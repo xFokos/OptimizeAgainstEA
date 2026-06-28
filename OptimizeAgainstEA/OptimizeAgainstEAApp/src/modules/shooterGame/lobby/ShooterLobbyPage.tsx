@@ -268,7 +268,6 @@ export default function ShooterLobbyPage() {
         gameStore.state = null as unknown as typeof gameStore.state;
         gameStore.notify();
         analyticsStore.clear();
-        navigate('/ShooterGame');
     };
 
     const handleRaidboss = async () => {
