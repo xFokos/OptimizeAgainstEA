@@ -16,6 +16,11 @@ let bulletIdCounter    = 0;
 let playerShootCooldown = 0;
 let agentShootCooldown  = 0;
 
+export function resetGameLoop() {
+    playerShootCooldown = 0;
+    agentShootCooldown  = 0;
+}
+
 // Update-Funktion – kriegt alten State, gibt neuen zurück
 export function update(
     state:       GameState,

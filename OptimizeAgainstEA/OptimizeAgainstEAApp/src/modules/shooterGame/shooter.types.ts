@@ -138,7 +138,7 @@ export interface InputState {
 
 export const GAME_CONFIG = {
     ROUND_DURATION:    20,   // Sekunden
-    POPULATION_SIZE:   20,
+    POPULATION_SIZE:   40,
     ELITE_COUNT:       4,    // Top-N die direkt überleben
     MUTATION_RATE:     0.1,  // 10 % Chance pro Gen-Wert
     MUTATION_STRENGTH: 0.2,  // wie stark ein Wert sich ändert

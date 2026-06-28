@@ -4,11 +4,29 @@ import type { RoundStats } from '../../shooter.types';
 // Höher = besser. Der GA maximiert diesen Wert.
 
 export function calculateFitness(stats: RoundStats): number {
-
     return (
-        stats.hitsLanded      * 100    // Treffer auf Spieler → wichtigstes Kriterium
-      - stats.hitsReceived    * 100    // Selbst getroffen → gleich wie Treffer landen
+        stats.hitsLanded   * 100
+      - stats.hitsReceived * 100
     );
+}
+
+// Raidboss-Fitness: wie gut hat sich der Boss gegen einen echten Spieler geschlagen?
+export function calculateRaidbossFitness(stats: RoundStats, roundDuration: number): number {
+    // Treffer-Bilanz: Kern der Fitness
+    const hitScore = (stats.hitsLanded - stats.hitsReceived) * 100;
+
+    // Survival-Bonus: Runden die länger dauern → Boss hat Druck standgehalten
+    // Max +60 wenn volle Runde überlebt (zeitbasierter Abschluss statt frühem Tug-of-War)
+    const survivalBonus = roundDuration > 0
+        ? (stats.timeAlive / roundDuration) * 60
+        : 0;
+
+    // Win/Lose-Bonus: flacher Aufschlag basierend auf Netto-Treffern
+    // Nicht zu groß, damit die Treffer-Bilanz das Hauptsignal bleibt
+    const net = stats.hitsLanded - stats.hitsReceived;
+    const outcomeBonus = net > 0 ? 120 : net < 0 ? -80 : 0;
+
+    return hitScore + survivalBonus + outcomeBonus;
 }
 
 // Fitness normalisieren auf 0–1 (nützlich für Selektion)

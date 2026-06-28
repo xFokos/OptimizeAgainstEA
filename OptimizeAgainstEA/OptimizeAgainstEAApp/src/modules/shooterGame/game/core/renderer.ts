@@ -68,38 +68,52 @@ export const renderer = {
         ctx.restore();
     },
 
-    drawAgent(ctx: CanvasRenderingContext2D, state: GameState) {
+    drawAgent(ctx: CanvasRenderingContext2D, state: GameState, isRaidboss = false) {
         const { position, rotation, radius } = state.agent;
+        const r         = isRaidboss ? radius * 1.5 : radius;
+        const color     = isRaidboss ? '#a855f7' : '#ef5350';
+        const barrel    = isRaidboss ? '#c084fc' : '#ff8a80';
+        const glow      = isRaidboss ? 'rgba(168, 85, 247, 0.35)' : 'rgba(239, 83, 80, 0.3)';
+
         ctx.save();
         ctx.translate(position.x, position.y);
         ctx.rotate(rotation);
 
+        // Raidboss: äußerer Pulsring
+        if (isRaidboss) {
+            ctx.beginPath();
+            ctx.arc(0, 0, r + 10, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(168, 85, 247, 0.15)';
+            ctx.lineWidth = 6;
+            ctx.stroke();
+        }
+
         // Körper
         ctx.beginPath();
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.fillStyle = '#ef5350';
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = color;
         ctx.fill();
 
         // Richtungsindikator
         ctx.beginPath();
-        ctx.moveTo(radius, 0);
-        ctx.lineTo(radius + 12, 0);
-        ctx.strokeStyle = '#ff8a80';
-        ctx.lineWidth = 4;
+        ctx.moveTo(r, 0);
+        ctx.lineTo(r + (isRaidboss ? 16 : 12), 0);
+        ctx.strokeStyle = barrel;
+        ctx.lineWidth = isRaidboss ? 5 : 4;
         ctx.lineCap = 'round';
         ctx.stroke();
 
         // Glüh-Effekt
         ctx.beginPath();
-        ctx.arc(0, 0, radius + 4, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(239, 83, 80, 0.3)';
+        ctx.arc(0, 0, r + 4, 0, Math.PI * 2);
+        ctx.strokeStyle = glow;
         ctx.lineWidth = 3;
         ctx.stroke();
 
         ctx.restore();
     },
 
-    drawBullets(ctx: CanvasRenderingContext2D, state: GameState) {
+    drawBullets(ctx: CanvasRenderingContext2D, state: GameState, isRaidboss = false) {
         for (const bullet of state.bullets) {
             ctx.save();
             ctx.beginPath();
@@ -108,6 +122,9 @@ export const renderer = {
             if (bullet.ownerId === 'player') {
                 ctx.fillStyle = '#80d8ff';
                 ctx.shadowColor = '#4fc3f7';
+            } else if (isRaidboss) {
+                ctx.fillStyle = '#c084fc';
+                ctx.shadowColor = '#a855f7';
             } else {
                 ctx.fillStyle = '#ff8a80';
                 ctx.shadowColor = '#ef5350';
@@ -119,36 +136,49 @@ export const renderer = {
         }
     },
 
-    drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
+    drawHUD(ctx: CanvasRenderingContext2D, state: GameState, raidbossInfo?: { generation: number; index: number; total: number }) {
         // Timer
         ctx.font = '500 20px "JetBrains Mono", monospace';
         ctx.fillStyle = 'rgba(255,255,255,0.85)';
         ctx.textAlign = 'center';
         ctx.fillText(`${Math.ceil(state.roundTimer)}s`, ARENA.WIDTH / 2, 32);
 
-        // Generation
-        ctx.font = '400 13px "JetBrains Mono", monospace';
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.textAlign = 'right';
-        const gen = state.population?.generation ?? 0;
-        ctx.fillText(`GEN ${gen}`, ARENA.WIDTH - 16, 24);
-
-        // Runde
-        ctx.textAlign = 'left';
-        ctx.fillText(`RND ${state.roundNumber}`, 16, 24);
+        if (raidbossInfo) {
+            // Raidboss HUD
+            ctx.font = '700 13px "JetBrains Mono", monospace';
+            ctx.fillStyle = '#a855f7';
+            ctx.textAlign = 'right';
+            ctx.fillText(`RAIDBOSS`, ARENA.WIDTH - 16, 24);
+            ctx.font = '400 11px "JetBrains Mono", monospace';
+            ctx.fillStyle = 'rgba(168, 85, 247, 0.7)';
+            ctx.fillText(`GEN ${raidbossInfo.generation} · IND ${raidbossInfo.index}/${raidbossInfo.total}`, ARENA.WIDTH - 16, 40);
+            ctx.textAlign = 'left';
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.font = '400 13px "JetBrains Mono", monospace';
+            ctx.fillText(`RND ${state.roundNumber}`, 16, 24);
+        } else {
+            // Normales HUD
+            ctx.font = '400 13px "JetBrains Mono", monospace';
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.textAlign = 'right';
+            const gen = state.population?.generation ?? 0;
+            ctx.fillText(`GEN ${gen}`, ARENA.WIDTH - 16, 24);
+            ctx.textAlign = 'left';
+            ctx.fillText(`RND ${state.roundNumber}`, 16, 24);
+        }
     },
 
-    // Alles zusammen – diese Funktion wird im Game Loop aufgerufen
-    render(canvas: HTMLCanvasElement | null, state: GameState) {
+    render(canvas: HTMLCanvasElement | null, state: GameState, raidbossInfo?: { generation: number; index: number; total: number }) {
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
+        const isRaidboss = !!raidbossInfo;
         renderer.clear(ctx);
         renderer.drawArena(ctx);
-        renderer.drawBullets(ctx, state);
+        renderer.drawBullets(ctx, state, isRaidboss);
         renderer.drawPlayer(ctx, state);
-        renderer.drawAgent(ctx, state);
-        renderer.drawHUD(ctx, state);
+        renderer.drawAgent(ctx, state, isRaidboss);
+        renderer.drawHUD(ctx, state, raidbossInfo);
     },
 };

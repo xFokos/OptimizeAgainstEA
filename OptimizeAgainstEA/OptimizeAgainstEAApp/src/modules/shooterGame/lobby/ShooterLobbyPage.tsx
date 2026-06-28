@@ -5,10 +5,12 @@ import { ShooterSettingsPanel } from '../settings/ShooterSettings';
 import { EASettingsPanel } from '../../../components/settings/EASettings';
 import { vec } from '../game/core/vec';
 import { useSettings } from '../../../context/SettingsContext';
-import { DNA_INDEX } from '../shooter.types';
+import { DNA_INDEX, GAME_CONFIG } from '../shooter.types';
 import type { GamePhase } from '../shooter.types';
 import { gameStore } from '../game/gameStore';
 import { analyticsStore } from '../game/analyticsStore';
+import { getRaidbossStatus, claimRaidbossSlot } from '../game/raidbossStore';
+import type { RaidbossDoc } from '../game/raidbossStore';
 
 // ---- Mini Preview Canvas ----
 // Zeigt zwei Agenten die gegeneinander kämpfen
@@ -147,15 +149,16 @@ function ShooterPreview() {
         };
 
         const spawnBullets = (a: PreviewAgent, b: PreviewAgent) => {
-            const dna      = dnaRef.current;
-            const spread   = (1 - dna[DNA_INDEX.SHOOT_ACCURACY]) * 0.6;
+            const dna         = dnaRef.current;
+            const spread      = (1 - dna[DNA_INDEX.SHOOT_ACCURACY]) * 0.6;
+            const bulletSpeed = (GAME_CONFIG.BULLET_SPEED_MIN + dna[DNA_INDEX.BULLET_SPEED] * (GAME_CONFIG.BULLET_SPEED_MAX - GAME_CONFIG.BULLET_SPEED_MIN)) * (PREVIEW_W / 800);
 
             const shoot = (from: PreviewAgent, to: PreviewAgent, color: string, owner: 'a' | 'b') => {
                 const base  = Math.atan2(to.pos.y - from.pos.y, to.pos.x - from.pos.x);
                 const angle = base + (Math.random() - 0.5) * spread * 2;
                 bullets.push({
                     pos:      { ...from.pos },
-                    vel:      { x: Math.cos(angle) * 260, y: Math.sin(angle) * 260 },
+                    vel:      { x: Math.cos(angle) * bulletSpeed, y: Math.sin(angle) * bulletSpeed },
                     color,
                     lifetime: 1.5,
                     owner,
@@ -243,6 +246,8 @@ export default function ShooterLobbyPage() {
     const [savedPhase, setSavedPhase] = useState<GamePhase | null>(
         gameStore.state ? gameStore.state.phase : null,
     );
+    const [raidbossDoc,     setRaidbossDoc]     = useState<RaidbossDoc | null>(null);
+    const [raidbossLoading, setRaidbossLoading] = useState(false);
 
     useEffect(() => {
         const sync = () => {
@@ -251,6 +256,7 @@ export default function ShooterLobbyPage() {
             setSavedPhase(s ? s.phase : null);
         };
         sync();
+        getRaidbossStatus().then(setRaidbossDoc).catch(() => {});
         return gameStore.subscribe(sync);
     }, []);
 
@@ -263,6 +269,21 @@ export default function ShooterLobbyPage() {
         gameStore.notify();
         analyticsStore.clear();
         navigate('/ShooterGame');
+    };
+
+    const handleRaidboss = async () => {
+        setRaidbossLoading(true);
+        try {
+            await claimRaidbossSlot();
+            // Raidboss-Modus startet immer fresh
+            gameStore.state = null as unknown as typeof gameStore.state;
+            gameStore.notify();
+            analyticsStore.clear();
+            navigate('/ShooterGame');
+        } catch (err) {
+            console.error('[Raidboss] Fehler:', err);
+            setRaidbossLoading(false);
+        }
     };
 
     return (
@@ -303,29 +324,55 @@ export default function ShooterLobbyPage() {
 
                 {/* Rechts unten – Session-Status + Buttons */}
                 <div style={styles.rightBottom}>
-                    {hasActiveGame ? (
-                        <div style={styles.sessionBlock}>
-                            <div style={styles.sessionStatus}>
-                                <span style={styles.sessionDot} />
-                                <span style={styles.sessionText}>
-                                    Runde {savedRound}
-                                    {savedPhase ? ` · ${phaseLabel(savedPhase)}` : ''}
-                                </span>
+                    <div style={styles.bottomBtns}>
+                        {hasActiveGame ? (
+                            <div style={styles.sessionBlock}>
+                                <div style={styles.sessionStatus}>
+                                    <span style={styles.sessionDot} />
+                                    <span style={styles.sessionText}>
+                                        Runde {savedRound}
+                                        {savedPhase ? ` · ${phaseLabel(savedPhase)}` : ''}
+                                    </span>
+                                </div>
+                                <div style={styles.sessionBtns}>
+                                    <button style={styles.startBtn} onClick={handleContinue}>
+                                        Fortsetzen →
+                                    </button>
+                                    <button style={styles.resetBtn} onClick={handleReset}>
+                                        Neu starten
+                                    </button>
+                                </div>
                             </div>
-                            <div style={styles.sessionBtns}>
-                                <button style={styles.startBtn} onClick={handleContinue}>
-                                    Fortsetzen →
-                                </button>
-                                <button style={styles.resetBtn} onClick={handleReset}>
-                                    Neu starten
-                                </button>
-                            </div>
+                        ) : (
+                            <button style={styles.startBtn} onClick={() => navigate('/ShooterGame')}>
+                                Spielen →
+                            </button>
+                        )}
+
+                        <div style={styles.raidbossCard}>
+                            <span style={styles.raidbossTitle}>Community Raidboss</span>
+                            {raidbossDoc ? (() => {
+                                const evaluated = (raidbossDoc.generation - 1) * raidbossDoc.populationSize
+                                    + raidbossDoc.individuals.filter(i => i.fitness !== null).length;
+                                return (
+                                    <div style={styles.raidbossStats}>
+                                        <span style={styles.raidbossStatVal}>Gen {raidbossDoc.generation}</span>
+                                        <span style={styles.raidbossStatDivider}>·</span>
+                                        <span style={styles.raidbossStatVal}>{evaluated} Individuen trainiert</span>
+                                    </div>
+                                );
+                            })() : (
+                                <span style={styles.raidbossInfo}>Noch kein Boss trainiert — sei der Erste!</span>
+                            )}
+                            <button
+                                style={{ ...styles.raidbossBtn, opacity: raidbossLoading ? 0.6 : 1 }}
+                                onClick={handleRaidboss}
+                                disabled={raidbossLoading}
+                            >
+                                {raidbossLoading ? 'Lade...' : 'Raidboss kämpfen →'}
+                            </button>
                         </div>
-                    ) : (
-                        <button style={styles.startBtn} onClick={() => navigate('/ShooterGame')}>
-                            Spielen →
-                        </button>
-                    )}
+                    </div>
                 </div>
             </div>
         </PageContainer>
@@ -506,6 +553,64 @@ const styles: Record<string, React.CSSProperties> = {
         fontFamily:    'monospace',
         fontSize:      '14px',
         letterSpacing: '0.06em',
+        cursor:        'pointer',
+        transition:    'background 0.15s',
+    },
+    bottomBtns: {
+        display:    'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap:        '20px',
+        flexWrap:   'wrap' as const,
+    },
+    raidbossCard: {
+        display:       'flex',
+        flexDirection: 'column',
+        gap:           '8px',
+        padding:       '14px 20px',
+        background:    'rgba(124, 58, 237, 0.08)',
+        border:        '1px solid rgba(124, 58, 237, 0.35)',
+        borderRadius:  '10px',
+        minWidth:      '260px',
+    },
+    raidbossTitle: {
+        fontFamily:    'monospace',
+        fontSize:      '11px',
+        fontWeight:    700,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase' as const,
+        color:         'rgba(167, 139, 250, 0.55)',
+    },
+    raidbossStats: {
+        display:    'flex',
+        alignItems: 'center',
+        gap:        '8px',
+    },
+    raidbossStatVal: {
+        fontFamily:  'monospace',
+        fontSize:    '14px',
+        fontWeight:  700,
+        color:       'rgba(192, 158, 255, 0.95)',
+        letterSpacing: '0.02em',
+    },
+    raidbossStatDivider: {
+        color:    'rgba(167, 139, 250, 0.35)',
+        fontSize: '14px',
+    },
+    raidbossInfo: {
+        fontFamily: 'monospace',
+        fontSize:   '13px',
+        color:      'rgba(192, 158, 255, 0.7)',
+    },
+    raidbossBtn: {
+        padding:       '10px 16px',
+        background:    'rgba(124, 58, 237, 0.15)',
+        border:        '1px solid rgba(124, 58, 237, 0.6)',
+        borderRadius:  '7px',
+        color:         'rgba(167, 139, 250, 0.95)',
+        fontFamily:    'monospace',
+        fontSize:      '13px',
+        letterSpacing: '0.05em',
         cursor:        'pointer',
         transition:    'background 0.15s',
     },

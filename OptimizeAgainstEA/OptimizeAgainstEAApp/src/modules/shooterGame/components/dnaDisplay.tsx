@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { gameStore } from '../game/gameStore';
+import { getRaidbossActive } from '../game/raidbossStore';
 import { DNA_NAMES } from '../shooter.types';
 
 const FONT   = 'var(--font)';
@@ -72,21 +73,34 @@ export function DNADisplay() {
     useEffect(() => {
         return gameStore.subscribe(() => {
             const state    = gameStore.state;
+            const newDna   = state.agent.dna;
             const newRound = state.roundNumber;
 
-            if (newRound !== prevRoundRef.current) {
-                setPrevDna([...prevDnaRef.current]);
+            if (getRaidbossActive()) {
+                // Kein Delta-Tracking in Raidboss-Modus
+                prevDnaRef.current   = [...newDna];
+                prevRoundRef.current = newRound;
+                setPrevDna([...newDna]);
+            } else if (newRound !== prevRoundRef.current) {
+                // Delta nur zwischen echten Spielrunden zeigen (nicht beim ersten Start)
+                if (prevRoundRef.current > 0) {
+                    setPrevDna([...prevDnaRef.current]);
+                }
                 prevRoundRef.current = newRound;
             }
 
-            prevDnaRef.current = [...state.agent.dna];
-            setDna([...state.agent.dna]);
+            prevDnaRef.current = [...newDna];
+            setDna([...newDna]);
         });
     }, []);
 
+    const isRaidboss = getRaidbossActive();
+
     return (
         <div style={styles.panel}>
-            <div style={styles.sectionTitle}>Agent DNA</div>
+            <div style={{ ...styles.sectionTitle, color: isRaidboss ? '#a855f7' : undefined }}>
+                {isRaidboss ? 'Raidboss DNA' : 'Agent DNA'}
+            </div>
             <DnaString dna={dna} />
 
             {DNA_NAMES.map((name, i) => (
@@ -94,7 +108,7 @@ export function DNADisplay() {
                     key={i}
                     name={name}
                     value={dna[i] ?? 0}
-                    delta={(dna[i] ?? 0) - (prevDna[i] ?? dna[i] ?? 0)}
+                    delta={isRaidboss ? 0 : (dna[i] ?? 0) - (prevDna[i] ?? dna[i] ?? 0)}
                 />
             ))}
         </div>

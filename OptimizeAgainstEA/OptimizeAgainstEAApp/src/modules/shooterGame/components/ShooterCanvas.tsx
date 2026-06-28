@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import {
     ARENA,
     GAME_CONFIG,
@@ -15,11 +15,13 @@ import {
 
 import { evolve, getNextAgent, presimulateAgainstGhost } from '../game/ga/evolution';
 import { initPopulation } from '../game/ga/population';
+import { consumePendingSlot, submitRaidbossFitness, claimRaidbossSlot, setRaidbossActive } from '../game/raidbossStore';
+import type { RaidbossSlot } from '../game/raidbossStore';
 import { useInput }          from '../hooks/useInput';
 import { useGameLoop }       from '../hooks/useGameLoop';
-import { update }            from '../game/core/gameLoop';
+import { update, resetGameLoop } from '../game/core/gameLoop';
 import { renderer }          from '../game/core/renderer';
-import { calculateFitness }  from '../game/ga/fitness';
+import { calculateFitness, calculateRaidbossFitness } from '../game/ga/fitness';
 import { gameStore }         from '../game/gameStore';
 import { analyticsStore }    from '../game/analyticsStore';
 import { useSettings }       from '../../../context/SettingsContext.tsx';
@@ -139,9 +141,7 @@ const makeInitialGameState = (settings: ShooterSettings): GameState => ({
         rotation:       Math.PI,
         radius:         GAME_CONFIG.AGENT_RADIUS,
         health:         100,
-        dna:   settings.starterDna.map(v =>
-            Math.max(0, Math.min(1, v + (Math.random() - 0.5) * 0.1))
-        ),
+        dna: [...settings.starterDna],
         stats: emptyStats(),
     },
 });
@@ -165,7 +165,32 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
     const hallOfFameHitsRef    = useRef<number>(-1);
     const inputRef             = useInput();
 
-    const [matchScore, setMatchScore] = useState(0);
+    const [matchScore, setMatchScore]           = useState(0);
+    const [isRaidbossRound, setIsRaidbossRound] = useState(false);
+    const [trainNextLoading, setTrainNextLoading] = useState(false);
+    const raidbossSlotRef = useRef<RaidbossSlot | null>(null);
+    const raidbossInfoRef = useRef<{ generation: number; index: number; total: number } | null>(null);
+
+    useEffect(() => {
+        const slot = consumePendingSlot();
+        raidbossSlotRef.current = slot;
+        if (slot) {
+            setIsRaidbossRound(true);
+            setRaidbossActive(true);
+            raidbossInfoRef.current = {
+                generation: slot.doc.generation,
+                index:      slot.index + 1,
+                total:      slot.doc.populationSize,
+            };
+            // Idle-DNA auf Slot-DNA setzen, damit DNADisplay beim Rundenstart keine Änderung zeigt
+            const current = gameStateRef.current!;
+            const withSlotDna = { ...current, agent: { ...current.agent, dna: slot.dna } };
+            gameStateRef.current = withSlotDna;
+            gameStore.state      = withSlotDna;
+            gameStore.notify();
+        }
+        return () => { setRaidbossActive(false); };
+    }, []);
 
     const saved = gameStore.state;
     const restoredPhase: GamePhase =
@@ -243,7 +268,7 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
 
     // onRender: Canvas zeichnen
     const onRender = useCallback((state: GameState) => {
-        renderer.render(canvasRef.current, state);
+        renderer.render(canvasRef.current, state, raidbossInfoRef.current ?? undefined);
     }, []);
 
     useGameLoop({
@@ -254,7 +279,58 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
         isRunning: phase === 'playing',
     });
 
+    const submitCurrentRaidbossFitness = (): Promise<void> => {
+        const slot  = raidbossSlotRef.current;
+        const state = gameStateRef.current;
+        if (slot && state && state.roundNumber > 0) {
+            const fitness = calculateRaidbossFitness(state.agent.stats, shooterSettings.roundDuration);
+            const p = submitRaidbossFitness(slot.index, fitness, slot.doc);
+            raidbossSlotRef.current = null;
+            raidbossInfoRef.current = null;
+            setRaidbossActive(false);
+            return p;
+        }
+        return Promise.resolve();
+    };
+
+    const handleTrainNext = async () => {
+        if (trainNextLoading) return;
+        setTrainNextLoading(true);
+
+        try {
+            await submitCurrentRaidbossFitness();
+            await claimRaidbossSlot();
+            const slot = consumePendingSlot();
+            raidbossSlotRef.current = slot;
+            raidbossInfoRef.current = slot
+                ? { generation: slot.doc.generation, index: slot.index + 1, total: slot.doc.populationSize }
+                : null;
+            setIsRaidbossRound(!!slot);
+            setRaidbossActive(!!slot);
+
+            const baseReset  = makeInitialGameState(shooterSettings);
+            const resetState = slot
+                ? { ...baseReset, agent: { ...baseReset.agent, dna: slot.dna } }
+                : baseReset;
+            gameStateRef.current = resetState;
+            gameStore.state      = resetState;
+            gameStore.notify();
+            matchScoreRef.current = 0;
+            setMatchScore(0);
+            setPhase('idle');
+        } catch (err) {
+            console.error('[Raidboss] Slot claim fehlgeschlagen:', err);
+            // Fallback: normaler Modus
+            raidbossSlotRef.current = null;
+            raidbossInfoRef.current = null;
+            setIsRaidbossRound(false);
+        } finally {
+            setTrainNextLoading(false);
+        }
+    };
+
     const startRound = () => {
+        resetGameLoop();
         prevHitsRef.current   = { landed: 0, received: 0 };
         matchScoreRef.current = 0;
         setMatchScore(0);
@@ -313,7 +389,25 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
             })()
             : population;
 
-        const nextDna = getNextAgent(evolvedPopulation);
+        // Raidboss: Slot nur beim ersten Mal (roundNumber === 0) als DNA nutzen.
+        // Nach der gespielten Runde Fitness einreichen und Slot leeren.
+        const slot = raidbossSlotRef.current;
+        const useRaidbossDna = slot !== null && currentState.roundNumber === 0;
+
+        if (slot && currentState.roundNumber > 0) {
+            const raidbossFitness = calculateRaidbossFitness(currentState.agent.stats, shooterSettings.roundDuration);
+            submitRaidbossFitness(slot.index, raidbossFitness, slot.doc).catch(console.error);
+            raidbossSlotRef.current  = null;
+            raidbossInfoRef.current  = null;
+            setIsRaidbossRound(false);
+            setRaidbossActive(false);
+        }
+
+        const nextDna = useRaidbossDna
+            ? slot!.dna
+            : currentState.roundNumber === 0
+                ? [...shooterSettings.starterDna]
+                : getNextAgent(evolvedPopulation);
 
         const newState: GameState = {
             ...makeInitialGameState(shooterSettings),
@@ -364,14 +458,25 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
 
                 {phase === 'idle' ? (
                     <div className={styles.overlay}>
-                        <h2 className={styles.title}>Shooter vs GA</h2>
-                        <p className={styles.subtitle}>WASD bewegen · Maus zielen · Linksklick schießen</p>
-                        <button className={styles.startBtn} onClick={startRound}>
+                        {isRaidbossRound && raidbossInfoRef.current ? (
+                            <>
+                                <h2 className={styles.title} style={{ color: '#a855f7' }}>Community Raidboss</h2>
+                                <p className={styles.subtitle} style={{ color: 'rgba(168,85,247,0.7)' }}>
+                                    Generation {raidbossInfoRef.current.generation} · Individuum {raidbossInfoRef.current.index}/{raidbossInfoRef.current.total}
+                                </p>
+                                <p className={styles.subtitle}>WASD bewegen · Maus zielen · Linksklick schießen</p>
+                            </>
+                        ) : (
+                            <>
+                                <h2 className={styles.title}>Shooter vs GA</h2>
+                                <p className={styles.subtitle}>WASD bewegen · Maus zielen · Linksklick schießen</p>
+                            </>
+                        )}
+                        <button className={styles.startBtn} onClick={() => startRound()}>
                             Runde starten
                         </button>
                     </div>
                 ) : phase === 'roundEnd' ? (
-
                     <div className={styles.overlay}>
                         <h2 className={styles.title}>Runde beendet</h2>
                         <div className={styles.stats}>
@@ -379,12 +484,33 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                             <span>Selbst getroffen: {gameStateRef.current?.agent.stats.hitsReceived}</span>
                             <span>Ausgewichen: {gameStateRef.current?.agent.stats.dodgedBullets}</span>
                         </div>
-                        {gameStateRef.current?.crossoverExample && (
+                        {!isRaidbossRound && gameStateRef.current?.crossoverExample && (
                             <CrossoverViz example={gameStateRef.current.crossoverExample} />
                         )}
-                        <button className={styles.startBtn} onClick={startRound}>
-                            Nächste Runde →
-                        </button>
+                        {isRaidbossRound ? (
+                            <div style={{ display: 'flex', gap: 10 }}>
+                                <button
+                                    className={styles.startBtn}
+                                    style={{ borderColor: '#a855f7', color: '#a855f7', opacity: trainNextLoading ? 0.6 : 1 }}
+                                    onClick={handleTrainNext}
+                                    disabled={trainNextLoading}
+                                >
+                                    {trainNextLoading ? 'Lade...' : 'Weiter beitragen →'}
+                                </button>
+                                <button
+                                    className={styles.startBtn}
+                                    style={{ borderColor: 'rgba(168,85,247,0.4)', color: 'rgba(168,85,247,0.6)', fontSize: 13 }}
+                                    onClick={() => { submitCurrentRaidbossFitness(); window.location.href = '/lobby/shooter'; }}
+                                    disabled={trainNextLoading}
+                                >
+                                    ← Lobby
+                                </button>
+                            </div>
+                        ) : (
+                            <button className={styles.startBtn} onClick={startRound}>
+                                Nächste Runde →
+                            </button>
+                        )}
                     </div>
                 ) : null}
             </div>

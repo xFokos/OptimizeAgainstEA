@@ -1,8 +1,10 @@
 import type { Population, Individual, DNA, PlayerGhost } from '../../shooter.types';
 import { GAME_CONFIG, DNA_LENGTH, DNA_INDEX, ARENA, emptyStats } from '../../shooter.types';
 import { vec } from '../core/vec';
-import { updatePopulationStats, initPopulation } from './population';
+import { updatePopulationStats, initPopulation, randomDNA } from './population';
 import { calculateFitness } from './fitness';
+
+const INJECTION_COUNT = 4;
 
 // ---- Selektion ----
 function tournamentSelect(individuals: Individual[], tournamentSize = 3): Individual {
@@ -54,16 +56,21 @@ export function evolve(
     const popSize = population.individuals.length;
 
     const offspring: Individual[] = [];
-    while (offspring.length < popSize - GAME_CONFIG.ELITE_COUNT) {
+    while (offspring.length < popSize - GAME_CONFIG.ELITE_COUNT - INJECTION_COUNT) {
         const parent1  = tournamentSelect(sorted);
         const parent2  = tournamentSelect(sorted);
         const childDna = mutate(crossover(parent1.dna, parent2.dna, crossoverType), mutationRate, mutationStrength);
         offspring.push({ dna: childDna, fitness: 0 });
     }
 
+    const injected: Individual[] = Array.from(
+        { length: INJECTION_COUNT },
+        () => ({ dna: randomDNA(), fitness: 0 }),
+    );
+
     return updatePopulationStats({
         generation:  population.generation + 1,
-        individuals: [...elites, ...offspring],
+        individuals: [...elites, ...offspring, ...injected],
         bestFitness: 0,
         avgFitness:  0,
     });
