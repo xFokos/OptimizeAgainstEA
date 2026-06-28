@@ -125,9 +125,10 @@ const statStyles: Record<string, React.CSSProperties> = {
 // ---- Shooter Left Bar ----
 interface ShooterLeftBarProps {
     onAnalytics?: () => void;
+    onLobby?:     () => void | Promise<void>;
 }
 
-export function ShooterLeftBar({ onAnalytics }: ShooterLeftBarProps) {
+export function ShooterLeftBar({ onAnalytics, onLobby }: ShooterLeftBarProps) {
     const navigate = useNavigate();
 
     return (
@@ -136,7 +137,7 @@ export function ShooterLeftBar({ onAnalytics }: ShooterLeftBarProps) {
             <div style={styles.group}>
                 <NavButton
                     label="← Lobby"
-                    onClick={() => navigate('/lobby/shooter')}
+                    onClick={onLobby ?? (() => navigate('/lobby/shooter'))}
                 />
                 {onAnalytics && (
                     <NavButton

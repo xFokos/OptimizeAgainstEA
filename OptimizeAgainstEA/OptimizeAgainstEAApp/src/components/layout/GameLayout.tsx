@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode, RefObject } from 'react';
+import styles from './GameLayout.module.css';
 
 // ---- Design Tokens ----
 export const LAYOUT = {
@@ -11,30 +12,34 @@ export const LAYOUT = {
 
 // ---- Types ----
 interface GameLayoutProps {
-    children:   ReactNode;
-    leftBar?:   ReactNode;
-    sidebar?:   ReactNode;
-    canvasRef?: RefObject<HTMLDivElement | null>;  // wird direkt an das Canvas-Area-Div gehängt
+    children:    ReactNode;
+    leftBar?:    ReactNode;
+    sidebar?:    ReactNode;
+    canvasRef?:  RefObject<HTMLDivElement | null>;  // wird direkt an das Canvas-Area-Div gehängt
+    touchLayout?: boolean;  // true → Seitenpanels ohne Padding (für Touch-Zonen)
 }
 
 // ---- Component ----
-export function GameLayout({ children, leftBar, sidebar, canvasRef }: GameLayoutProps) {
+export function GameLayout({ children, leftBar, sidebar, canvasRef, touchLayout }: GameLayoutProps) {
+    const leftStyle  = touchLayout ? { ...panelStyles.leftBar,  padding: 0 } : panelStyles.leftBar;
+    const rightStyle = touchLayout ? { ...panelStyles.sidebar,  padding: 0 } : panelStyles.sidebar;
+
     return (
-        <div style={styles.root}>
+        <div className={`${styles.root}${touchLayout ? ` ${styles.touchLayout}` : ''}`}>
 
             {/* Linke Icon-Bar */}
-            <div style={styles.leftBar}>
+            <div className={styles.leftBar} style={leftStyle}>
                 {leftBar}
             </div>
 
             {/* Canvas Bereich – zentriert */}
-            <div style={styles.canvasArea} ref={canvasRef}>
+            <div style={panelStyles.canvasArea} ref={canvasRef}>
                 {children}
             </div>
 
             {/* Rechtes Stats Panel */}
             {sidebar && (
-                <div style={styles.sidebar}>
+                <div className={styles.sidebar} style={rightStyle}>
                     {sidebar}
                 </div>
             )}
@@ -43,23 +48,11 @@ export function GameLayout({ children, leftBar, sidebar, canvasRef }: GameLayout
     );
 }
 
-const styles: Record<string, CSSProperties> = {
-    root: {
-        display:             'grid',
-        gridTemplateColumns: 'var(--col-nav) 1fr var(--col-panel)',
-        width:               '100%',
-        height:              '100%',
-        overflow:            'hidden',
-    },
+const panelStyles: Record<string, CSSProperties> = {
     leftBar: {
-        display:        'flex',
-        flexDirection:  'column',
-        alignItems:     'center',
-        justifyContent: 'space-between',
-        padding:        `${LAYOUT.SPACING}px 0`,
-        borderRight:    `1px solid ${LAYOUT.BORDER_COLOR}`,
-        background:     LAYOUT.BG_PANEL,
-        overflow:       'hidden',
+        padding:     `${LAYOUT.SPACING}px 0`,
+        borderRight: `1px solid ${LAYOUT.BORDER_COLOR}`,
+        background:  LAYOUT.BG_PANEL,
     },
     canvasArea: {
         display:        'flex',
@@ -70,9 +63,8 @@ const styles: Record<string, CSSProperties> = {
         overflow:       'hidden',
     },
     sidebar: {
-        borderLeft:  `1px solid ${LAYOUT.BORDER_COLOR}`,
-        background:  LAYOUT.BG_PANEL,
-        overflowY:   'auto',
-        padding:     LAYOUT.SPACING,
+        borderLeft: `1px solid ${LAYOUT.BORDER_COLOR}`,
+        background: LAYOUT.BG_PANEL,
+        padding:    LAYOUT.SPACING,
     },
 };

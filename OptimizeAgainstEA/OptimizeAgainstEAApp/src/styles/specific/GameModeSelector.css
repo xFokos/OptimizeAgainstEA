@@ -1,0 +1,199 @@
+/* ============================================================
+   Game Mode Selector — shared template for all games
+   Provides the PeakFinder-style full-page shell with topbar
+   and centered mode-tile grid.
+
+   Usage:
+     .game-selector-shell     — full-viewport wrapper (replaces PageContainer)
+     .game-selector-topbar    — fixed top bar (back · title · right actions)
+     .game-selector-content   — scrollable centered content area below the bar
+     .game-mode-selector      — centered column: header + grid
+     .game-mode-card          — individual tile (combine with .panel classes)
+
+   CSS variables come from index.css — no local overrides needed.
+   ============================================================ */
+
+/* ── Shell ──────────────────────────────────────────────── */
+
+.game-selector-shell {
+    width:           100%;
+    height:          100dvh;
+    display:         flex;
+    flex-direction:  column;
+    /* Same animated gradient as PageContainer */
+    background:       linear-gradient(120deg, #0f2027, #203a43, #2c5364);
+    background-size:  300% 300%;
+    animation:        bgMove 12s ease infinite;
+    color:            var(--text-primary);
+}
+
+/* ── Top bar ────────────────────────────────────────────── */
+
+.game-selector-topbar {
+    height:         56px;
+    flex-shrink:    0;
+    display:        flex;
+    align-items:    center;
+    justify-content: space-between;
+    padding:        0 var(--sp-4);
+    background:     rgba(0, 0, 0, 0.32);
+    border-bottom:  1px solid var(--border-bright);
+    box-sizing:     border-box;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    gap:            var(--sp-3);
+}
+
+.game-selector-topbar__left,
+.game-selector-topbar__right {
+    display:    flex;
+    align-items: center;
+    gap:         var(--sp-2);
+    min-width:   120px;
+}
+
+.game-selector-topbar__right {
+    justify-content: flex-end;
+}
+
+.game-selector-topbar__center {
+    display:     flex;
+    align-items: center;
+    gap:         var(--sp-2);
+    flex:        1;
+    justify-content: center;
+}
+
+.game-selector-topbar__logo {
+    font-family:    var(--font-mono);
+    font-size:      11px;
+    font-weight:    700;
+    letter-spacing: 0.06em;
+    color:          var(--accent);
+    background:     var(--accent-dim);
+    border:         1px solid rgba(79, 195, 247, 0.22);
+    border-radius:  var(--r-sm);
+    padding:        2px 8px;
+    flex-shrink:    0;
+}
+
+.game-selector-topbar__name {
+    font-family:    var(--font-mono);
+    font-size:      12px;
+    font-weight:    600;
+    letter-spacing: 0.08em;
+    color:          var(--text-dim);
+    text-transform: uppercase;
+}
+
+/* ── Content area ───────────────────────────────────────── */
+
+.game-selector-content {
+    flex:     1;
+    min-height: 0;
+    overflow-y: auto;
+    display:    flex;
+    align-items: safe center;
+    justify-content: safe center;
+    padding:    var(--sp-6);
+    box-sizing: border-box;
+}
+
+/* ── Mode Selector block ────────────────────────────────── */
+
+.game-mode-selector {
+    display:        flex;
+    flex-direction: column;
+    align-items:    center;
+    gap:            var(--sp-7);
+    width:          100%;
+    max-width:      720px;
+    animation:      gameSelectorFadeUp 0.4s ease both;
+}
+
+@keyframes gameSelectorFadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.game-mode-selector__header {
+    text-align: center;
+}
+
+.game-mode-selector__title {
+    font-family:    var(--font-mono);
+    font-size:      clamp(2.2rem, 6vw, 3.8rem);
+    font-weight:    700;
+    letter-spacing: 0.2em;
+    color:          var(--accent);
+    text-shadow:    0 0 40px var(--accent-glow);
+    margin:         0;
+    line-height:    1.1;
+}
+
+.game-mode-selector__subtitle {
+    margin:         var(--sp-2) 0 0;
+    color:          var(--text-secondary);
+    font-size:      0.9rem;
+    letter-spacing: 0.04em;
+}
+
+.game-mode-selector__grid {
+    display:               grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap:                   var(--sp-4);
+    width:                 100%;
+}
+
+@media (max-width: 480px) {
+    .game-mode-selector__grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+    .game-mode-selector { gap: var(--sp-5); }
+    .game-mode-card__key { display: none; }
+}
+
+/* ── Mode Card tile ─────────────────────────────────────── */
+
+/* Use alongside .panel .panel--surface .panel--md .panel--interactive */
+.game-mode-card {
+    display:        flex;
+    flex-direction: column;
+    align-items:    flex-start;
+    gap:            var(--sp-2);
+    text-align:     left;
+    font-family:    inherit;
+}
+
+.game-mode-card:hover {
+    border-color: var(--accent);
+    background:   var(--bg-elevated);
+    transform:    translateY(-2px);
+    box-shadow:   0 8px 24px rgba(0, 0, 0, 0.35),
+                  0 0 0 1px var(--accent-dim);
+}
+
+.game-mode-card__key {
+    font-family:    var(--font-mono);
+    font-size:      0.7rem;
+    color:          var(--accent);
+    background:     var(--accent-dim);
+    padding:        2px 6px;
+    border-radius:  var(--r-sm);
+    letter-spacing: 0.05em;
+}
+
+.game-mode-card__label {
+    font-family:    var(--font-mono);
+    font-size:      1.1rem;
+    font-weight:    700;
+    color:          var(--text-primary);
+    letter-spacing: 0.05em;
+}
+
+.game-mode-card__sub {
+    font-size:   0.8rem;
+    color:       var(--text-secondary);
+    line-height: 1.4;
+}

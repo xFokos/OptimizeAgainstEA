@@ -1,4 +1,5 @@
 import { useRef, useCallback, useState, useEffect, type CSSProperties, type RefObject } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     ARENA,
     GAME_CONFIG,
@@ -10,6 +11,8 @@ import {
     type InputState,
     type PlayerGhost,
     type AgentGhostFrame,
+    type PlayerGhostFrame,
+    type Population,
     type CrossoverExample,
 } from '../shooter.types';
 
@@ -19,6 +22,7 @@ import { initPopulation } from '../game/ga/population';
 import { consumePendingSlot, submitRaidbossFitness, claimRaidbossSlot, setRaidbossActive } from '../game/raidbossStore';
 import type { RaidbossSlot } from '../game/raidbossStore';
 import { useInput }          from '../hooks/useInput';
+import { useTouchControls } from '../hooks/useTouchControls';
 import { useGameLoop }       from '../hooks/useGameLoop';
 import { update, resetGameLoop } from '../game/core/gameLoop';
 import { renderer }          from '../game/core/renderer';
@@ -150,13 +154,17 @@ const makeInitialGameState = (settings: ShooterSettings): GameState => ({
 // ---- Komponente ----
 
 interface ShooterCanvasProps {
-    scale?: number;
+    scale?:            number;
+    externalInputRef?: RefObject<InputState>;           // von ShooterGamePage; wenn gesetzt → Zone-Touch-Modus
+    leaveHandlerRef?:  RefObject<(() => Promise<void>) | undefined>;  // ShooterGamePage registriert sich hier für sauberes Verlassen
 }
 
-export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
+export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: ShooterCanvasProps) => {
     const { eaSettings, shooterSettings } = useSettings();
+    const navigate = useNavigate();
 
     const canvasRef            = useRef<HTMLCanvasElement>(null);
+    const nullCanvasRef        = useRef<HTMLCanvasElement | null>(null);  // immer null → deaktiviert Canvas-Touch
     const gameStateRef         = useRef<GameState | null>(null);
     const agentFramesRef       = useRef<AgentGhostFrame[]>([]);
     const playerFramesRef      = useRef<PlayerGhostFrame[]>([]);
@@ -172,18 +180,24 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
         overrideDna:      number[] | null;
         settings:         typeof shooterSettings;
     } | null>(null);
-    const inputRef             = useInput();
+    const _internalInputRef     = useInput();
+    const inputRef              = externalInputRef ?? _internalInputRef;
+    const shooterSettingsRef    = useRef(shooterSettings);
+    // Wenn externe Input-Refs (Zone-Touch) aktiv: Canvas-Touch deaktivieren
+    const touchCanvasRef       = externalInputRef ? nullCanvasRef : canvasRef;
+    const touchVisualRef       = useTouchControls(inputRef, touchCanvasRef);
 
     const [matchScore, setMatchScore]           = useState(0);
     const [isRaidbossRound, setIsRaidbossRound] = useState(false);
     const [trainNextLoading, setTrainNextLoading] = useState(false);
-    const raidbossSlotRef = useRef<RaidbossSlot | null>(null);
-    const raidbossInfoRef = useRef<{ generation: number; index: number; total: number } | null>(null);
+    const raidbossSlotRef    = useRef<RaidbossSlot | null>(null);
+    const raidbossInfoRef    = useRef<{ generation: number; index: number; total: number } | null>(null);
+    const pendingSubmitRef   = useRef<Promise<void>>(Promise.resolve());
 
     useEffect(() => {
         const slot = consumePendingSlot();
-        raidbossSlotRef.current = slot;
         if (slot) {
+            raidbossSlotRef.current = slot;
             setIsRaidbossRound(true);
             setRaidbossActive(true);
             raidbossInfoRef.current = {
@@ -202,7 +216,26 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
     }, []);
 
     useEffect(() => {
-        return () => { evolutionWorkerRef.current?.terminate(); };
+        shooterSettingsRef.current = shooterSettings;
+    }, [shooterSettings]);
+
+    useEffect(() => {
+        return () => {
+            evolutionWorkerRef.current?.terminate();
+
+            // Raidboss-Fitness beim Verlassen einreichen falls noch nicht geschehen.
+            // Deckt alle Exit-Pfade ab (Overlay-Button, Mobile-Nav-Button, Browser-Back).
+            const slot  = raidbossSlotRef.current;
+            const state = gameStateRef.current;
+            if (slot && state && state.roundNumber > 0) {
+                const fitness = calculateRaidbossFitness(
+                    state.agent.stats,
+                    shooterSettingsRef.current.roundDuration,
+                );
+                submitRaidbossFitness(slot.index, fitness, slot.doc).catch(console.error);
+                setRaidbossActive(false);
+            }
+        };
     }, []);
 
     // Wird aufgerufen sobald die Evolution (Worker oder sync) eine neue Population hat
@@ -269,6 +302,22 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
         }, eaSettings.maxAnalyticsRounds);
     }, [eaSettings.maxAnalyticsRounds]);
 
+    // Raidboss-Fitness beim Rundenende einreichen (fire-and-forget, idempotent via slot=null).
+    // Slot wird sofort auf null gesetzt → kein Doppel-Submit egal welcher Exit-Pfad folgt.
+    const submitRaidbossOnRoundEnd = (endState: GameState) => {
+        const slot = raidbossSlotRef.current;
+        if (!slot || endState.roundNumber <= 0) return;
+        const fitness = calculateRaidbossFitness(
+            endState.agent.stats,
+            shooterSettingsRef.current.roundDuration,
+        );
+        // Speichert die Promise damit submitCurrentRaidbossFitness sie awaiten kann
+        pendingSubmitRef.current = submitRaidbossFitness(slot.index, fitness, slot.doc)
+            .catch(console.error)
+            .then(() => undefined);
+        raidbossSlotRef.current = null;  // verhindert Doppel-Submit
+    };
+
     // onUpdate: Spiellogik – gibt neuen State zurück
     const onUpdate = useCallback((
         state: GameState,
@@ -282,7 +331,10 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
 
         if (next.phase !== state.phase) {
             setPhase(next.phase);
-            if (next.phase === 'roundEnd') pushRoundAnalytics(next);
+            if (next.phase === 'roundEnd') {
+                pushRoundAnalytics(next);
+                submitRaidbossOnRoundEnd(next);
+            }
         }
 
         // Tug of war: live hit tracking
@@ -298,6 +350,7 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
             if (Math.abs(newScore) >= threshold) {
                 setPhase('roundEnd');
                 pushRoundAnalytics(next);
+                submitRaidbossOnRoundEnd(next);
             }
         }
 
@@ -307,8 +360,16 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
 
     // onRender: Canvas zeichnen
     const onRender = useCallback((state: GameState) => {
-        renderer.render(canvasRef.current, state, raidbossInfoRef.current ?? undefined);
-    }, []);
+        // Touch-Overlay nur für Canvas-basierte Steuerung (nicht im Zone-Modus)
+        const touch = (!externalInputRef && state.phase === 'playing')
+            ? touchVisualRef.current
+            : null;
+        // Ziellaser im Mobile-Zone-Modus (externalInputRef gesetzt)
+        const aimLaser = (externalInputRef && state.phase === 'playing')
+            ? { mouseX: externalInputRef.current.mouseX, mouseY: externalInputRef.current.mouseY }
+            : null;
+        renderer.render(canvasRef.current, state, raidbossInfoRef.current ?? undefined, touch, aimLaser);
+    }, [externalInputRef]);
 
     useGameLoop({
         gameState:  gameStateRef as RefObject<GameState>,
@@ -323,14 +384,21 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
         const state = gameStateRef.current;
         if (slot && state && state.roundNumber > 0) {
             const fitness = calculateRaidbossFitness(state.agent.stats, shooterSettings.roundDuration);
-            const p = submitRaidbossFitness(slot.index, fitness, slot.doc);
+            const p = submitRaidbossFitness(slot.index, fitness, slot.doc)
+                .catch(console.error)
+                .then(() => undefined);
             raidbossSlotRef.current = null;
             raidbossInfoRef.current = null;
             setRaidbossActive(false);
+            pendingSubmitRef.current = p;
             return p;
         }
-        return Promise.resolve();
+        // Slot bereits durch submitRaidbossOnRoundEnd geleert → auf laufende Transaktion warten
+        return pendingSubmitRef.current;
     };
+
+    // leaveHandlerRef immer aktuell halten damit ShooterGamePage awaiten kann
+    if (leaveHandlerRef) leaveHandlerRef.current = submitCurrentRaidbossFitness;
 
     const handleTrainNext = async () => {
         if (trainNextLoading) return;
@@ -549,10 +617,14 @@ export const ShooterCanvas = ({ scale = 1 }: ShooterCanvasProps) => {
                                 <button
                                     className="btn btn--soft"
                                     style={{ '--btn-color': '#a855f7' } as CSSProperties}
-                                    onClick={() => { submitCurrentRaidbossFitness(); window.location.href = '/lobby/shooter'; }}
+                                    onClick={async () => {
+                                        setTrainNextLoading(true);
+                                        try { await submitCurrentRaidbossFitness(); } finally { setTrainNextLoading(false); }
+                                        navigate('/lobby/shooter', { state: { mode: 'raidboss' } });
+                                    }}
                                     disabled={trainNextLoading}
                                 >
-                                    ← Lobby
+                                    {trainNextLoading ? 'Speichert...' : '← Lobby'}
                                 </button>
                                 <button
                                     className="btn btn--outline"

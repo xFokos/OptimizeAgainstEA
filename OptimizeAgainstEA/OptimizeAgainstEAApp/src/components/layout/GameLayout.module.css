@@ -1,0 +1,52 @@
+.root {
+    display:               grid;
+    grid-template-columns: var(--col-nav) 1fr var(--col-panel);
+    width:    100%;
+    height:   100%;
+    overflow: hidden;
+}
+
+.leftBar {
+    display:         flex;
+    flex-direction:  column;
+    align-items:     center;
+    justify-content: space-between;
+    overflow: hidden;
+}
+
+.sidebar {
+    overflow-y: auto;
+}
+
+/* Portrait phone: single column, panels hidden */
+@media (max-width: 600px) and (orientation: portrait) {
+    .root {
+        grid-template-columns: 1fr;
+    }
+    .leftBar {
+        display: none;
+    }
+    .sidebar {
+        display: none;
+    }
+}
+
+/* Landscape phone (Handy quer = Twin-Stick): schmale Touch-Zonen */
+@media (orientation: landscape) and (max-height: 500px) {
+    .root {
+        grid-template-columns: 155px 1fr 155px;
+    }
+    /* panels wieder sichtbar falls vorher ausgeblendet */
+    .leftBar,
+    .sidebar {
+        display: flex;
+    }
+}
+
+/* touchLayout: Panels füllen die ganze Fläche (kein Padding) */
+.touchLayout .leftBar {
+    justify-content: stretch;
+}
+.touchLayout .sidebar {
+    overflow-y: hidden;
+}

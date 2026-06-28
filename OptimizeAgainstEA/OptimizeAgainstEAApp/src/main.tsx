@@ -9,6 +9,7 @@ import "./styles/primitives/overlays.css";
 import "./styles/primitives/panels.css";
 import "./styles/primitives/badges.css";
 import "./styles/primitives/eyebrows.css";
+import "./styles/specific/GameModeSelector.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>

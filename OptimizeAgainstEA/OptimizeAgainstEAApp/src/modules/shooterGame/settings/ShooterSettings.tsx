@@ -2,95 +2,165 @@ import type { CSSProperties } from 'react';
 import { useSettings, resetShooterSettings } from '../../../context/SettingsContext';
 import { DNA_NAMES } from '../shooter.types';
 
-export function ShooterSettingsPanel() {
-    const { shooterSettings: s, setShooterSettings } = useSettings();
+// ── Shared slider row ────────────────────────────────────────────────────────
 
+interface SliderRowProps {
+    label: string;
+    min: number; max: number; step: number;
+    value: number;
+    display: string;
+    onChange: (v: number) => void;
+}
+
+function SliderRow({ label, min, max, step, value, display, onChange }: SliderRowProps) {
+    return (
+        <div style={styles.row}>
+            <label style={styles.label}>{label}</label>
+            <input
+                type="range" min={min} max={max} step={step} value={value}
+                onChange={e => onChange(parseFloat(e.target.value))}
+                className="slider" style={styles.slider}
+            />
+            <span style={styles.value}>{display}</span>
+        </div>
+    );
+}
+
+// ── Section: Starter DNA ─────────────────────────────────────────────────────
+
+export function ShooterDnaSection() {
+    const { shooterSettings: s, setShooterSettings } = useSettings();
     const updateDna = (index: number, value: number) => {
         const newDna = [...s.starterDna];
         newDna[index] = value;
         setShooterSettings({ ...s, starterDna: newDna });
     };
+    return (
+        <div style={dnaStyles.grid}>
+            {DNA_NAMES.map((name, i) => (
+                <div key={i} style={dnaStyles.item}>
+                    <div style={dnaStyles.itemHeader}>
+                        <span style={dnaStyles.itemLabel}>{name}</span>
+                        <span style={dnaStyles.itemValue}>{s.starterDna[i].toFixed(2)}</span>
+                    </div>
+                    <input
+                        type="range" min={0} max={1} step={0.01}
+                        value={s.starterDna[i]}
+                        onChange={e => updateDna(i, parseFloat(e.target.value))}
+                        className="slider"
+                        style={{ width: '100%', cursor: 'pointer' }}
+                    />
+                </div>
+            ))}
+        </div>
+    );
+}
 
+const dnaStyles: Record<string, React.CSSProperties> = {
+    grid: {
+        display:               'grid',
+        gridTemplateColumns:   'repeat(2, 1fr)',
+        gap:                   '10px 16px',
+    },
+    item: {
+        display:       'flex',
+        flexDirection: 'column',
+        gap:           4,
+    },
+    itemHeader: {
+        display:        'flex',
+        justifyContent: 'space-between',
+        alignItems:     'baseline',
+    },
+    itemLabel: {
+        fontSize:   11,
+        color:      'var(--text-dim)',
+        fontFamily: 'var(--font-mono)',
+        whiteSpace: 'nowrap' as const,
+        overflow:   'hidden',
+        textOverflow: 'ellipsis',
+    },
+    itemValue: {
+        fontSize:   11,
+        color:      'var(--accent)',
+        fontFamily: 'var(--font-mono)',
+        flexShrink: 0,
+    },
+};
+
+// ── Section: Spieler ─────────────────────────────────────────────────────────
+
+export function ShooterPlayerSection() {
+    const { shooterSettings: s, setShooterSettings } = useSettings();
     return (
         <div>
-            {/* Starter DNA */}
+            <SliderRow
+                label="Bullet Speed"
+                min={100} max={1000} step={10}
+                value={s.playerStats.bulletSpeed}
+                display={String(s.playerStats.bulletSpeed)}
+                onChange={v => setShooterSettings({ ...s, playerStats: { ...s.playerStats, bulletSpeed: Math.round(v) } })}
+            />
+            <SliderRow
+                label="Move Speed"
+                min={50} max={600} step={10}
+                value={s.playerStats.moveSpeed}
+                display={String(s.playerStats.moveSpeed)}
+                onChange={v => setShooterSettings({ ...s, playerStats: { ...s.playerStats, moveSpeed: Math.round(v) } })}
+            />
+            <SliderRow
+                label="Shoot Cooldown"
+                min={0.05} max={2} step={0.05}
+                value={s.playerStats.shootCooldown}
+                display={s.playerStats.shootCooldown.toFixed(2) + 's'}
+                onChange={v => setShooterSettings({ ...s, playerStats: { ...s.playerStats, shootCooldown: v } })}
+            />
+        </div>
+    );
+}
+
+// ── Section: Spielrunde ──────────────────────────────────────────────────────
+
+export function ShooterRoundSection() {
+    const { shooterSettings: s, setShooterSettings } = useSettings();
+    return (
+        <div>
+            <SliderRow
+                label="Rundendauer"
+                min={10} max={120} step={5}
+                value={s.roundDuration}
+                display={s.roundDuration + 's'}
+                onChange={v => setShooterSettings({ ...s, roundDuration: Math.round(v) })}
+            />
+            <SliderRow
+                label="Tug-of-War Ziel"
+                min={3} max={30} step={1}
+                value={s.tugWinThreshold}
+                display={String(s.tugWinThreshold)}
+                onChange={v => setShooterSettings({ ...s, tugWinThreshold: Math.round(v) })}
+            />
+        </div>
+    );
+}
+
+// ── Legacy full panel (still used outside the lobby) ────────────────────────
+
+export function ShooterSettingsPanel() {
+    const { setShooterSettings } = useSettings();
+    return (
+        <div>
             <section style={styles.section}>
                 <h3 style={styles.sectionTitle}>Starter DNA</h3>
-                <p style={styles.hint}>Niedrige Werte = schwacher Start · Hohe Werte = starker Start</p>
-                {DNA_NAMES.map((name, i) => (
-                    <div key={i} style={styles.row}>
-                        <label style={styles.label}>{name}</label>
-                        <input
-                            type="range" min={0} max={1} step={0.01}
-                            value={s.starterDna[i]}
-                            onChange={e => updateDna(i, parseFloat(e.target.value))}
-                            className="slider" style={styles.slider}
-                        />
-                        <span style={styles.value}>{s.starterDna[i].toFixed(2)}</span>
-                    </div>
-                ))}
+                <ShooterDnaSection />
             </section>
-
-            {/* Runde */}
             <section style={styles.section}>
                 <h3 style={styles.sectionTitle}>Spielrunde</h3>
-                <div style={styles.row}>
-                    <label style={styles.label}>Rundendauer</label>
-                    <input
-                        type="range" min={10} max={120} step={5}
-                        value={s.roundDuration}
-                        onChange={e => setShooterSettings({ ...s, roundDuration: parseInt(e.target.value) })}
-                        className="slider" style={styles.slider}
-                    />
-                    <span style={styles.value}>{s.roundDuration}s</span>
-                </div>
-                <div style={styles.row}>
-                    <label style={styles.label}>Tug-of-War Ziel</label>
-                    <input
-                        type="range" min={3} max={30} step={1}
-                        value={s.tugWinThreshold}
-                        onChange={e => setShooterSettings({ ...s, tugWinThreshold: parseInt(e.target.value) })}
-                        className="slider" style={styles.slider}
-                    />
-                    <span style={styles.value}>{s.tugWinThreshold}</span>
-                </div>
+                <ShooterRoundSection />
             </section>
-
-            {/* Spieler */}
             <section style={styles.section}>
                 <h3 style={styles.sectionTitle}>Spieler</h3>
-                <div style={styles.row}>
-                    <label style={styles.label}>Bullet Speed</label>
-                    <input
-                        type="range" min={100} max={1000} step={10}
-                        value={s.playerStats.bulletSpeed}
-                        onChange={e => setShooterSettings({ ...s, playerStats: { ...s.playerStats, bulletSpeed: parseInt(e.target.value) } })}
-                        className="slider" style={styles.slider}
-                    />
-                    <span style={styles.value}>{s.playerStats.bulletSpeed}</span>
-                </div>
-                <div style={styles.row}>
-                    <label style={styles.label}>Move Speed</label>
-                    <input
-                        type="range" min={50} max={600} step={10}
-                        value={s.playerStats.moveSpeed}
-                        onChange={e => setShooterSettings({ ...s, playerStats: { ...s.playerStats, moveSpeed: parseInt(e.target.value) } })}
-                        className="slider" style={styles.slider}
-                    />
-                    <span style={styles.value}>{s.playerStats.moveSpeed}</span>
-                </div>
-                <div style={styles.row}>
-                    <label style={styles.label}>Shoot Cooldown</label>
-                    <input
-                        type="range" min={0.05} max={2} step={0.05}
-                        value={s.playerStats.shootCooldown}
-                        onChange={e => setShooterSettings({ ...s, playerStats: { ...s.playerStats, shootCooldown: parseFloat(e.target.value) } })}
-                        className="slider" style={styles.slider}
-                    />
-                    <span style={styles.value}>{s.playerStats.shootCooldown.toFixed(2)}s</span>
-                </div>
+                <ShooterPlayerSection />
             </section>
-
             <button style={styles.resetBtn} onClick={() => setShooterSettings(resetShooterSettings())}>
                 Zurücksetzen
             </button>
@@ -135,7 +205,7 @@ const styles: Record<string, CSSProperties> = {
         cursor: 'pointer',
     },
     value: {
-        width:     '36px',
+        width:     '48px',
         fontSize:  '13px',
         textAlign: 'right',
         color:     'var(--accent)',

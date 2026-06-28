@@ -26,7 +26,7 @@ export function calculateRaidbossFitness(stats: RoundStats, roundDuration: numbe
 
     // Win/Lose-Bonus: flacher Aufschlag basierend auf Netto-Treffern
     // Nicht zu groß, damit die Treffer-Bilanz das Hauptsignal bleibt
-    const net = stats.hitsLanded - stats.hitsReceived;
+    const net = stats.hitsLanded + stats.hitsReceived;
     const outcomeBonus = net > 0 ? 120 : net < 0 ? -80 : 0;
 
     return hitScore + survivalBonus + outcomeBonus;

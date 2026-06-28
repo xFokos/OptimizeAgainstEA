@@ -9,12 +9,17 @@
 
 
 .canvas {
-    position: absolute;
-    top: 44px;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: block;
+    position:    absolute;
+    top:         44px;
+    left:        0;
+    right:       0;
+    bottom:      0;
+    display:     block;
+    touch-action: none;
+}
+
+.wrapper {
+    user-select: none;
 }
 
 /* ---- Tug of War Bar ---- */
@@ -170,6 +175,13 @@
 
 /* Start/next-round button now uses the shared `.btn btn--primary` primitive
    (see src/styles/primitives/buttons.css). */
+
+@media (max-width: 768px) {
+    .title    { font-size: 22px; }
+    .subtitle { font-size: 11px; }
+    .overlay  { gap: 12px; padding: 16px; }
+    .roundStatCount { font-size: 28px; }
+}
 
 /* ---- Crossover Visualization ---- */
 .crossover {
