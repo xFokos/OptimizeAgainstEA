@@ -11,6 +11,7 @@ import ShooterGamePage from "./pages/ShooterGamePage.tsx";
 import BattleShipsPage from "./pages/BattleShipsPage.tsx";
 import MazeGamePage from "./pages/MazeGamePage.tsx";
 import ShooterLobbyPage from "./pages/lobby/ShooterLobbyPage";
+import ButtonsPage from "./pages/ButtonsPage.tsx";
 
 export default function App() {
     return (
@@ -26,6 +27,7 @@ export default function App() {
                 <Route path="Dashboard" element={<DashboardPage />}/>
                 <Route path="ShooterGame" element={<ShooterGamePage/>}/>
                 <Route path="/lobby/shooter" element={<ShooterLobbyPage />} />
+                <Route path="/Buttons" element={<ButtonsPage />} />
             </Routes>
         </SettingsProvider>
 );

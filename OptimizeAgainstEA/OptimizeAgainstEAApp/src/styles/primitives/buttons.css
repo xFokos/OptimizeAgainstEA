@@ -6,17 +6,26 @@
    app-wide tokens in index.css, so buttons match the shared blue + Inter theme.
 
    Usage:
-     <button class="btn">…</button>             default (outlined)
-     <button class="btn btn--primary">…</button> primary call-to-action
-     <button class="btn btn--ghost">…</button>   quiet / secondary
-     <button class="btn btn--blue">…</button>    secondary-blue action
-     <button class="btn btn--danger">…</button>  destructive
-     <button class="btn btn--sm">…</button>      smaller padding
-     <button class="btn btn--active">…</button>  selected / toggled-on state
-     <button class="btn btn--block">…</button>   stretch to container width
+     <button class="btn">…</button>               default (neutral outline)
+     <button class="btn btn--primary">…</button>  primary call-to-action (solid accent)
+     <button class="btn btn--outline">…</button>  blue border + blue text on dark fill
+     <button class="btn btn--soft">…</button>     tonal blue (quiet, but reads as accent)
+     <button class="btn btn--ghost">…</button>    quiet / secondary
+     <button class="btn btn--blue">…</button>     secondary-blue action
+     <button class="btn btn--gold">…</button>     optimum / highlight call-to-action
+     <button class="btn btn--danger">…</button>   destructive
+     <button class="btn btn--sm">…</button>       smaller padding
+     <button class="btn btn--active">…</button>   toggled-on (recolours to accent)
+     <button class="btn btn--selected">…</button> selection ring over any variant
+     <button class="btn btn--block">…</button>    stretch to container width
 
-   NOTE: this is for *action* buttons only. Image/nav buttons (.button in
-   Button.css) and sidebar nav items (.menu-item) are separate components.
+   Recolouring: .btn--outline and .btn--soft read their colour from the
+   --btn-color custom property (default = accent). Recolour either by adding a
+   preset class (btn--c-blue / btn--c-gold / btn--c-danger) or inline with any
+   colour, e.g. style={{ '--btn-color': 'var(--accent-global)' }}.
+
+   NOTE: `.btn` is for *action* buttons only. Sidebar nav items (.menu-item)
+   are a separate component elsewhere.
    ============================================================ */
 
 .btn {
@@ -55,8 +64,60 @@
   box-shadow: 0 0 16px var(--accent-glow);
 }
 
+/* Border + text on a darker filled background. Reads as an accented action
+   without the visual weight of the solid primary.
+
+   Themeable: the colour comes from --btn-color (default = accent). Override it
+   to recolour the whole button — inline (style={{ '--btn-color': '#9b6cff' }})
+   or with a preset .btn--c-* class below. Translucent fills/glow are derived
+   from --btn-color, so any colour works. */
+.btn--outline {
+  --btn-color: var(--accent);
+  background: var(--bg-elevated);
+  border-color: var(--btn-color);
+  color: var(--btn-color);
+}
+.btn--outline:hover:not(:disabled) {
+  background:    color-mix(in srgb, var(--btn-color) 14%, transparent);
+  border-color:  color-mix(in srgb, var(--btn-color) 75%, white);
+  color:         color-mix(in srgb, var(--btn-color) 75%, white);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--btn-color) 30%, transparent);
+}
+
+/* Tonal / soft — a quiet secondary that still belongs to its colour family.
+   Subtle filled tint, no hard border. Same --btn-color theming as --outline. */
+.btn--soft {
+  --btn-color: var(--accent);
+  background: color-mix(in srgb, var(--btn-color) 12%, transparent);
+  border-color: transparent;
+  color: var(--btn-color);
+}
+.btn--soft:hover:not(:disabled) {
+  background:   color-mix(in srgb, var(--btn-color) 22%, transparent);
+  border-color: var(--btn-color);
+  color:        color-mix(in srgb, var(--btn-color) 75%, white);
+}
+
+/* Colour presets — set --btn-color, so they recolour any themeable variant
+   (.btn--outline / .btn--soft). Combine: class="btn btn--outline btn--c-gold". */
+.btn--c-blue   { --btn-color: var(--accent-min); }
+.btn--c-gold   { --btn-color: var(--accent-global); }
+.btn--c-danger { --btn-color: var(--danger); }
+
 .btn--ghost { background: transparent; border-color: var(--border); color: var(--text-secondary); }
 .btn--ghost:hover:not(:disabled) { border-color: var(--border-bright); color: var(--text-primary); }
+
+/* Gold highlight — pairs with the semantic "global optimum" colour. */
+.btn--gold {
+  background: var(--accent-global);
+  color: #060809;
+  border-color: var(--accent-global);
+  font-weight: 700;
+}
+.btn--gold:hover:not(:disabled) {
+  box-shadow: 0 0 16px var(--accent-global-glow);
+  filter: brightness(1.08);
+}
 
 .btn--blue {
   background: var(--accent-min);
@@ -84,4 +145,12 @@
   border-color: var(--accent);
   color: #060809;
   box-shadow: 0 0 16px var(--accent-glow);
+}
+
+/* Selection ring — overlays *any* variant to mark it as chosen without
+   replacing the variant's own colours (unlike .btn--active, which recolours
+   the button to the solid accent look). */
+.btn--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
