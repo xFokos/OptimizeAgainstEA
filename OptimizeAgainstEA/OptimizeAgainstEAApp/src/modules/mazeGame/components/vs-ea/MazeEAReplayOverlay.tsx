@@ -249,7 +249,7 @@ function PhasePanel({ frame }: { frame: ReplayFrame }) {
       };
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div className="maze-replay-card">
+          <div className="panel panel--inset maze-replay-card">
             <div className="maze-replay-card__row">
               <span className="maze-replay-card__label">Mutated</span>
               <span style={{ fontFamily: 'monospace', fontSize: '0.72rem' }}>
@@ -275,7 +275,7 @@ function PhasePanel({ frame }: { frame: ReplayFrame }) {
       );
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div className="maze-replay-card">
+          <div className="panel panel--inset maze-replay-card">
             <div className="maze-replay-card__row">
               <span className="maze-replay-card__label">Reached</span>
               <span style={{ fontFamily: 'monospace', fontSize: '0.72rem' }}>

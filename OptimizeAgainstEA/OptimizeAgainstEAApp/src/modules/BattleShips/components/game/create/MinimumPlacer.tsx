@@ -42,7 +42,7 @@ export function MinimumPlacer({
         <div className="create-step">
             <div className="create-step__info">
                 <h2 className="create-step__heading">
-                    <span className="step-badge">01</span>
+                    <span className="badge">01</span>
                     Place Minima
                 </h2>
                 <p className="create-step__desc">

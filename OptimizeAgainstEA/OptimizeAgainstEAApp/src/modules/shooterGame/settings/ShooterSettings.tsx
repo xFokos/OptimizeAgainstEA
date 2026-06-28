@@ -24,7 +24,7 @@ export function ShooterSettingsPanel() {
                             type="range" min={0} max={1} step={0.01}
                             value={s.starterDna[i]}
                             onChange={e => updateDna(i, parseFloat(e.target.value))}
-                            style={styles.slider}
+                            className="slider" style={styles.slider}
                         />
                         <span style={styles.value}>{s.starterDna[i].toFixed(2)}</span>
                     </div>
@@ -40,7 +40,7 @@ export function ShooterSettingsPanel() {
                         type="range" min={10} max={120} step={5}
                         value={s.roundDuration}
                         onChange={e => setShooterSettings({ ...s, roundDuration: parseInt(e.target.value) })}
-                        style={styles.slider}
+                        className="slider" style={styles.slider}
                     />
                     <span style={styles.value}>{s.roundDuration}s</span>
                 </div>
@@ -50,7 +50,7 @@ export function ShooterSettingsPanel() {
                         type="range" min={3} max={30} step={1}
                         value={s.tugWinThreshold}
                         onChange={e => setShooterSettings({ ...s, tugWinThreshold: parseInt(e.target.value) })}
-                        style={styles.slider}
+                        className="slider" style={styles.slider}
                     />
                     <span style={styles.value}>{s.tugWinThreshold}</span>
                 </div>
@@ -65,7 +65,7 @@ export function ShooterSettingsPanel() {
                         type="range" min={100} max={1000} step={10}
                         value={s.playerStats.bulletSpeed}
                         onChange={e => setShooterSettings({ ...s, playerStats: { ...s.playerStats, bulletSpeed: parseInt(e.target.value) } })}
-                        style={styles.slider}
+                        className="slider" style={styles.slider}
                     />
                     <span style={styles.value}>{s.playerStats.bulletSpeed}</span>
                 </div>
@@ -75,7 +75,7 @@ export function ShooterSettingsPanel() {
                         type="range" min={50} max={600} step={10}
                         value={s.playerStats.moveSpeed}
                         onChange={e => setShooterSettings({ ...s, playerStats: { ...s.playerStats, moveSpeed: parseInt(e.target.value) } })}
-                        style={styles.slider}
+                        className="slider" style={styles.slider}
                     />
                     <span style={styles.value}>{s.playerStats.moveSpeed}</span>
                 </div>
@@ -85,7 +85,7 @@ export function ShooterSettingsPanel() {
                         type="range" min={0.05} max={2} step={0.05}
                         value={s.playerStats.shootCooldown}
                         onChange={e => setShooterSettings({ ...s, playerStats: { ...s.playerStats, shootCooldown: parseFloat(e.target.value) } })}
-                        style={styles.slider}
+                        className="slider" style={styles.slider}
                     />
                     <span style={styles.value}>{s.playerStats.shootCooldown.toFixed(2)}s</span>
                 </div>

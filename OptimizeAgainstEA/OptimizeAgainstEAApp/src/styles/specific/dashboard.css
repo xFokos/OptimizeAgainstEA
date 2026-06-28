@@ -110,17 +110,12 @@
     padding: var(--sp-2) 0;
 }
 
+/* Surface recipe comes from .panel + .panel--interactive (primitives/panels.css). */
 .problem-card {
-    background:    var(--surface);
-    border:        1px solid var(--border-strong);
-    color:         var(--text);
-    border-radius: var(--r-lg);
-    padding:       var(--sp-5);
-    display:       flex;
-    gap:           var(--sp-4);
-    align-items:   center;
-    cursor:        pointer;
-    transition:    background 0.15s, border-color 0.15s, transform 0.15s;
+    color:       var(--text);
+    display:     flex;
+    gap:         var(--sp-4);
+    align-items: center;
 }
 
 .problem-card:hover {

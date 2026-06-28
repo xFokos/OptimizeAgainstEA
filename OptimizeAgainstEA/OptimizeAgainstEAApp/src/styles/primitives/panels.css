@@ -1,0 +1,51 @@
+/* ============================================================
+   Panel / card primitive — the single source of truth for surfaced boxes.
+
+   Loaded globally (see main.tsx). Collapses the repeated "background + border +
+   radius + padding" recipe that surface cards used to re-declare
+   (.problem-card, .mode-card, .replay-mutation-card, .maze-replay-card, …).
+
+   Usage:
+     <div class="panel">…</div>                       default card
+     <div class="panel panel--surface">…</div>        darker opaque surface
+     <div class="panel panel--elevated">…</div>       raised surface
+     <div class="panel panel--inset">…</div>          small recessed sub-card
+     <div class="panel panel--interactive">…</div>    clickable (cursor + transition)
+
+   Modifiers compose: e.g. class="panel panel--surface panel--md panel--interactive".
+   Keep a semantic class alongside for per-card *layout* (flex direction, gap) and
+   the card's own :hover / .active treatment — only the surface recipe lives here.
+
+   Colours/spacing come from the app-wide tokens in index.css.
+   NOTE: this is for *static surfaces*. Full-screen dialog boxes are a separate
+   component — use .modal (src/styles/primitives/overlays.css).
+   ============================================================ */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+}
+
+/* Surface variants */
+.panel--surface  { background: var(--bg-surface);  border-color: var(--border); }
+.panel--elevated { background: var(--bg-elevated); border-color: var(--border-bright); }
+
+/* Density / radius */
+.panel--md    { border-radius: var(--r-md); }
+.panel--tight { padding: var(--sp-3) var(--sp-4); }
+
+/* Small recessed sub-card (surface + tight padding + smaller radius). */
+.panel--inset {
+  background: var(--bg-surface);
+  border-color: var(--border-bright);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+/* Clickable cards — cursor + transition only; each card keeps its own :hover. */
+.panel--interactive {
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}

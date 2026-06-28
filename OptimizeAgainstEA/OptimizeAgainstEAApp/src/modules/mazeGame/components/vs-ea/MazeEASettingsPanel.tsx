@@ -21,7 +21,7 @@ function SliderRow({
         <span style={settingValue}>{format(value)}</span>
       </div>
       <input
-        type="range" style={slider}
+        type="range" className="slider" style={slider}
         min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
       />

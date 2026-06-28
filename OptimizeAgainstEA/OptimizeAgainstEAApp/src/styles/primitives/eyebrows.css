@@ -1,0 +1,28 @@
+/* ============================================================
+   Eyebrow primitive — the single source of truth for small caps labels.
+
+   Loaded globally (see main.tsx). Replaces the ~15 inline copies of the
+   "tiny UPPERCASE letter-spaced muted label" used as section headers, stat
+   captions, table headers and overlines across the app.
+
+   Usage:
+     <span class="eyebrow">Total rounds</span>           caption / section label
+     <div  class="eyebrow eyebrow--divider">Section</div> with an underline rule
+
+   Font-agnostic on purpose: it inherits the surrounding font-family so it fits
+   in both the Inter pages and the monospace data pages (Analytics). The defining
+   traits are the size, tracking, caps and muted colour.
+   ============================================================ */
+
+.eyebrow {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.eyebrow--divider {
+  display: block;
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}

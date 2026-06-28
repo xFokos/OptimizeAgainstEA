@@ -87,7 +87,7 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
           </label>
           <input
             type="range"
-            className="ea-slider"
+            className="slider"
             min={0.02} max={0.25} step={0.01}
             value={revealRadius}
             onChange={(e) => setRevealRadius(parseFloat(e.target.value))}

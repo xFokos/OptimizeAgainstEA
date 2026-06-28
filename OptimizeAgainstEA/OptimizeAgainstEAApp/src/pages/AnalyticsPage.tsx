@@ -47,7 +47,7 @@ function Panel({ title, children, style }: {
 }) {
     return (
         <div style={{ ...sh.panel, ...style }}>
-            <div style={sh.panelTitle}>{title}</div>
+            <div className="eyebrow">{title}</div>
             {children}
         </div>
     );
@@ -410,7 +410,7 @@ function ReplayCanvas({ record }: { record: RoundRecord }) {
                 {/* Scrubber */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <input
-                        type="range" min={0} max={totalFrames - 1} value={frameIdx}
+                        type="range" className="slider" min={0} max={totalFrames - 1} value={frameIdx}
                         onChange={e => { cancelAnimationFrame(animRef.current); stateRef.current.playing = false; setPlaying(false); seekTo(Number(e.target.value)); }}
                         style={{ width: '100%', accentColor: C.accent }}
                     />
@@ -427,7 +427,7 @@ function ReplayCanvas({ record }: { record: RoundRecord }) {
                     if (!pf) return null;
                     return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <div style={sh.panelTitle}>Aktueller Frame</div>
+                            <div className="eyebrow">Aktueller Frame</div>
                             <FrameStat label="Zeit" value={`${Math.ceil(Math.max(0, pf.time))} s`} />
                             <FrameStat label="Spieler X" value={Math.round(pf.position.x).toString()} />
                             <FrameStat label="Spieler Y" value={Math.round(pf.position.y).toString()} />
@@ -437,7 +437,7 @@ function ReplayCanvas({ record }: { record: RoundRecord }) {
 
                 {/* DNA mini-display */}
                 <div style={{ marginTop: 'auto' }}>
-                    <div style={sh.panelTitle}>Agent DNA dieser Runde</div>
+                    <div className="eyebrow">Agent DNA dieser Runde</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 }}>
                         {['Aggression','Dodge','Accuracy','Range','Speed','Lead','Fire Rate'].map((name, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -648,12 +648,6 @@ const sh: Record<string, React.CSSProperties> = {
         display:       'flex',
         flexDirection: 'column',
         gap:           10,
-    },
-    panelTitle: {
-        fontSize:      11,
-        textTransform: 'uppercase',
-        letterSpacing: '0.08em',
-        color:         C.textMuted,
     },
     card: {
         background:    C.panel,

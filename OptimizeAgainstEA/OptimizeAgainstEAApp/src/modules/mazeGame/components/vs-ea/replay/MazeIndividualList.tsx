@@ -81,10 +81,7 @@ export function MazeIndividualList({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {title && (
-        <div style={{
-          fontFamily: 'monospace', fontSize: '0.65rem', color: 'rgba(232,234,240,0.5)',
-          letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4,
-        }}>{title}</div>
+        <div className="eyebrow" style={{ marginBottom: 4 }}>{title}</div>
       )}
 
       {shown.map((ind, idx) => {

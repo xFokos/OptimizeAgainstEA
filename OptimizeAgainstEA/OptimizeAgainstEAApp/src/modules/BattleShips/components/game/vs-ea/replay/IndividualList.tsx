@@ -36,11 +36,7 @@ export function IndividualList({ individuals, roles, annotations, title, maxRows
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {title && (
-        <div style={{
-          fontFamily: 'var(--font-mono)', fontSize: '0.65rem',
-          color: 'var(--text-muted)', letterSpacing: '0.08em',
-          textTransform: 'uppercase', marginBottom: 4,
-        }}>{title}</div>
+        <div className="eyebrow" style={{ marginBottom: 4 }}>{title}</div>
       )}
 
       {shown.map((ind, idx) => {

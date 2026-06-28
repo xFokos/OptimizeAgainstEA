@@ -33,7 +33,7 @@ function SliderRow({
             </div>
             <input
                 type="range"
-                className="ea-slider"
+                className="slider"
                 min={min} max={max} step={step}
                 value={value}
                 onChange={(e) => onChange(parseFloat(e.target.value))}

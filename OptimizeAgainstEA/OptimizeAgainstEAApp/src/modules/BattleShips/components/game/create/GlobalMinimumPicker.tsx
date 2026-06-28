@@ -36,7 +36,7 @@ export function GlobalMinimumPicker({
       <div className="create-step">
         <div className="create-step__info">
           <h2 className="create-step__heading">
-            <span className="step-badge">02</span>
+            <span className="badge">02</span>
             Pick Global Minimum
           </h2>
           <p className="create-step__desc">

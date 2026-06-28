@@ -1,0 +1,26 @@
+/* ============================================================
+   Slider primitive — the single source of truth for range inputs.
+
+   Loaded globally (see main.tsx). Replaces the per-file `.ea-slider` and
+   inline `{ accentColor, width }` styles that range inputs used to ship.
+
+   Usage:
+     <input type="range" class="slider" />
+
+   Themeable: the fill colour comes from --slider-accent (default = accent).
+   Override per-input for a differently-themed game, e.g. the maze's green:
+     <input type="range" class="slider"
+            style={{ '--slider-accent': '#4af0a0' }} />
+   ============================================================ */
+
+.slider {
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
+  accent-color: var(--slider-accent, var(--accent));
+}
+
+.slider:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
