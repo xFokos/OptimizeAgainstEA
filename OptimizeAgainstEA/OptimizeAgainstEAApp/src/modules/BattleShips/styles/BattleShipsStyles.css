@@ -1,46 +1,11 @@
 /* ─────────────────────────────────────────────
-   FONTS
-───────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
-
-/* ─────────────────────────────────────────────
-   DESIGN TOKENS — swap these to retheme everything
+   DESIGN TOKENS
+   Colours and fonts now come from the app-wide tokens in index.css so every
+   game shares one visual theme (blue + Inter). Only the layout-specific knobs
+   below (spacing scale, radii, sizes) are kept here, so PeakFinder's layout is
+   unchanged.
 ───────────────────────────────────────────── */
 :root {
-	--bg:               #0d0f12;
-	--bg-surface:       #13161b;
-	--bg-elevated:      #1a1e26;
-
-	--text-primary:     #e8eaf0;
-	--text-secondary:   #7a8099;
-	--text-muted:       #3d4259;
-
-	--border:           #232733;
-	--border-bright:    #353c52;
-
-	--accent:           #4af0a0;
-	--accent-dim:       #1a6645;
-	--accent-glow:      rgba(74, 240, 160, 0.25);
-
-	--accent-global:          #f0c44a;
-	--accent-global-glow:     rgba(240, 196, 74, 0.35);
-	--accent-selected:        #4af0a0;
-	--accent-selected-glow:   rgba(74, 240, 160, 0.3);
-	--accent-selected-border: #4af0a0;
-	--accent-min:             #4a90f0;
-	--map-dot-border:         rgba(255,255,255,0.15);
-
-	--map-bg:           #0a0c10;
-	--map-border:       var(--border-bright);
-	--map-grid:         rgba(255,255,255,0.04);
-	--map-overlay-text: var(--text-muted);
-
-	--danger:           #f04a4a;
-	--danger-dim:       #5a1a1a;
-
-	--font-body: 'DM Sans', sans-serif;
-	--font-mono: 'Space Mono', monospace;
-
 	--sp-1: 4px;
 	--sp-2: 8px;
 	--sp-3: 12px;
@@ -177,39 +142,9 @@ html, body, #root {
 
 /* ─────────────────────────────────────────────
    BUTTONS
+   The base .btn system lives in src/styles/primitives/buttons.css (loaded
+   globally). Only the PeakFinder-specific EA-settings variant is kept here.
 ───────────────────────────────────────────── */
-.btn {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--sp-2);
-	padding: var(--sp-3) var(--sp-5);
-	border: 1px solid var(--border-bright);
-	border-radius: var(--r-sm);
-	background: transparent;
-	color: var(--text-primary);
-	font-family: var(--font-mono);
-	font-size: 0.8rem;
-	letter-spacing: 0.06em;
-	cursor: pointer;
-	transition: all 0.15s ease;
-	white-space: nowrap;
-}
-
-.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-.btn:disabled              { opacity: 0.35; cursor: not-allowed; }
-
-.btn--primary {
-	background: var(--accent);
-	color: #060809;
-	border-color: var(--accent);
-	font-weight: 700;
-}
-.btn--primary:hover:not(:disabled) {
-	background: #6ef7b8;
-	border-color: #6ef7b8;
-	color: #060809;
-	box-shadow: 0 0 16px var(--accent-glow);
-}
 
 /* EA settings button — blue border to make it stand out from other controls.
    Uses .btn.ea-settings-btn so it wins over the later .btn--ghost rule. */
@@ -222,37 +157,6 @@ html, body, #root {
 	border-color: var(--accent-min);
 	color: var(--accent-min);
 	box-shadow: 0 0 12px rgba(74, 144, 240, 0.35);
-}
-
-.btn--ghost { background: transparent; border-color: var(--border); color: var(--text-secondary); }
-.btn--ghost:hover:not(:disabled) { border-color: var(--border-bright); color: var(--text-primary); }
-
-.btn--blue {
-	background: var(--accent-min);
-	color: #060809;
-	border-color: var(--accent-min);
-	font-weight: 700;
-}
-.btn--blue:hover:not(:disabled) {
-	background: #6aa8f5;
-	border-color: #6aa8f5;
-	color: #060809;
-	box-shadow: 0 0 16px rgba(74, 144, 240, 0.3);
-}
-
-.btn--sm { padding: var(--sp-2) var(--sp-3); font-size: 0.75rem; }
-.btn--danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
-
-.btn--active {
-	background: var(--accent);
-	border-color: var(--accent);
-	color: #060809;
-	font-weight: 700;
-}
-.btn--active:hover:not(:disabled) {
-	border-color: var(--accent);
-	color: #060809;
-	box-shadow: 0 0 16px var(--accent-glow);
 }
 
 /* ─────────────────────────────────────────────
@@ -786,7 +690,7 @@ html, body, #root {
 .vsea-banner { padding: var(--sp-3) var(--sp-4); background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--r-sm); font-family: var(--font-mono); font-size: 0.8rem; }
 .vsea-banner__text            { color: var(--text-muted); }
 .vsea-banner__text--running   { color: var(--accent); }
-.vsea-banner__text--solved    { color: #4af0a0; }
+.vsea-banner__text--solved    { color: var(--accent); }
 .vsea-banner__text--exhausted { color: var(--accent-global); }
 .vsea-banner__text--error     { color: var(--danger); }
 

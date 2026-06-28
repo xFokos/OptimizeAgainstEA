@@ -79,7 +79,7 @@ function LaunchButton({ problemId }: { problemId?: ProblemId }) {
 
     return (
         <button
-            className="launch-btn"
+            className="btn btn--primary launch-btn"
             disabled={!enabled}
             onClick={() => { if (enabled) navigate(ROUTES[problemId]); }}
         >

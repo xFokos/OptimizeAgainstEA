@@ -24,10 +24,11 @@ export default function NavigatePageButton({
     const style: React.CSSProperties = {
         width,
         height,
+        justifyContent: "center",
     };
 
     return (
-        <button className="button" style={style} onClick={handleClick}>
+        <button className="btn btn--primary" style={style} onClick={handleClick}>
             {text}
         </button>
     );

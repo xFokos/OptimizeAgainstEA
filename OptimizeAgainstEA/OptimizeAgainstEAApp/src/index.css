@@ -3,27 +3,58 @@
    ============================================================ */
 :root {
   --font:          'Inter', system-ui, sans-serif;
+  /* Font aliases — individual games reference these names. The whole app uses
+     one font (no separate monospace face), so both point at --font. */
+  --font-body:     var(--font);
+  --font-mono:     var(--font);
 
   /* Backgrounds */
   --bg:            #0b141a;
   --bg-light:      #1f2f38;
   --surface:       rgba(255, 255, 255, 0.04);
   --surface-hover: rgba(255, 255, 255, 0.07);
+  /* Opaque elevated surfaces (top bars, panels, cards over scrolling content).
+     Blend between --bg and --bg-light. */
+  --bg-surface:    #13202a;
+  --bg-elevated:   #1a2b37;
 
   /* Borders */
   --border:        rgba(255, 255, 255, 0.07);
   --border-strong: #2a3a44;
+  --border-bright: var(--border-strong);
 
   /* Accent */
   --accent:        #4fc3f7;
   --accent-dim:    rgba(79, 195, 247, 0.12);
+  --accent-glow:   rgba(79, 195, 247, 0.25);
+  /* Lighter accent for hover states. */
+  --accent-bright: #7ad1fa;
+  /* Secondary blue for controls that must stand apart from the main accent. */
+  --accent-min:    #4a90f0;
+  /* Gold — semantic "global optimum" highlight (kept distinct on purpose). */
+  --accent-global:      #f0c44a;
+  --accent-global-glow: rgba(240, 196, 74, 0.35);
+  /* Selection state mirrors the main accent. */
+  --accent-selected:        var(--accent);
+  --accent-selected-glow:   var(--accent-glow);
+  --accent-selected-border: var(--accent);
   --danger:        #ef5350;
   --danger-dim:    rgba(239, 83, 80, 0.12);
+
+  /* Map / canvas surface tokens (PeakFinder, Maze) */
+  --map-dot-border:   rgba(255, 255, 255, 0.15);
+  --map-bg:           #0a1014;
+  --map-border:       var(--border-strong);
+  --map-grid:         rgba(255, 255, 255, 0.04);
+  --map-overlay-text: var(--text-muted);
 
   /* Text */
   --text:          rgba(255, 255, 255, 0.87);
   --text-dim:      rgba(255, 255, 255, 0.50);
   --text-muted:    rgba(255, 255, 255, 0.28);
+  /* Text aliases (game naming) */
+  --text-primary:   var(--text);
+  --text-secondary: var(--text-dim);
 
   /* Spacing */
   --sp-1:  4px;
@@ -32,6 +63,7 @@
   --sp-4: 16px;
   --sp-5: 20px;
   --sp-6: 24px;
+  --sp-7: 48px;
   --sp-8: 32px;
 
   /* Radius */
