@@ -97,7 +97,7 @@ export const HINTS: Record<HintId, HintDef> = {
     title: 'Step 2 — Pick the Global Peak',
     body:
       'Click the dot that wins the game — the true highest peak players must ' +
-      'find. Tucking it behind a cluster of deep decoys makes for a sneaky map.',
+      'find. Tucking it behind a cluster of tall decoys makes for a sneaky map.',
     style: 'toast',
     once: true,
     sticky: true,

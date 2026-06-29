@@ -1,22 +1,7 @@
 import type { WorkerInMessage, WorkerOutMessage } from '../../types/ea';
-import type { MapConfig, ProblemInstance, Minimum } from '../../types/map';
-import { createMapProblem } from '../functionSurface';
+import type { ProblemInstance } from '../../types/map';
+import { buildProblemFromSource } from '../problemCode';
 import { createEAStepper, type EAStepper } from './evolutionaryAlgorithm';
-
-function buildProblem(
-  positions: Array<{ x: number; y: number; isGlobal: boolean }>,
-  winRadius: number,
-): ProblemInstance {
-  const minima: Minimum[] = positions.map((p, i) => ({
-    id: `m_${i}`, position: { x: p.x, y: p.y }, isGlobal: p.isGlobal,
-  }));
-  const config: MapConfig = {
-    id: 'ea-worker', minima,
-    bounds: { xMin: 0, xMax: 1, yMin: 0, yMax: 1 },
-    winRadius, createdAt: 0,
-  };
-  return createMapProblem(config);
-}
 
 // Stepper is kept in worker scope — persists between STEP messages
 let stepper: EAStepper | null = null;
@@ -32,7 +17,7 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
   if (msg.type === 'START') {
     let problem: ProblemInstance;
     try {
-      problem = buildProblem(msg.minima.positions, msg.winRadius);
+      problem = buildProblemFromSource(msg.source);
     } catch (err) {
       const out: WorkerOutMessage = {
         type: 'ERROR',

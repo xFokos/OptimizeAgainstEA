@@ -1,8 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import type { MapConfig } from '../../../types/map';
-import { createMapProblem } from '../../../engine/functionSurface';
 import { valueToHeight } from '../../../engine/height';
-import { decodeMap } from '../../../engine/mapCodec';
+import { decodeProblemOrNull, type DecodedProblem } from '../../../engine/problemCode';
 import { usePlaySession } from '../../../hooks/usePlaySession';
 import { useHints } from '../../../../../components/hints';
 import { GameMap } from '../shared/GameMap';
@@ -13,48 +11,39 @@ import { FitnessChart } from '../shared/FitnessChart';
 
 interface PlayModeProps {
   onBack: () => void;
-  /** Optional map code to load straight into play, skipping the loader. */
+  /** Optional map or function code to load straight into play, skipping the loader. */
   initialCode?: string;
 }
 
-function decodeOrNull(code: string | undefined): MapConfig | null {
-  if (!code) return null;
-  try { return decodeMap(code.trim()); }
-  catch { return null; }
-}
-
 export function PlayMode({ onBack, initialCode }: PlayModeProps) {
-  const [mapConfig,    setMapConfig]    = useState<MapConfig | null>(() => decodeOrNull(initialCode));
+  const [loaded,       setLoaded]       = useState<DecodedProblem | null>(() => decodeProblemOrNull(initialCode));
   const [hoveredIndex, setHoveredIndex] = useState(-1);
   const [dismissedWin, setDismissedWin] = useState(false);
   const [revealRadius, setRevealRadius] = useState(0.05);
 
-  const problem = useMemo(
-    () => (mapConfig ? createMapProblem(mapConfig) : null),
-    [mapConfig],
-  );
+  const problem = loaded?.problem ?? null;
 
   const { probes, status, bestProbe, probe, reset } = usePlaySession(problem);
   const { showHint } = useHints();
 
-  // Blocking welcome modal the first time the play screen appears (map loaded).
+  // Blocking welcome modal the first time the play screen appears (problem loaded).
   useEffect(() => {
-    if (mapConfig && problem) showHint('play.start');
-  }, [mapConfig, problem, showHint]);
+    if (problem) showHint('play.start');
+  }, [problem, showHint]);
 
   // Blocking follow-up modal right after the player's first probe.
   useEffect(() => {
     if (probes.length === 1) showHint('play.firstProbe');
   }, [probes.length, showHint]);
 
-  const handleLoad      = (config: MapConfig) => { setMapConfig(config); reset(); setDismissedWin(false); };
-  const handlePlayAgain = () => { setMapConfig(null); reset(); setDismissedWin(false); };
+  const handleLoad      = (next: DecodedProblem) => { setLoaded(next); reset(); setDismissedWin(false); };
+  const handlePlayAgain = () => { setLoaded(null); reset(); setDismissedWin(false); };
 
   // Must be before early return
   const playerSeries = useMemo(() => probes.map((p) => valueToHeight(p.value)), [probes]);
   const handleHover  = useCallback((i: number) => setHoveredIndex(i), []);
 
-  if (!mapConfig || !problem) {
+  if (!loaded || !problem) {
     return <MapLoader onLoad={handleLoad} onBack={onBack} />;
   }
 
@@ -68,7 +57,7 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
     <div className="play-mode">
       <div className="play-mode__topbar">
         <button className="btn btn--ghost btn--sm" onClick={handlePlayAgain}>Change Map</button>
-        <span className="play-mode__mapid">#{mapConfig.id}</span>
+        <span className="play-mode__mapid">{loaded.label}</span>
         <button className="btn btn--ghost btn--sm btn--danger" onClick={reset}>Reset</button>
       </div>
 
@@ -122,7 +111,7 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
             <WinOverlay
               probeCount={probes.length}
               bestProbe={bestProbe}
-              mapId={mapConfig.id}
+              subtitle={loaded.label}
               onPlayAgain={handlePlayAgain}
               onHome={onBack}
               onKeepPlaying={() => setDismissedWin(true)}

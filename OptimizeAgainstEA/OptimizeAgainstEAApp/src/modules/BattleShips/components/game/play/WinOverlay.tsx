@@ -4,19 +4,19 @@ import { valueToHeight } from '../../../engine/height';
 interface WinOverlayProps {
   probeCount:    number;
   bestProbe:     ProbeResult;
-  mapId:         string;
+  subtitle:      string;
   onPlayAgain:   () => void;
   onHome:        () => void;
   onKeepPlaying?: () => void;
 }
 
-export function WinOverlay({ probeCount, bestProbe, mapId, onPlayAgain, onHome, onKeepPlaying }: WinOverlayProps) {
+export function WinOverlay({ probeCount, bestProbe, subtitle, onPlayAgain, onHome, onKeepPlaying }: WinOverlayProps) {
   return (
     <div className="win-overlay">
       <div className="win-card">
         <div className="badge">SUMMIT REACHED</div>
         <h2 className="win-card__title">You reached the peak</h2>
-        <p className="win-card__sub">Map #{mapId}</p>
+        <p className="win-card__sub">{subtitle}</p>
 
         <div className="win-card__stats">
           <div className="win-stat">

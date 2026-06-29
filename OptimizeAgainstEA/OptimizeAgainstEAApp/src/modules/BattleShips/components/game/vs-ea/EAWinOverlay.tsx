@@ -4,20 +4,20 @@ import { valueToHeight } from '../../../engine/height';
 interface EAWinOverlayProps {
   generationCount: number;
   best:            Individual | null;
-  mapId:           string;
+  subtitle:        string;
   onWatchReplay:   () => void;
   onDismiss:       () => void;
 }
 
 export function EAWinOverlay({
-  generationCount, best, mapId, onWatchReplay, onDismiss,
+  generationCount, best, subtitle, onWatchReplay, onDismiss,
 }: EAWinOverlayProps) {
   return (
     <div className="ea-win-backdrop" onClick={onDismiss}>
       <div className="ea-win-card" onClick={(e) => e.stopPropagation()}>
         <div className="badge badge--outline badge--gold">EA SOLVED IT</div>
         <h2 className="ea-win-card__title">The algorithm won</h2>
-        <p className="ea-win-card__sub">Map #{mapId}</p>
+        <p className="ea-win-card__sub">{subtitle}</p>
 
         <div className="ea-win-card__stats">
           <div className="ea-win-stat">

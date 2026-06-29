@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import type { MapConfig } from '../../../types/map.ts';
-import { decodeMap, encodeMap, generateRandomMap } from '../../../engine/mapCodec';
+import { encodeMap, generateRandomMap } from '../../../engine/mapCodec';
+import { decodeProblem, type DecodedProblem } from '../../../engine/problemCode';
 import { copyCode, pasteCode } from '../../../engine/codeClipboard';
 import { SavedMapsSidebar } from '../shared/SavedMapsSidebar';
+import { SavedFunctionsSidebar } from '../shared/SavedFunctionsSidebar';
 
 interface MapLoaderProps {
-  onLoad: (config: MapConfig) => void;
+  onLoad: (loaded: DecodedProblem) => void;
   onBack: () => void;
 }
 
@@ -16,8 +17,7 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
 
   const handlePlay = () => {
     try {
-      const config = decodeMap(code.trim());
-      onLoad(config);
+      onLoad(decodeProblem(code.trim()));
     } catch {
       setError('Invalid code — double-check and try again.');
     }
@@ -43,7 +43,10 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
 
   return (
     <div className="loader-with-saved">
-    <SavedMapsSidebar />
+    <div className="loader-toolbar">
+      <SavedMapsSidebar />
+      <SavedFunctionsSidebar />
+    </div>
     <div className="map-loader">
       <h2 className="map-loader__heading">Load a Map</h2>
       <p className="map-loader__desc">
@@ -58,7 +61,7 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
       <div className="map-loader__input-row">
         <input
           className="map-loader__input"
-          placeholder="Paste map code…"
+          placeholder="Paste a map or function code…"
           value={code}
           onChange={(e) => { setCode(e.target.value); setError(''); }}
           onKeyDown={(e) => e.key === 'Enter' && handlePlay()}

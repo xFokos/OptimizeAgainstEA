@@ -1,15 +1,22 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import type { MapConfig, Coordinate } from '../../../types/map';
+import type { Coordinate } from '../../../types/map';
 import type { EAConfig} from '../../../types/ea';
-import { DEFAULT_EA_CONFIG } from '../../../types/ea';
-import { createMapProblem } from '../../../engine/functionSurface';
+import { EA_PRESETS, DEFAULT_EA_CONFIG } from '../../../types/ea';
+
+// The race starts on the Normal preset (single source of truth in ea.ts).
+const NORMAL_PRESET = EA_PRESETS.find((p) => p.id === 'normal')!;
+// Fixed for the Vs-EA race (no longer user-tunable): the EA advances one
+// generation per player probe.
+const GENS_PER_PROBE = 1;
+import { decodeProblem, type DecodedProblem } from '../../../engine/problemCode';
 import { valueToHeight } from '../../../engine/height';
-import { decodeMap, encodeMap, generateRandomMap } from '../../../engine/mapCodec';
+import { encodeMap, generateRandomMap } from '../../../engine/mapCodec';
 import { copyCode, pasteCode } from '../../../engine/codeClipboard';
 import { usePlaySession } from '../../../hooks/usePlaySession';
 import { useEARunner } from '../../../hooks/useEARunner';
 import { GameMap } from '../shared/GameMap';
 import { SavedMapsSidebar } from '../shared/SavedMapsSidebar';
+import { SavedFunctionsSidebar } from '../shared/SavedFunctionsSidebar';
 import { ProbeMarker } from '../play/ProbeMarker';
 import { WinOverlay } from '../play/WinOverlay';
 import { EASettingsPanel } from './EASettingsPanel';
@@ -39,20 +46,18 @@ interface DualLoaderState {
 
 interface DualLoaderProps {
   eaConfig:             EAConfig;
-  gensPerProbe:         number;
   revealRadius:         number;
   initialPlayerCode?:   string;
   initialEaCode?:       string;
   onConfigChange:       (patch: Partial<EAConfig>) => void;
-  onGensPerProbeChange: (n: number) => void;
   onRevealRadiusChange: (r: number) => void;
-  onStart:              (playerMap: MapConfig, eaMap: MapConfig, playerCode: string, eaCode: string) => void;
+  onStart:              (player: DecodedProblem, ea: DecodedProblem, playerCode: string, eaCode: string) => void;
   onBack:               () => void;
 }
 
 function DualMapLoader({
-                         eaConfig, gensPerProbe, revealRadius, initialPlayerCode, initialEaCode, onConfigChange,
-                         onGensPerProbeChange, onRevealRadiusChange, onStart, onBack,
+                         eaConfig, revealRadius, initialPlayerCode, initialEaCode, onConfigChange,
+                         onRevealRadiusChange, onStart, onBack,
                        }: DualLoaderProps) {
   const [s, setS] = useState<DualLoaderState>({
     playerCode: initialPlayerCode ?? '', eaCode: initialEaCode ?? '', playerErr: '', eaErr: '', generatedCode: '',
@@ -74,26 +79,29 @@ function DualMapLoader({
   };
 
   const handleStart = () => {
-    let playerMap: MapConfig | null = null;
-    let eaMap:     MapConfig | null = null;
+    let player: DecodedProblem | null = null;
+    let ea:     DecodedProblem | null = null;
     let playerErr = '';
     let eaErr     = '';
 
-    try { playerMap = decodeMap(s.playerCode.trim()); }
+    try { player = decodeProblem(s.playerCode.trim()); }
     catch { playerErr = 'Invalid code'; }
 
-    try { eaMap = decodeMap(s.eaCode.trim()); }
+    try { ea = decodeProblem(s.eaCode.trim()); }
     catch { eaErr = 'Invalid code'; }
 
     setS((prev) => ({ ...prev, playerErr, eaErr }));
-    if (playerMap && eaMap) onStart(playerMap, eaMap, s.playerCode.trim(), s.eaCode.trim());
+    if (player && ea) onStart(player, ea, s.playerCode.trim(), s.eaCode.trim());
   };
 
   const canStart = s.playerCode.trim().length > 0 && s.eaCode.trim().length > 0;
 
   return (
     <div className="loader-with-saved">
-    <SavedMapsSidebar />
+    <div className="loader-toolbar">
+      <SavedMapsSidebar />
+      <SavedFunctionsSidebar />
+    </div>
     <div className="dual-loader">
       <h2 className="dual-loader__heading">Vs Evolutionary Algorithm</h2>
       <p className="dual-loader__desc">
@@ -184,10 +192,8 @@ function DualMapLoader({
       {showSettings && (
         <EASettingsPanel
           config={eaConfig}
-          gensPerProbe={gensPerProbe}
           revealRadius={revealRadius}
           onConfigChange={onConfigChange}
-          onGensPerProbeChange={onGensPerProbeChange}
           onRevealRadiusChange={onRevealRadiusChange}
           onClose={() => setShowSettings(false)}
         />
@@ -200,15 +206,15 @@ function DualMapLoader({
 // ── Main component ────────────────────────────────────────────────────────
 
 export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
-  const [playerMap,    setPlayerMap]    = useState<MapConfig | null>(null);
-  const [eaMap,        setEaMap]        = useState<MapConfig | null>(null);
+  const [playerProb,   setPlayerProb]   = useState<DecodedProblem | null>(null);
+  const [eaProb,       setEaProb]       = useState<DecodedProblem | null>(null);
   // The codes last loaded into the race, kept so a reset returns to the loader
   // with the same maps already pasted in.
   const [playerCode,   setPlayerCode]   = useState(initialCode ?? '');
   const [eaCode,       setEaCode]       = useState(initialCode ?? '');
-  const [eaConfig,     setEaConfig]     = useState<EAConfig>(DEFAULT_EA_CONFIG);
-  const [gensPerProbe, setGensPerProbe] = useState(1);
-  const [revealRadius, setRevealRadius] = useState(0.05);
+  const [eaConfig,     setEaConfig]     = useState<EAConfig>({ ...DEFAULT_EA_CONFIG, ...NORMAL_PRESET.config });
+  const gensPerProbe = GENS_PER_PROBE;
+  const [revealRadius, setRevealRadius] = useState(NORMAL_PRESET.revealRadius);
   const [hoveredIndex, setHoveredIndex] = useState(-1);
   const [showReplay,      setShowReplay]      = useState(false);
   const [showEAWin,       setShowEAWin]       = useState(false);
@@ -223,27 +229,24 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
   const [solutionMapVisible, setSolutionMapVisible] = useState(true);
   const winnerRef = useRef<'player' | 'ea' | null>(null);
 
-  const playerProblem = useMemo(
-    () => (playerMap ? createMapProblem(playerMap) : null),
-    [playerMap],
-  );
+  const playerProblem = playerProb?.problem ?? null;
 
   const play = usePlaySession(playerProblem);
   const ea   = useEARunner();
   const { showHint, active } = useHints();
 
-  const handleStart = (pm: MapConfig, em: MapConfig, pCode: string, eCode: string) => {
-    setPlayerMap(pm);
-    setEaMap(em);
+  const handleStart = (pm: DecodedProblem, em: DecodedProblem, pCode: string, eCode: string) => {
+    setPlayerProb(pm);
+    setEaProb(em);
     setPlayerCode(pCode);
     setEaCode(eCode);
     play.reset();
-    ea.init(em, eaConfig);
+    ea.init(em.source, eaConfig);
   };
 
   useEffect(() => {
-    if (playerMap && eaMap && play.probes.length === 0) showHint('vsEa.start');
-  }, [playerMap, eaMap, play.probes.length, showHint]);
+    if (playerProb && eaProb && play.probes.length === 0) showHint('vsEa.start');
+  }, [playerProb, eaProb, play.probes.length, showHint]);
 
   // Claims the win for `who` unless the other side already finished. Uses a ref
   // so the lock is read/written synchronously within a single render pass.
@@ -287,8 +290,8 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
   const handleReset = () => {
     play.reset();
     ea.reset();
-    setPlayerMap(null);
-    setEaMap(null);
+    setPlayerProb(null);
+    setEaProb(null);
     setHoveredIndex(-1);
     setShowReplay(false);
     setShowEAWin(false);
@@ -330,16 +333,14 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
   }, [play.probes, ea.generations, gensPerProbe]);
 
   // ── Loader ────────────────────────────────────────────────────────────────
-  if (!playerMap || !eaMap) {
+  if (!playerProb || !eaProb) {
     return (
       <DualMapLoader
         eaConfig={eaConfig}
-        gensPerProbe={gensPerProbe}
         revealRadius={revealRadius}
         initialPlayerCode={playerCode}
         initialEaCode={eaCode}
         onConfigChange={handleConfigChange}
-        onGensPerProbeChange={setGensPerProbe}
         onRevealRadiusChange={setRevealRadius}
         onStart={handleStart}
         onBack={onBack}
@@ -415,7 +416,7 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
               <WinOverlay
                 probeCount={play.probes.length}
                 bestProbe={play.bestProbe}
-                mapId={playerMap.id}
+                subtitle={playerProb.label}
                 onPlayAgain={handleReset}
                 onHome={onBack}
                 onKeepPlaying={() => setDismissedWin(true)}
@@ -488,20 +489,22 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
         />
       )}
 
-      {showEAWin && eaMap && (
+      {showEAWin && eaProb && (
         <EAWinOverlay
           generationCount={ea.totalGenerations}
           best={ea.best}
-          mapId={eaMap.id}
+          subtitle={eaProb.label}
           onWatchReplay={() => { setShowEAWin(false); setShowGenReplay(true); }}
           onDismiss={() => setShowEAWin(false)}
         />
       )}
 
-      {showGenReplay && eaMap && (
+      {showGenReplay && eaProb && (
         <GenerationReplayOverlay
           generations={ea.generations}
-          eaMap={eaMap}
+          label={eaProb.label}
+          winTarget={eaProb.winTarget}
+          winRadius={eaProb.winRadius}
           onClose={() => setShowGenReplay(false)}
         />
       )}

@@ -1,17 +1,17 @@
 import type {
     EAConfig,
+    EAPreset,
     SelectionStrategy,
     CrossoverStrategy,
     MutationStrategy,
 } from '../../../types/ea';
+import { EA_PRESETS } from '../../../types/ea';
 import { HintPopover } from '../../../../../components/hints';
 
 interface EASettingsPanelProps {
     config: EAConfig;
-    gensPerProbe: number;
     revealRadius: number;
     onConfigChange: (patch: Partial<EAConfig>) => void;
-    onGensPerProbeChange: (n: number) => void;
     onRevealRadiusChange: (r: number) => void;
     onClose: () => void;
 }
@@ -75,14 +75,51 @@ function Divider({ label }: { label: string }) {
     return <div className="ea-divider">{label}</div>;
 }
 
+// True when the live settings exactly match a preset (so we can light it up).
+function matchesPreset(
+    preset: EAPreset, config: EAConfig, revealRadius: number,
+): boolean {
+    if (Math.abs(preset.revealRadius - revealRadius) > 1e-9) return false;
+    return (Object.keys(preset.config) as (keyof typeof preset.config)[])
+        .every((k) => preset.config[k] === config[k]);
+}
+
+function PresetsPanel({
+    config, revealRadius, onApply,
+}: {
+    config: EAConfig; revealRadius: number;
+    onApply: (preset: EAPreset) => void;
+}) {
+    const activeId = EA_PRESETS.find(
+        (p) => matchesPreset(p, config, revealRadius),
+    )?.id ?? null;
+
+    return (
+        <div className="ea-presets-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="ea-settings-panel__header">
+                <span className="ea-settings-panel__title">Presets</span>
+            </div>
+            <div className="ea-presets-panel__body">
+                {EA_PRESETS.map((p) => (
+                    <button
+                        key={p.id}
+                        className={`btn ea-preset-btn ${activeId === p.id ? 'btn--active' : 'btn--ghost'}`}
+                        onClick={() => onApply(p)}
+                    >
+                        {p.label}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 // ── Main panel ────────────────────────────────────────────────────────────
 
 export function EASettingsPanel({
                                     config,
-                                    gensPerProbe,
                                     revealRadius,
                                     onConfigChange,
-                                    onGensPerProbeChange,
                                     onRevealRadiusChange,
                                     onClose,
                                 }: EASettingsPanelProps) {
@@ -91,11 +128,22 @@ export function EASettingsPanel({
     const fmtInt = (v: number) => String(Math.round(v));
     const fmtPct = (v: number) => `${Math.round(v * 100)}%`;
 
+    // Applying a preset sets the EA config plus the probe reveal radius at once.
+    const applyPreset = (preset: EAPreset) => {
+        onConfigChange(preset.config);
+        onRevealRadiusChange(preset.revealRadius);
+    };
+
     return (
         <div
             className="ea-settings-backdrop"
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
+          <PresetsPanel
+            config={config}
+            revealRadius={revealRadius}
+            onApply={applyPreset}
+          />
           <HintPopover id="vsEa.settingsPanel" placement="left">
             <div className="ea-settings-panel" onClick={(e) => e.stopPropagation()}>
 
@@ -107,14 +155,6 @@ export function EASettingsPanel({
                 <div className="ea-settings-panel__body">
 
                     <Divider label="Competition" />
-
-                    <SliderRow
-                        label="EA generations per probe"
-                        value={gensPerProbe}
-                        min={1} max={50} step={1}
-                        format={fmtInt}
-                        onChange={onGensPerProbeChange}
-                    />
 
                     <SliderRow
                         label="Population in win radius to solve"
@@ -137,17 +177,9 @@ export function EASettingsPanel({
                     <SliderRow
                         label="Population size"
                         value={config.populationSize}
-                        min={5} max={500} step={5}
+                        min={5} max={200} step={5}
                         format={fmtInt}
                         onChange={(v) => set({ populationSize: Math.round(v) })}
-                    />
-
-                    <SliderRow
-                        label="Max generations"
-                        value={config.maxGenerations}
-                        min={10} max={5000} step={10}
-                        format={fmtInt}
-                        onChange={(v) => set({ maxGenerations: Math.round(v) })}
                     />
 
                     <Divider label="Operators" />

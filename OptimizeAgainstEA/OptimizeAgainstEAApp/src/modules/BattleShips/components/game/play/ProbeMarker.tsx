@@ -1,5 +1,4 @@
 import type { ProbeResult } from '../../../types/map';
-import { valueToHeight } from '../../../engine/height';
 
 interface ProbeMarkerProps {
   probe: ProbeResult;
@@ -16,7 +15,9 @@ function valueToColor(value: number): string {
 }
 
 export function ProbeMarker({ probe, index, isBest, isHovered = false, onHover }: ProbeMarkerProps) {
-  const color = valueToColor(probe.value);
+  // Probes inside the win zone are tinted blue (and always glow) so that after
+  // "Keep Playing" the cluster of blue dots reveals how big the win radius is.
+  const color = probe.isWin ? 'var(--accent)' : valueToColor(probe.value);
   const highlighted = isBest || isHovered;
 
   return (
@@ -41,31 +42,13 @@ export function ProbeMarker({ probe, index, isBest, isHovered = false, onHover }
         background:   color,
         border:       isHovered  ? '2px solid #fff'
           : isBest     ? '2px solid #fff'
-            :              '1.5px solid rgba(255,255,255,0.3)',
-        boxShadow:    highlighted ? `0 0 12px ${color}` : 'none',
+            : probe.isWin ? '1.5px solid var(--accent)'
+              :            '1.5px solid rgba(255,255,255,0.3)',
+        boxShadow:    highlighted ? `0 0 12px ${color}`
+          : probe.isWin ? '0 0 8px var(--accent)'
+            :             'none',
         transition:   'all 0.12s ease',
       }} />
-
-      {/* Value label — best or hovered */}
-      {highlighted && (
-        <div style={{
-          position:   'absolute',
-          top:        -22,
-          left:       '50%',
-          transform:  'translateX(-50%)',
-          background: 'rgba(13,15,18,0.92)',
-          border:     '1px solid rgba(255,255,255,0.18)',
-          borderRadius: 3,
-          padding:    '1px 5px',
-          fontSize:   '0.62rem',
-          fontFamily: 'var(--font-mono)',
-          color:      '#e8eaf0',
-          whiteSpace: 'nowrap',
-          pointerEvents: 'none',
-        }}>
-          #{index + 1} · {valueToHeight(probe.value).toFixed(3)}
-        </div>
-      )}
     </div>
   );
 }

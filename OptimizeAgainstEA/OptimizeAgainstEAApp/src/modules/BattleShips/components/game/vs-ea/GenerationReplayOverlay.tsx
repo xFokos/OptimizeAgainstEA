@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Generation } from '../../../types/ea';
-import type { MapConfig } from '../../../types/map';
+import type { Coordinate } from '../../../types/map';
 import { sampleGradientRgb } from '../../../engine/colorScale';
 import { valueToHeight } from '../../../engine/height';
 import { DOT_MOVE_DURATION, DOT_MOVE_DURATION_MS } from './replay/ReplayMap';
@@ -14,11 +14,14 @@ const AUTOPLAY_FRAME_MS = DOT_MOVE_DURATION_MS + 300;
 
 interface GenerationReplayOverlayProps {
   generations: Generation[];
-  eaMap:       MapConfig;
+  label:       string;
+  /** Summit location (normalized) for the win ring, or null if unknown. */
+  winTarget:   Coordinate | null;
+  winRadius:   number;
   onClose:     () => void;
 }
 
-export function GenerationReplayOverlay({ generations, eaMap, onClose }: GenerationReplayOverlayProps) {
+export function GenerationReplayOverlay({ generations, label, winTarget, winRadius, onClose }: GenerationReplayOverlayProps) {
   const [index,     setIndex]     = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -70,7 +73,6 @@ export function GenerationReplayOverlay({ generations, eaMap, onClose }: Generat
   const gen = generations[index];
   if (!gen) return null;
 
-  const mapId = eaMap.id;
   const best  = gen.best;
 
   return (
@@ -81,7 +83,7 @@ export function GenerationReplayOverlay({ generations, eaMap, onClose }: Generat
         <div className="replay-header">
           <div className="replay-header__left">
             <span className="replay-phase-tag">Gen {gen.index + 1} / {total}</span>
-            <h2 className="replay-headline">EA Population — Map #{mapId}</h2>
+            <h2 className="replay-headline">EA Population — {label}</h2>
           </div>
           <button className="replay-close" onClick={onClose}>✕</button>
         </div>
@@ -92,7 +94,7 @@ export function GenerationReplayOverlay({ generations, eaMap, onClose }: Generat
 
         {/* Map */}
         <div className="genreplay-body">
-          <GenerationMap gen={gen} eaMap={eaMap} />
+          <GenerationMap gen={gen} winTarget={winTarget} winRadius={winRadius} />
         </div>
 
         {/* Controls */}
@@ -122,15 +124,14 @@ export function GenerationReplayOverlay({ generations, eaMap, onClose }: Generat
   );
 }
 
-function GenerationMap({ gen, eaMap }: { gen: Generation; eaMap: MapConfig }) {
+function GenerationMap({ gen, winTarget, winRadius }: { gen: Generation; winTarget: Coordinate | null; winRadius: number }) {
   const sorted = [...gen.individuals].sort((a, b) => a.fitness - b.fitness);
   const worst  = sorted[sorted.length - 1]?.fitness ?? 1;
 
-  // Win zone: a ring of `winRadius` (normalized to map width) around the global
-  // minimum. Probes whose centre falls inside this ring are the `isSolution`
-  // dots highlighted below.
-  const globalMin = eaMap.minima.find((m) => m.isGlobal);
-  const winR      = eaMap.winRadius * 100; // viewBox units (0–100)
+  // Win zone: a ring of `winRadius` (normalized to map width) around the summit.
+  // Probes whose centre falls inside this ring are the `isSolution` dots
+  // highlighted below.
+  const winR      = winRadius * 100; // viewBox units (0–100)
   const solutionCount = sorted.filter((ind) => ind.isSolution).length;
 
   return (
@@ -157,10 +158,10 @@ function GenerationMap({ gen, eaMap }: { gen: Generation; eaMap: MapConfig }) {
         ))}
 
         {/* Win radius — the zone probes must reach to count as solved */}
-        {globalMin && (
+        {winTarget && (
           <circle
-            cx={globalMin.position.x * 100}
-            cy={globalMin.position.y * 100}
+            cx={winTarget.x * 100}
+            cy={winTarget.y * 100}
             r={winR}
             fill="var(--accent)"
             fillOpacity={0.1}
@@ -173,7 +174,7 @@ function GenerationMap({ gen, eaMap }: { gen: Generation; eaMap: MapConfig }) {
       </svg>
 
       {/* Count badge — how many probes are currently inside the win radius */}
-      {globalMin && (
+      {winTarget && (
         <div style={{
           position: 'absolute',
           top: 8,
