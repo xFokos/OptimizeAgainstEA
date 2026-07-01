@@ -32,6 +32,8 @@ export interface ProblemInstance {
     name?: string;
     description?: string;
     globalMinimum?: { x: number; y: number; value: number };
+    /** Approximate extent of the win zone, for drawing the win ring in replays. */
+    winRadius?: number;
   };
 }
 

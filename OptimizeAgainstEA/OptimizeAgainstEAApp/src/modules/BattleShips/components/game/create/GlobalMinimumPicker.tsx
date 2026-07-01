@@ -37,17 +37,17 @@ export function GlobalMinimumPicker({
         <div className="create-step__info">
           <h2 className="create-step__heading">
             <span className="badge">02</span>
-            Pick Global Minimum
+            Pick the Global Peak
           </h2>
           <p className="create-step__desc">
-            Click the dot that should be the global minimum — the one the
+            Click the dot that should be the global peak — the one the
             player must find to win.
           </p>
 
           {selectedId && (
               <div className="selection-preview">
                 <span className="selection-preview__dot" />
-                <span>Global minimum selected</span>
+                <span>Global peak selected</span>
               </div>
           )}
 
@@ -73,9 +73,9 @@ export function GlobalMinimumPicker({
               evaluateFn={evaluateFn}
               onMinimumClick={onSelect}
               selectedId={selectedId}
-              overlayLabel={!selectedId ? 'Click a dot to select it as global' : undefined}
+              overlayLabel={!selectedId ? 'Click a dot to select it as the global peak' : undefined}
           />
-          <p className="map-hint">Click a dot to mark it as the global minimum</p>
+          <p className="map-hint">Click a dot to mark it as the global peak</p>
         </div>
       </div>
   );

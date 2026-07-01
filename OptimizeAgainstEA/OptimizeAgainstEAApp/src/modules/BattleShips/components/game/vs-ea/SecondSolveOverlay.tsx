@@ -19,8 +19,8 @@ export function SecondSolveOverlay({ who, onClose }: SecondSolveOverlayProps) {
         </h2>
         <p className="ea-win-card__sub">
           {isEA
-            ? 'The algorithm has now also reached the global minimum.'
-            : 'You’ve now also reached the global minimum.'}
+            ? 'The algorithm has now also reached the global peak.'
+            : 'You’ve now also reached the global peak.'}
         </p>
 
         <div className="ea-win-card__actions">

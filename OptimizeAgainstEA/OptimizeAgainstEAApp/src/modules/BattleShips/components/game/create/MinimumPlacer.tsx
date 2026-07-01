@@ -43,10 +43,10 @@ export function MinimumPlacer({
             <div className="create-step__info">
                 <h2 className="create-step__heading">
                     <span className="badge">01</span>
-                    Place Minima
+                    Place Mountains
                 </h2>
                 <p className="create-step__desc">
-                    Click anywhere on the map to place a local minimum.
+                    Click anywhere on the map to place a mountain.
                     Click a dot to remove it.
                 </p>
 
@@ -73,7 +73,7 @@ export function MinimumPlacer({
                 >
                     {minima.length < 2
                         ? `Place at least ${2 - minima.length} more`
-                        : 'Pick Global →'}
+                        : 'Pick Global Peak →'}
                 </button>
             </div>
 
@@ -85,7 +85,7 @@ export function MinimumPlacer({
                     exclusionRadius={minSpacing / 2}
                     onMapClick={isFull ? undefined : onPlace}
                     onMinimumClick={onRemove}
-                    overlayLabel={minima.length === 0 ? 'Click to place minima' : undefined}
+                    overlayLabel={minima.length === 0 ? 'Click to place mountains' : undefined}
                 />
                 <p className="map-hint">Click a dot to remove it</p>
             </div>

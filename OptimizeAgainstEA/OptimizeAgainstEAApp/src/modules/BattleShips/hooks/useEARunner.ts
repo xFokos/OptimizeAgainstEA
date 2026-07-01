@@ -2,10 +2,9 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import type {
   EAConfig, Generation, Individual,
   WorkerInMessage, WorkerOutMessage,
-  SerializedMinima,
 } from '../types/ea';
 import { DEFAULT_EA_CONFIG } from '../types/ea';
-import type { MapConfig } from '../types/map';
+import type { ProblemSource } from '../engine/problemCode';
 import type { ReplayFrame } from '../engine/ea/eaReplayLog';
 
 export type EAStatus = 'idle' | 'running' | 'solved' | 'exhausted' | 'error';
@@ -96,7 +95,7 @@ export function useEARunner() {
     };
   }, []);
 
-  const init = useCallback((mapConfig: MapConfig, config: EAConfig = DEFAULT_EA_CONFIG) => {
+  const init = useCallback((source: ProblemSource, config: EAConfig = DEFAULT_EA_CONFIG) => {
     workerRef.current?.terminate();
     setState({ ...INITIAL_STATE, status: 'running' });
 
@@ -107,17 +106,11 @@ export function useEARunner() {
     attachWorker(worker);
     workerRef.current = worker;
 
-    const minima: SerializedMinima = {
-      positions: mapConfig.minima.map((m) => ({
-        x: m.position.x, y: m.position.y, isGlobal: m.isGlobal,
-      })),
-    };
-
-    worker.postMessage({ type: 'START', config, minima, winRadius: mapConfig.winRadius } as WorkerInMessage);
+    worker.postMessage({ type: 'START', config, source } as WorkerInMessage);
   }, [attachWorker]);
 
-  const start = useCallback((mapConfig: MapConfig, config: EAConfig = DEFAULT_EA_CONFIG) => {
-    init(mapConfig, config);
+  const start = useCallback((source: ProblemSource, config: EAConfig = DEFAULT_EA_CONFIG) => {
+    init(source, config);
   }, [init]);
 
   const step = useCallback((count: number = 1) => {
