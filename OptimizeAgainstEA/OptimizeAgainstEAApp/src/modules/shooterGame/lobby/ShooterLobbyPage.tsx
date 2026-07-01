@@ -274,16 +274,16 @@ type LobbyMode = 'normal' | 'raidboss' | 'horde';
 
 const SHOOTER_MODES = [
     {
-        id:    'normal',
-        key:   'S',
-        label: 'Solo Play',
-        sub:   'Kämpfe gegen einen genetischen Algorithmus, der sich nach jeder Runde an deinen Spielstil anpasst.',
-    },
-    {
         id:    'raidboss',
         key:   'R',
         label: 'Community Raidboss',
         sub:   'Trainiere die Community-Population. Jeder Kampf verbessert den gemeinsamen Boss für alle Spieler.',
+    },
+    {
+        id:    'normal',
+        key:   'S',
+        label: 'Solo Play',
+        sub:   'Kämpfe gegen einen genetischen Algorithmus, der sich nach jeder Runde an deinen Spielstil anpasst.',
     },
     {
         id:    'horde',

@@ -14,20 +14,16 @@ export function ProblemSelection({ value, onChange }: ProblemSelectionProps) {
                 <ProblemCard
                     title="Peak Finder"
                     description="Find your way to the highest peak"
+                    image="/game-peakfinder.png"
                     active={value === "battleShips"}
                     onClick={() => onChange("battleShips")}
                 />
                 <ProblemCard
                     title="Shooter vs EA"
                     description="Kämpfe gegen einen lernenden genetischen Algorithmus."
+                    image="/game-shooter.png"
                     active={value === "shooter"}
                     onClick={() => onChange("shooter")}
-                />
-                <ProblemCard
-                    title="Horde Mode"
-                    description="Überlebe Wellen von EA-Agenten die sich anpassen."
-                    active={value === "horde"}
-                    onClick={() => onChange("horde")}
                 />
             </div>
         </>
@@ -35,19 +31,29 @@ export function ProblemSelection({ value, onChange }: ProblemSelectionProps) {
 }
 
 function ProblemCard({
-                         title,
-                         description,
-                         active,
-                         onClick,
-                     }: {
-    title: string;
+    title,
+    description,
+    image,
+    active,
+    onClick,
+}: {
+    title:       string;
     description: string;
-    active: boolean;
-    onClick: () => void;
+    image?:      string;
+    active:      boolean;
+    onClick:     () => void;
 }) {
     return (
         <div className={`panel panel--interactive problem-card ${active ? "active" : ""}`} onClick={onClick}>
-            <div className="problem-image" />
+            <div className="problem-image">
+                {image && (
+                    <img
+                        src={image}
+                        alt={title}
+                        className="problem-image__img"
+                    />
+                )}
+            </div>
             <div className="problem-text">
                 <h3>{title}</h3>
                 <p>{description}</p>

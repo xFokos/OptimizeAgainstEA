@@ -3,9 +3,9 @@ import { useNavigate } from "react-router-dom";
 import "../styles/specific/dashboard.css";
 import { ProblemSelection } from "../modules/selectProblemPage/page/ProblemSelection.tsx";
 
-type Section = "gameSelect" | "settings" | "eaExplained" | "tab4";
+type Section = "gameSelect" | "settings" | "eaExplained";
 
-export type ProblemId = "battleShips" | "shooter" | "horde";
+export type ProblemId = "battleShips" | "shooter";
 export type GameConfig = {
     problem?: ProblemId;
 };
@@ -13,7 +13,6 @@ export type GameConfig = {
 const ROUTES: Record<ProblemId, string> = {
     battleShips: "/PeakFinder",
     shooter:     "/lobby/shooter",
-    horde:       "/lobby/horde",
 };
 
 export default function DashboardPage() {
@@ -44,11 +43,6 @@ export default function DashboardPage() {
                         active={active === "eaExplained"}
                         onClick={() => setActive("eaExplained")}
                     />
-                    <MenuItem
-                        label="Tab 4"
-                        active={active === "tab4"}
-                        onClick={() => setActive("tab4")}
-                    />
                 </nav>
             </aside>
 
@@ -67,7 +61,6 @@ export default function DashboardPage() {
 
                 {active === "settings"    && <EmptyTab title="Settings" />}
                 {active === "eaExplained" && <EmptyTab title="EA Explained" />}
-                {active === "tab4"        && <EmptyTab title="Tab 4" />}
             </main>
         </div>
     );
