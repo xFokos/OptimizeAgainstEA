@@ -4,6 +4,8 @@ import { decodeProblem, type DecodedProblem } from '../../../engine/problemCode'
 import { copyCode, pasteCode } from '../../../engine/codeClipboard';
 import { SavedMapsSidebar } from '../shared/SavedMapsSidebar';
 import { SavedFunctionsSidebar } from '../shared/SavedFunctionsSidebar';
+import { useSavedMaps } from '../../../hooks/useSavedMaps';
+import { HintPopover } from '../../../../../components/hints';
 
 interface MapLoaderProps {
   onLoad: (loaded: DecodedProblem) => void;
@@ -14,6 +16,7 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const { savedMaps } = useSavedMaps();
 
   const handlePlay = () => {
     try {
@@ -43,10 +46,12 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
 
   return (
     <div className="loader-with-saved">
-    <div className="loader-toolbar">
-      <SavedMapsSidebar />
-      <SavedFunctionsSidebar />
-    </div>
+    <HintPopover id="loader.chooseMap" placement="bottom" show={savedMaps.length > 0}>
+      <div className="loader-toolbar">
+        <SavedMapsSidebar />
+        <SavedFunctionsSidebar />
+      </div>
+    </HintPopover>
     <div className="map-loader">
       <h2 className="map-loader__heading">Load a Map</h2>
       <p className="map-loader__desc">

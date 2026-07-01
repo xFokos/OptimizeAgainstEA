@@ -8,6 +8,8 @@ import {
   functionsInCategory,
   createFunctionProblem,
   randomFunctionSpec,
+  proceduralFunction,
+  PROCEDURAL_FN_ID,
   type FunctionSpec,
 } from '../modules/BattleShips/engine/functionProblem';
 import '../modules/BattleShips/styles/BattleShipsStyles.css';
@@ -26,6 +28,14 @@ import '../modules/BattleShips/styles/BattleShipsStyles.css';
 function centeredSpec(id: string): FunctionSpec {
   return { fn: id, cx: 0.5, cy: 0.5, theta: 0, sx: 1, sy: 1, rx: 1, ry: 1 };
 }
+
+/** A centered procedural spec for a given seed — same framing as centeredSpec,
+ *  but carrying the seed that defines the generated "Mystery Surface". */
+function centeredProceduralSpec(seed: number): FunctionSpec {
+  return { ...centeredSpec(PROCEDURAL_FN_ID), seed };
+}
+
+const randomSeed = (): number => Math.floor(Math.random() * 0xffffffff) >>> 0;
 
 /**
  * Paints the exact winning region as a translucent overlay. Winning is value-
@@ -90,8 +100,15 @@ export default function FunctionTunerPage() {
   // "Random every time" code feels like.
   const [randomMode, setRandomMode] = useState(false);
 
+  const isProcedural = fnId === PROCEDURAL_FN_ID;
+
+  // The procedural surface isn't in BENCHMARK_FUNCTIONS — synthesise its def
+  // (label + default sharpen are seed-independent) so the UI reads correctly.
   const fnDef = useMemo(
-    () => BENCHMARK_FUNCTIONS.find((f) => f.id === fnId) ?? BENCHMARK_FUNCTIONS[0],
+    () =>
+      fnId === PROCEDURAL_FN_ID
+        ? proceduralFunction(0)
+        : BENCHMARK_FUNCTIONS.find((f) => f.id === fnId) ?? BENCHMARK_FUNCTIONS[0],
     [fnId],
   );
 
@@ -114,6 +131,14 @@ export default function FunctionTunerPage() {
     setSpec(next);
   };
 
+  // Generate a brand-new "Mystery Surface" from a fresh seed (centered framing).
+  const rollProcedural = () => {
+    const seed = randomSeed();
+    setFnId(PROCEDURAL_FN_ID);
+    setSharpen(proceduralFunction(seed).sharpen);
+    setSpec(centeredProceduralSpec(seed));
+  };
+
   const onPick = (value: string) => {
     if (value === RANDOM_OPT) {
       setRandomMode(true);
@@ -121,15 +146,23 @@ export default function FunctionTunerPage() {
       return;
     }
     setRandomMode(false);
+    if (value === PROCEDURAL_FN_ID) {
+      rollProcedural();
+      return;
+    }
     const def = BENCHMARK_FUNCTIONS.find((f) => f.id === value) ?? BENCHMARK_FUNCTIONS[0];
     setFnId(value);
     setSharpen(def.sharpen);
     setSpec(centeredSpec(value));
   };
 
-  const reroll = () =>
-    randomMode ? rollRandom() : setSpec(randomFunctionSpec(Math.random, { id: fnId }));
-  const recenter = () => setSpec(centeredSpec(fnId));
+  const reroll = () => {
+    if (randomMode) return rollRandom();
+    if (isProcedural) return rollProcedural();
+    setSpec(randomFunctionSpec(Math.random, { id: fnId }));
+  };
+  const recenter = () =>
+    setSpec(isProcedural ? centeredProceduralSpec(spec.seed ?? 0) : centeredSpec(fnId));
   const resetSharpen = () => setSharpen(fnDef.sharpen);
 
   const isDefault = Math.abs(sharpen - fnDef.sharpen) < 1e-6;
@@ -197,6 +230,7 @@ export default function FunctionTunerPage() {
               style={{ padding: '6px 8px', borderRadius: 6 }}
             >
               <option value={RANDOM_OPT}>🎲 Random (any function)</option>
+              <option value={PROCEDURAL_FN_ID}>✨ Mystery Surface (generated)</option>
               {FUNCTION_CATEGORIES.map((cat) => (
                 <optgroup key={cat} label={cat}>
                   {functionsInCategory(cat).map((f) => (
@@ -210,6 +244,11 @@ export default function FunctionTunerPage() {
             {randomMode && (
               <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>
                 Showing <strong>{fnDef.label}</strong> — re-roll for a new one.
+              </span>
+            )}
+            {isProcedural && (
+              <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>
+                Procedurally generated (seed {spec.seed ?? 0}) — re-roll for a brand-new surface.
               </span>
             )}
           </label>
@@ -265,7 +304,7 @@ export default function FunctionTunerPage() {
               ↻ Reset to default
             </button>
             <button className="btn btn--ghost btn--sm" onClick={reroll}>
-              {randomMode ? '🎲 Re-roll function' : '🎲 Re-roll transform'}
+              {randomMode ? '🎲 Re-roll function' : isProcedural ? '✨ Re-roll surface' : '🎲 Re-roll transform'}
             </button>
             <button className="btn btn--ghost btn--sm" onClick={recenter}>
               ⊙ Re-center

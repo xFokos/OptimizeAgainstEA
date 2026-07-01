@@ -39,12 +39,6 @@ interface BenchmarkFn {
 
 const TAU = Math.PI * 2;
 
-// Ripple parameters for the wavy-Rosenbrock variant: α = bump amplitude,
-// β = bump frequency. Small enough that the global optimum stays in the valley
-// near (1, 1) while the floor becomes deceptively bumpy.
-const WAVE_ALPHA = 2;
-const WAVE_BETA = 3;
-
 // ── Constants & helpers for the BBOB-derived functions below ──────────────
 // These reproduce the *base shape* of each COCO/BBOB benchmark (f5–f24). The
 // BBOB suite additionally rotates, conditions and offsets each one; we skip
@@ -101,13 +95,7 @@ const KATSUURA_BOWL = 3;
  *  global optimum; the rest (weight < 10) are decoys with weak global structure. */
 interface Peak { x: number; y: number; w: number; c: number; }
 const GALLAGHER_PEAKS: Peak[] = (() => {
-  let s = 0x9e3779b9 >>> 0;
-  const rng = () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+  const rng = makeRng(0x9e3779b9);
   const peaks: Peak[] = [{ x: 0, y: 0, w: 10, c: 1.5 }];
   for (let i = 0; i < 100; i++) {
     peaks.push({ x: (rng() * 2 - 1) * 5, y: (rng() * 2 - 1) * 5, w: 1.1 + rng() * 8, c: 0.8 + rng() * 9 });
@@ -244,20 +232,6 @@ export const BENCHMARK_FUNCTIONS: BenchmarkFn[] = [
     globalMin: { x: 0, y: 0 },
     viewHalfWidth: 5,
     sharpen: 1.2,
-  },
-  {
-    // Rosenbrock with sinusoidal ripples: the classic banana valley, but its
-    // floor is corrugated, so the EA has to climb out of shallow false dips.
-    id: 'rosenbrockSine',
-    label: 'Rosenbrock (Wavy)',
-    category: 'complex',
-    raw: (x, y) =>
-      (1 - x) ** 2 +
-      100 * (y - x * x) ** 2 +
-      WAVE_ALPHA * Math.sin(WAVE_BETA * x) * Math.sin(WAVE_BETA * y),
-    globalMin: { x: 1, y: 1 },
-    viewHalfWidth: 2.2,
-    sharpen: 0.55,
   },
   {
     id: 'eggholder',
@@ -401,6 +375,13 @@ export const BENCHMARK_FUNCTIONS: BenchmarkFn[] = [
 
 const FN_BY_ID = new Map(BENCHMARK_FUNCTIONS.map((f) => [f.id, f]));
 
+/** The BenchmarkFn backing a spec: a procedural spec is synthesised from its
+ *  seed, anything else is a named benchmark (falling back to Sphere). */
+function fnForSpec(spec: FunctionSpec): BenchmarkFn {
+  if (spec.fn === PROCEDURAL_FN_ID) return proceduralFunction(spec.seed ?? 0);
+  return FN_BY_ID.get(spec.fn) ?? BENCHMARK_FUNCTIONS[0];
+}
+
 /** Functions grouped by difficulty band, in the panel's display order. */
 export const FUNCTION_CATEGORIES: FunctionCategory[] = ['simple', 'normal', 'complex', 'quirky'];
 
@@ -410,11 +391,14 @@ export function functionsInCategory(cat: FunctionCategory): BenchmarkFn[] {
 
 /** A fully-resolved, shareable surface: a benchmark id + a random transform. */
 export interface FunctionSpec {
-  fn: string;            // benchmark id
+  fn: string;            // benchmark id, or PROCEDURAL_FN_ID for a seeded surface
   cx: number; cy: number; // where the optimum should appear in the [0,1] viewport
   theta: number;          // rotation (radians)
   sx: number; sy: number; // anisotropic scale (zoom)
   rx: 1 | -1; ry: 1 | -1; // reflections
+  /** Only set when fn === PROCEDURAL_FN_ID: the RNG seed that fully and
+   *  deterministically defines the procedurally-generated surface. */
+  seed?: number;
 }
 
 /** Nominal radius used only to *draw* the win zone in replay overlays (winning
@@ -431,8 +415,119 @@ const MARGIN = 0.18;        // keep the optimum this far from the viewport edges
 
 /** Sentinel benchmark id meaning "pick a fresh random function every play".
  *  A spec carrying this id is not playable directly — it's resolved into a
- *  concrete random surface at load time (see resolveSpec). */
+ *  concrete procedural surface at load time (see resolveSpec). */
 export const RANDOM_FN_ID = 'random';
+
+/** Benchmark id for a procedurally-generated, never-seen-before surface. Unlike
+ *  the named benchmarks, a procedural function isn't one of the canonical test
+ *  functions — it's synthesised from random primitives keyed by `spec.seed`, so
+ *  it's fully reproducible (same seed ⇒ same surface on the main thread and in
+ *  the EA worker) yet unique on every fresh roll. */
+export const PROCEDURAL_FN_ID = 'procedural';
+
+/** mulberry32 — a tiny, fast, fully-deterministic PRNG. Same seed ⇒ same stream,
+ *  which is what lets a procedural surface rebuild identically across threads. */
+function makeRng(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ── Coherent value-noise (fBm) for the procedural surface ─────────────────
+// A small, fully-integer-hashed value-noise field: deterministic in (cell, seed),
+// so it rebuilds identically on the main thread and in the EA worker. Summed over
+// a few octaves (fractional Brownian motion) it gives organic, multi-scale terrain
+// with no visible lattice — the source of the surface's "good points" (decoys).
+
+/** Integer hash of a lattice cell → [0, 1). */
+function hashCell(ix: number, iy: number, seed: number): number {
+  let h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + Math.imul(seed, 0x9e3779b1)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+
+const smoothstep = (t: number): number => t * t * (3 - 2 * t);
+
+/** One octave of 2-D value noise: smooth-interpolated lattice of cell hashes. */
+function valueNoise(x: number, y: number, seed: number): number {
+  const x0 = Math.floor(x), y0 = Math.floor(y);
+  const fx = smoothstep(x - x0), fy = smoothstep(y - y0);
+  const v00 = hashCell(x0, y0, seed);
+  const v10 = hashCell(x0 + 1, y0, seed);
+  const v01 = hashCell(x0, y0 + 1, seed);
+  const v11 = hashCell(x0 + 1, y0 + 1, seed);
+  const a = v00 + (v10 - v00) * fx;
+  const b = v01 + (v11 - v01) * fx;
+  return a + (b - a) * fy; // [0, 1]
+}
+
+/** Fractional Brownian motion: octaves at halving amplitude / doubling frequency. */
+function fbm(x: number, y: number, seed: number, octaves: number): number {
+  let sum = 0, amp = 1, freq = 1, norm = 0;
+  for (let o = 0; o < octaves; o++) {
+    sum += amp * valueNoise(x * freq, y * freq, seed + o * 1013);
+    norm += amp;
+    amp *= 0.5;
+    freq *= 2;
+  }
+  return sum / norm; // [0, 1]
+}
+
+/**
+ * Synthesises a brand-new benchmark-shaped function from a seed (the hybrid
+ * "well + noise" surface). Three layers:
+ *   • a faint global bowl                — keeps the far corners high,
+ *   • a broad, gentle central depression — biases the global optimum toward the
+ *     centre without hogging the colour range (a narrow deep spike would compress
+ *     all the noise into a thin band — this is why the noise now reads strongly), and
+ *   • a strong fBm noise field           — organic, never-repeating decoys /
+ *     "good points" at many scales; this is the dominant visible relief.
+ * The broad depression integrates a real downward bias over the whole centre, so
+ * even with noise stronger than its own depth the global minimum lands in the
+ * central basin (validated across many seeds); createFunctionProblem then
+ * self-pins the exact summit. Deterministic in `seed`.
+ */
+export function proceduralFunction(seed: number): BenchmarkFn {
+  const rng = makeRng(seed);
+
+  const CENTER_DEPTH = 1.0;                 // depth of the broad central depression
+  const centerSigma = 1.6 + rng() * 0.7;    // 1.6..2.3 — wide, so it's a basin not a spike
+  const bowl = 0.025 + rng() * 0.015;       // 0.025..0.04 — faint global incline
+  const noiseAmp = 1.2 + rng() * 0.3;       // 1.2..1.5 — strong, dominant relief
+  // Base feature scale. Spread so rolls range from gentle (broad hills) to busy
+  // (many basins) — the "good points" the EA and player get lured into. Higher =
+  // more, smaller decoy basins.
+  const noiseFreq = 0.5 + rng() * 0.5;      // 0.5..1.0
+  // 3 octaves: bold rolling relief without devolving into fine grain (the high
+  // octaves carry little amplitude but a lot of busy detail, so we stop at 3).
+  const octaves = 3;
+  // Offset the noise sample point so the centre isn't pinned to a lattice node
+  // (and so the noise field is decorrelated from the depression across seeds).
+  const ox = rng() * 100, oy = rng() * 100;
+
+  const raw = (x: number, y: number): number => {
+    const r2 = x * x + y * y;
+    let v = bowl * r2;
+    v -= CENTER_DEPTH * Math.exp(-r2 / (2 * centerSigma * centerSigma));
+    v -= noiseAmp * fbm((x + ox) * noiseFreq, (y + oy) * noiseFreq, seed, octaves);
+    return v;
+  };
+
+  return {
+    id: PROCEDURAL_FN_ID,
+    label: 'Mystery Surface',
+    category: 'complex',
+    raw,
+    globalMin: { x: 0, y: 0 },
+    viewHalfWidth: 5,
+    sharpen: 0.85,
+  };
+}
 
 /** A sentinel spec that re-randomises into a brand-new surface each time it's
  *  loaded. Encode this for a "random every time" share code; the transform
@@ -442,12 +537,36 @@ export function randomSurfaceSpec(): FunctionSpec {
 }
 
 /** Resolves a possibly-sentinel spec into a concrete, playable one. A
- *  RANDOM_FN_ID spec becomes a fresh random function + transform; any normal
- *  spec is returned unchanged. Call this once on the main thread at load time so
- *  the concrete result can be handed to the EA worker — that keeps a single play
- *  session identical across threads while still re-rolling on the next load. */
+ *  RANDOM_FN_ID spec becomes a fresh procedural surface (a unique seed + random
+ *  transform); any normal spec is returned unchanged. Call this once on the main
+ *  thread at load time so the concrete result can be handed to the EA worker —
+ *  that keeps a single play session identical across threads while still
+ *  re-rolling on the next load. */
 export function resolveSpec(spec: FunctionSpec, rng: () => number = Math.random): FunctionSpec {
-  return spec.fn === RANDOM_FN_ID ? randomFunctionSpec(rng) : spec;
+  return spec.fn === RANDOM_FN_ID ? proceduralSurfaceSpec(rng) : spec;
+}
+
+/** A concrete procedural spec: a fresh seed plus a random framing transform. */
+export function proceduralSurfaceSpec(rng: () => number = Math.random): FunctionSpec {
+  return {
+    fn: PROCEDURAL_FN_ID,
+    seed: Math.floor(rng() * 0xffffffff) >>> 0,
+    ...randomTransform(rng),
+  };
+}
+
+/** Random affine framing (placement / rotation / zoom / reflection) shared by
+ *  the benchmark and procedural random specs. */
+function randomTransform(rng: () => number): Omit<FunctionSpec, 'fn' | 'seed'> {
+  return {
+    cx: MARGIN + rng() * (1 - 2 * MARGIN),
+    cy: MARGIN + rng() * (1 - 2 * MARGIN),
+    theta: rng() * TAU,
+    sx: 0.8 + rng() * 0.5,
+    sy: 0.8 + rng() * 0.5,
+    rx: rng() < 0.5 ? -1 : 1,
+    ry: rng() < 0.5 ? -1 : 1,
+  };
 }
 
 /** Random transform for a given (or random) benchmark function. */
@@ -460,16 +579,7 @@ export function randomFunctionSpec(
   else if (opts.category) pool = functionsInCategory(opts.category);
   const fn = pool[Math.floor(rng() * pool.length)] ?? BENCHMARK_FUNCTIONS[0];
 
-  return {
-    fn: fn.id,
-    cx: MARGIN + rng() * (1 - 2 * MARGIN),
-    cy: MARGIN + rng() * (1 - 2 * MARGIN),
-    theta: rng() * TAU,
-    sx: 0.8 + rng() * 0.5,
-    sy: 0.8 + rng() * 0.5,
-    rx: rng() < 0.5 ? -1 : 1,
-    ry: rng() < 0.5 ? -1 : 1,
-  };
+  return { fn: fn.id, ...randomTransform(rng) };
 }
 
 /**
@@ -508,7 +618,7 @@ export function createFunctionProblem(
   spec: FunctionSpec,
   sharpenOverride?: number,
 ): ProblemInstance {
-  const fn = FN_BY_ID.get(spec.fn) ?? BENCHMARK_FUNCTIONS[0];
+  const fn = fnForSpec(spec);
   const sharpen = sharpenOverride ?? fn.sharpen;
   const rawEval = rawEvaluator(spec, fn);
 
@@ -592,6 +702,7 @@ export function encodeFunctionCode(spec: FunctionSpec): string {
     th: round(spec.theta),
     s: [round(spec.sx), round(spec.sy)],
     r: [spec.rx, spec.ry],
+    ...(spec.seed !== undefined ? { sd: spec.seed } : {}),
   };
   const json = JSON.stringify(payload);
   return btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -599,7 +710,7 @@ export function encodeFunctionCode(spec: FunctionSpec): string {
 
 /** Decodes a function code back into a FunctionSpec. Throws if not a function code. */
 export function decodeFunctionCode(code: string): FunctionSpec {
-  let payload: { k?: string; fn?: string; c?: number[]; th?: number; s?: number[]; r?: number[] };
+  let payload: { k?: string; fn?: string; c?: number[]; th?: number; s?: number[]; r?: number[]; sd?: number };
   try {
     const padded = code.replace(/-/g, '+').replace(/_/g, '/');
     payload = JSON.parse(atob(padded));
@@ -616,6 +727,7 @@ export function decodeFunctionCode(code: string): FunctionSpec {
     sx: payload.s[0], sy: payload.s[1],
     rx: payload.r[0] === -1 ? -1 : 1,
     ry: payload.r[1] === -1 ? -1 : 1,
+    ...(payload.sd !== undefined ? { seed: payload.sd >>> 0 } : {}),
   };
 }
 

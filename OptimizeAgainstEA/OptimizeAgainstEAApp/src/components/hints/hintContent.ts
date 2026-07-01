@@ -39,13 +39,15 @@ export type HintId =
   | 'create.done'
   | 'play.start'
   | 'play.firstProbe'
+  | 'loader.chooseMap'
   | 'vsEa.start'
   | 'vsEa.settingsButton'
   | 'vsEa.settingsPanel'
   | 'vsEa.replayButton'
   | 'vsEa.eaMovementButton'
   | 'vsEa.playerWon'
-  | 'vsEa.eaWon';
+  | 'vsEa.eaWon'
+  | 'functions.intro';
 
 export interface HintDef {
   title?: string;
@@ -138,6 +140,20 @@ export const HINTS: Record<HintId, HintDef> = {
     pauses: true,
   },
 
+  // ── Map/function loader: shown on the loader once the player has saved at
+  //    least one map. Points them to the two places they can load from. Fires
+  //    after the game-mode intro and, in Vs EA, before the EA-settings coachmark. ─
+  'loader.chooseMap': {
+    title: 'Where to find maps & functions',
+    body:
+      'Need something to load? Your own creations live under "Your Maps" at the ' +
+      'top-left, and a whole library of mathematical functions sits in the ' +
+      '"Functions" tab beside it. Open either one, copy a code, and paste it ' +
+      'here to play.',
+    style: 'toast',
+    once: true,
+  },
+
   // ── Vs EA race: blocking modal fired once when the race screen loads ──────
   'vsEa.start': {
     title: 'Playing against the Algorithm',
@@ -212,5 +228,19 @@ export const HINTS: Record<HintId, HintDef> = {
       'You can watch the replay, as well as change the settings and try again.',
     style: 'modal',
     once: true,
+  },
+
+  // ── Functions drawer: fired once the first time the player opens it ────────
+  'functions.intro': {
+    title: 'Math functions play differently',
+    body:
+      'These are mathematical functions rather than hand-built maps, so they ' +
+      'behave a little differently. Instead of a single hidden peak, a function ' +
+      'can have several winning areas — any spot that reaches the optimal ' +
+      'value counts as a win, and those spots can form larger regions or ' +
+      'appear in more than one place. Explore and see how each one feels!',
+    style: 'modal',
+    once: true,
+    pauses: true,
   },
 };

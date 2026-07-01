@@ -14,6 +14,7 @@ import { encodeMap, generateRandomMap } from '../../../engine/mapCodec';
 import { copyCode, pasteCode } from '../../../engine/codeClipboard';
 import { usePlaySession } from '../../../hooks/usePlaySession';
 import { useEARunner } from '../../../hooks/useEARunner';
+import { useSavedMaps } from '../../../hooks/useSavedMaps';
 import { GameMap } from '../shared/GameMap';
 import { SavedMapsSidebar } from '../shared/SavedMapsSidebar';
 import { SavedFunctionsSidebar } from '../shared/SavedFunctionsSidebar';
@@ -63,6 +64,12 @@ function DualMapLoader({
     playerCode: initialPlayerCode ?? '', eaCode: initialEaCode ?? '', playerErr: '', eaErr: '', generatedCode: '',
   });
   const [showSettings, setShowSettings] = useState(false);
+  // The "where to find maps" hint only makes sense once the player has created a
+  // map of their own; the EA-settings coachmark then waits until that hint has
+  // been dismissed so the two don't overlap (and so it comes second).
+  const { savedMaps } = useSavedMaps();
+  const { isSeen } = useHints();
+  const hasSavedMaps = savedMaps.length > 0;
 
   const set = (field: keyof DualLoaderState, value: string) =>
     setS((prev) => ({ ...prev, [field]: value }));
@@ -84,24 +91,38 @@ function DualMapLoader({
     let playerErr = '';
     let eaErr     = '';
 
-    try { player = decodeProblem(s.playerCode.trim()); }
+    const playerCode = s.playerCode.trim();
+    const eaCode     = s.eaCode.trim();
+
+    try { player = decodeProblem(playerCode); }
     catch { playerErr = 'Invalid code'; }
 
-    try { ea = decodeProblem(s.eaCode.trim()); }
-    catch { eaErr = 'Invalid code'; }
+    // When both sides share the same code, decode it only once. A "random every
+    // time" code resolves a *fresh* random surface on every decodeProblem call
+    // (see resolveSpec), so decoding it twice would hand the player and the EA
+    // two different surfaces — an unfair race. Reusing the player's resolved
+    // problem guarantees they compete on the identical surface.
+    if (player && eaCode === playerCode) {
+      ea = player;
+    } else {
+      try { ea = decodeProblem(eaCode); }
+      catch { eaErr = 'Invalid code'; }
+    }
 
     setS((prev) => ({ ...prev, playerErr, eaErr }));
-    if (player && ea) onStart(player, ea, s.playerCode.trim(), s.eaCode.trim());
+    if (player && ea) onStart(player, ea, playerCode, eaCode);
   };
 
   const canStart = s.playerCode.trim().length > 0 && s.eaCode.trim().length > 0;
 
   return (
     <div className="loader-with-saved">
-    <div className="loader-toolbar">
-      <SavedMapsSidebar />
-      <SavedFunctionsSidebar />
-    </div>
+    <HintPopover id="loader.chooseMap" placement="bottom" show={hasSavedMaps}>
+      <div className="loader-toolbar">
+        <SavedMapsSidebar />
+        <SavedFunctionsSidebar />
+      </div>
+    </HintPopover>
     <div className="dual-loader">
       <h2 className="dual-loader__heading">Vs Evolutionary Algorithm</h2>
       <p className="dual-loader__desc">
@@ -179,7 +200,12 @@ function DualMapLoader({
 
       <div className="dual-loader__actions">
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
-        <HintPopover id="vsEa.settingsButton" placement="bottom" dismissAfter={6000}>
+        <HintPopover
+          id="vsEa.settingsButton"
+          placement="bottom"
+          dismissAfter={6000}
+          show={!hasSavedMaps || isSeen('loader.chooseMap')}
+        >
           <button className="btn btn--ghost btn--sm ea-settings-btn" onClick={() => setShowSettings((v) => !v)}>
             ⚙ EA Settings
           </button>
@@ -503,8 +529,8 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
         <GenerationReplayOverlay
           generations={ea.generations}
           label={eaProb.label}
-          winTarget={eaProb.winTarget}
-          winRadius={eaProb.winRadius}
+          isWin={eaProb.problem.isWin}
+          revealWin={winner !== null}
           onClose={() => setShowGenReplay(false)}
         />
       )}

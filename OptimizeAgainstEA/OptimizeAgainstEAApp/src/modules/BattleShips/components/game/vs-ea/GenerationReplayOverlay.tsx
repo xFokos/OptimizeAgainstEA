@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Generation } from '../../../types/ea';
-import type { Coordinate } from '../../../types/map';
 import { sampleGradientRgb } from '../../../engine/colorScale';
 import { valueToHeight } from '../../../engine/height';
 import { DOT_MOVE_DURATION, DOT_MOVE_DURATION_MS } from './replay/ReplayMap';
@@ -12,16 +11,54 @@ import { DOT_MOVE_DURATION, DOT_MOVE_DURATION_MS } from './replay/ReplayMap';
  */
 const AUTOPLAY_FRAME_MS = DOT_MOVE_DURATION_MS + 300;
 
+/** Rasterization resolution for the win-area overlay (cells per axis). Rows are
+ *  run-length merged into rectangles, so this can be fairly fine without a huge
+ *  element count. */
+const WIN_RASTER = 500;
+
+/** A horizontal run of winning cells on one raster row (viewBox 0–100 units). */
+interface WinRun { x: number; y: number; w: number; h: number; }
+
+/**
+ * Rasterizes the win region of *any* shape into horizontal rectangle runs, so
+ * the replay can shade the exact area that counts as solved — a circle for
+ * hand-built maps, or an arbitrary blob for benchmark/procedural functions
+ * (whose win zone is value-based, not a radius). Shape-agnostic by construction.
+ */
+function computeWinRuns(isWin: (x: number, y: number) => boolean): WinRun[] {
+  const cell = 100 / WIN_RASTER;
+  // A hairline height overlap (a small fraction of a cell) closes anti-aliasing
+  // seams between vertically-adjacent rows without visibly bloating the shape.
+  // Width needs none — a run is already one contiguous rect within its row.
+  const seam = cell * 0.08;
+  const runs: WinRun[] = [];
+  for (let j = 0; j < WIN_RASTER; j++) {
+    const y = (j + 0.5) / WIN_RASTER;
+    let start = -1;
+    for (let i = 0; i <= WIN_RASTER; i++) {
+      const inside = i < WIN_RASTER && isWin((i + 0.5) / WIN_RASTER, y);
+      if (inside && start < 0) {
+        start = i;
+      } else if (!inside && start >= 0) {
+        runs.push({ x: start * cell, y: j * cell, w: (i - start) * cell, h: cell + seam });
+        start = -1;
+      }
+    }
+  }
+  return runs;
+}
+
 interface GenerationReplayOverlayProps {
   generations: Generation[];
   label:       string;
-  /** Summit location (normalized) for the win ring, or null if unknown. */
-  winTarget:   Coordinate | null;
-  winRadius:   number;
+  /** Shape-agnostic win test for the loaded problem — used to shade the win area. */
+  isWin:       (x: number, y: number) => boolean;
+  /** Only reveal the win area + highlight solved probes once someone has won. */
+  revealWin:   boolean;
   onClose:     () => void;
 }
 
-export function GenerationReplayOverlay({ generations, label, winTarget, winRadius, onClose }: GenerationReplayOverlayProps) {
+export function GenerationReplayOverlay({ generations, label, isWin, revealWin, onClose }: GenerationReplayOverlayProps) {
   const [index,     setIndex]     = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -70,6 +107,10 @@ export function GenerationReplayOverlay({ generations, label, winTarget, winRadi
 
   useEffect(() => () => stopInterval(), [stopInterval]);
 
+  // The win area only depends on the problem, so rasterize it once — and only
+  // when it's actually going to be shown (after someone wins).
+  const winRuns = useMemo(() => (revealWin ? computeWinRuns(isWin) : []), [revealWin, isWin]);
+
   const gen = generations[index];
   if (!gen) return null;
 
@@ -94,7 +135,7 @@ export function GenerationReplayOverlay({ generations, label, winTarget, winRadi
 
         {/* Map */}
         <div className="genreplay-body">
-          <GenerationMap gen={gen} winTarget={winTarget} winRadius={winRadius} />
+          <GenerationMap gen={gen} winRuns={winRuns} revealWin={revealWin} />
         </div>
 
         {/* Controls */}
@@ -124,14 +165,12 @@ export function GenerationReplayOverlay({ generations, label, winTarget, winRadi
   );
 }
 
-function GenerationMap({ gen, winTarget, winRadius }: { gen: Generation; winTarget: Coordinate | null; winRadius: number }) {
+function GenerationMap({ gen, winRuns, revealWin }: { gen: Generation; winRuns: WinRun[]; revealWin: boolean }) {
   const sorted = [...gen.individuals].sort((a, b) => a.fitness - b.fitness);
   const worst  = sorted[sorted.length - 1]?.fitness ?? 1;
 
-  // Win zone: a ring of `winRadius` (normalized to map width) around the summit.
-  // Probes whose centre falls inside this ring are the `isSolution` dots
-  // highlighted below.
-  const winR      = winRadius * 100; // viewBox units (0–100)
+  // Solved probes (inside the win zone) are only surfaced once the race is
+  // decided — otherwise the replay would give away where the summit is.
   const solutionCount = sorted.filter((ind) => ind.isSolution).length;
 
   return (
@@ -157,24 +196,21 @@ function GenerationMap({ gen, winTarget, winRadius }: { gen: Generation; winTarg
           </g>
         ))}
 
-        {/* Win radius — the zone probes must reach to count as solved */}
-        {winTarget && (
-          <circle
-            cx={winTarget.x * 100}
-            cy={winTarget.y * 100}
-            r={winR}
+        {/* Win area — the exact region that counts as solved, shaded to match
+            its true shape (a circle for maps, an arbitrary blob for functions).
+            Only revealed once the race is over, so it doesn't spoil the summit. */}
+        {revealWin && winRuns.map((r, i) => (
+          <rect
+            key={i}
+            x={r.x} y={r.y} width={r.w} height={r.h}
             fill="var(--accent)"
-            fillOpacity={0.1}
-            stroke="var(--accent)"
-            strokeOpacity={0.7}
-            strokeWidth={0.6}
-            strokeDasharray="2 1.5"
+            fillOpacity={0.4}
           />
-        )}
+        ))}
       </svg>
 
-      {/* Count badge — how many probes are currently inside the win radius */}
-      {winTarget && (
+      {/* Count badge — how many probes are currently inside the win area */}
+      {revealWin && (
         <div style={{
           position: 'absolute',
           top: 8,
@@ -189,15 +225,17 @@ function GenerationMap({ gen, winTarget, winRadius }: { gen: Generation; winTarg
           pointerEvents: 'none',
           zIndex: 5,
         }}>
-          {solutionCount} in win radius
+          {solutionCount} in win area
         </div>
       )}
 
       {sorted.map((ind, rank) => {
         const isBest  = rank === 0;
-        const color   = ind.isSolution ? 'var(--accent)' : sampleGradientRgb(ind.fitness / Math.max(worst, 1e-9));
-        const size    = isBest ? 14 : ind.isSolution ? 12 : 9;
-        const zIndex  = isBest ? 4 : ind.isSolution ? 3 : 1;
+        // Solved probes only get the accent highlight once the win is revealed.
+        const solved  = revealWin && ind.isSolution;
+        const color   = solved ? 'var(--accent)' : sampleGradientRgb(ind.fitness / Math.max(worst, 1e-9));
+        const size    = isBest ? 14 : solved ? 12 : 9;
+        const zIndex  = isBest ? 4 : solved ? 3 : 1;
 
         return (
           <div key={rank} style={{
@@ -211,10 +249,10 @@ function GenerationMap({ gen, winTarget, winRadius }: { gen: Generation; winTarg
             background: color,
             border: isBest
               ? '2px solid #fff'
-              : ind.isSolution
+              : solved
                 ? '2px solid var(--accent)'
                 : '1px solid rgba(255,255,255,.2)',
-            boxShadow: isBest || ind.isSolution ? `0 0 8px ${color}` : 'none',
+            boxShadow: isBest || solved ? `0 0 8px ${color}` : 'none',
             transition: `left ${DOT_MOVE_DURATION} ease, top ${DOT_MOVE_DURATION} ease`,
             zIndex,
             pointerEvents: 'none',

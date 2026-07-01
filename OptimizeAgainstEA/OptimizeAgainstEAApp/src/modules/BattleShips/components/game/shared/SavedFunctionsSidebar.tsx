@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useHints } from '../../../../../components/hints';
 import { copyCode } from '../../../engine/codeClipboard';
 import {
   FUNCTION_CATEGORIES,
@@ -30,6 +31,15 @@ const CATEGORY_LABEL: Record<FunctionCategory, string> = {
 export function SavedFunctionsSidebar() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const { showHint } = useHints();
+
+  // First time the player opens the functions drawer, explain that functions
+  // behave differently from maps and can have multiple winning areas.
+  // showHint no-ops on later opens (the hint is `once`).
+  const openDrawer = () => {
+    setOpen(true);
+    showHint('functions.intro');
+  };
 
   const flash = (key: string) => {
     setCopied(key);
@@ -56,7 +66,7 @@ export function SavedFunctionsSidebar() {
     <>
       <button
         className="saved-maps-toggle"
-        onClick={() => setOpen(true)}
+        onClick={openDrawer}
         title="Show math functions"
       >
         ƒ(x) Functions
@@ -85,7 +95,7 @@ export function SavedFunctionsSidebar() {
                 onClick={copyRandomEveryTime}
                 title="Copy a code that picks a brand-new random surface on every load"
               >
-                {copied === '__randomEvery' ? '✓ Code copied' : '🎲 Random every time'}
+                {copied === '__randomEvery' ? '✓ Code copied' : '🎲 Chaos Function'}
               </button>
 
               <button
@@ -93,7 +103,7 @@ export function SavedFunctionsSidebar() {
                 onClick={copyRandom}
                 title="Copy a code for one fixed random surface (same every replay)"
               >
-                {copied === '__random' ? '✓ Code copied' : '🎲 Random (fixed)'}
+                {copied === '__random' ? '✓ Code copied' : '🎲 Random Function'}
               </button>
 
               {FUNCTION_CATEGORIES.map((cat) => (
