@@ -393,13 +393,13 @@ function ReplayCanvas({ record }: { record: RoundRecord }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
                 {/* Play / Speed */}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button style={{ ...sh.ctrlBtn, minWidth: 80 }} onClick={togglePlay}>
+                    <button className="btn btn--ghost btn--sm" style={{ minWidth: 80 }} onClick={togglePlay}>
                         {playing ? '⏸ Pause' : '▶ Play'}
                     </button>
                     {([0.25, 0.5, 1, 2] as const).map(s => (
                         <button
                             key={s}
-                            style={{ ...sh.ctrlBtn, background: speed === s ? 'rgba(79,195,247,0.15)' : undefined, color: speed === s ? C.accent : C.textDim }}
+                            className={`btn btn--sm ${speed === s ? 'btn--outline' : 'btn--ghost'}`}
                             onClick={() => { setSpeed(s); stateRef.current.speed = s; }}
                         >
                             {s}×
@@ -478,13 +478,8 @@ function ReplayTab({ rounds }: { rounds: RoundRecord[] }) {
                     {rounds.map(r => (
                         <button
                             key={r.round}
+                            className={`btn btn--sm ${selected.round === r.round ? 'btn--outline' : 'btn--ghost'}`}
                             onClick={() => setSelected(r)}
-                            style={{
-                                ...sh.ctrlBtn,
-                                background: selected.round === r.round ? 'rgba(79,195,247,0.15)' : undefined,
-                                color:      selected.round === r.round ? C.accent : C.textDim,
-                                border:     `1px solid ${selected.round === r.round ? C.accent : C.borderStrong}`,
-                            }}
                         >
                             {r.round}
                         </button>

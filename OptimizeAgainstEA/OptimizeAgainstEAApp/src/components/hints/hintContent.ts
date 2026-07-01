@@ -45,7 +45,8 @@ export type HintId =
   | 'vsEa.replayButton'
   | 'vsEa.eaMovementButton'
   | 'vsEa.playerWon'
-  | 'vsEa.eaWon';
+  | 'vsEa.eaWon'
+  | 'shooter.dnaChangeDuringRound';
 
 export interface HintDef {
   title?: string;
@@ -212,5 +213,17 @@ export const HINTS: Record<HintId, HintDef> = {
       'You can watch the replay, as well as change the settings and try again.',
     style: 'modal',
     once: true,
+  },
+
+  'shooter.dnaChangeDuringRound': {
+    title: 'Achtung: DNA geändert',
+    body:
+      'Du hast die Starter-DNA geändert, obwohl bereits Runden gespielt wurden. ' +
+      'Der EA hat sich bis jetzt auf Basis der alten DNA entwickelt — ' +
+      'ein Wechsel mittendrin kann die Lernkurve verfälschen. ' +
+      'Für einen sauberen Neustart empfiehlt sich ein Reset.',
+    style: 'toast',
+    once: true,
+    sticky: true,
   },
 };

@@ -10,16 +10,24 @@ import {
     DNA_INDEX,
 } from '../../shooter.types';
 import { GAME_CONFIG, ARENA } from '../../shooter.types';
-import { vec } from './vec';
 
 let bulletIdCounter     = 0;
 let playerShootCooldown = 0;
 let agentShootCooldown  = 0;
+let ghostFrameSkip      = 0;
 const dodgedBulletIdSet = new Set<string>();
+
+// Scratch-Vektoren für updateAgent – einmal allokiert, jeden Frame wiederverwendet (kein GC)
+const _agToP   = { x: 0, y: 0 };  // Agent → Spieler, normalisiert
+const _agChase = { x: 0, y: 0 };
+const _agDodge = { x: 0, y: 0 };
+const _agRange = { x: 0, y: 0 };
+const _agMove  = { x: 0, y: 0 };  // Kombinierte + normalisierte Bewegungskraft
 
 export function resetGameLoop() {
     playerShootCooldown = 0;
     agentShootCooldown  = 0;
+    ghostFrameSkip      = 0;
     dodgedBulletIdSet.clear();
 }
 
@@ -32,10 +40,10 @@ export function update(
 ): GameState {
     if (state.phase !== 'playing') return state;
 
-    // Kopien erstellen damit wir den alten State nicht mutieren
     let player  = { ...state.player,  position: { ...state.player.position },  velocity: { ...state.player.velocity }  };
     let agent   = { ...state.agent,   position: { ...state.agent.position },   velocity: { ...state.agent.velocity }   };
-    let bullets = state.bullets.map(b => ({ ...b, position: { ...b.position } }));
+    // Shallow copy des Arrays – die Bullet-Objekte werden unten in-place mutiert (kein Spread nötig)
+    const bullets = [...state.bullets];
 
     // ---- Timer ----
     const roundTimer = state.roundTimer - dt;
@@ -43,45 +51,41 @@ export function update(
         return { ...state, phase: 'roundEnd', roundTimer: 0 };
     }
 
-    // ---- Spieler bewegen ----
+    // ---- Spieler bewegen (inline, keine temp-Objekte) ----
     playerShootCooldown = Math.max(0, playerShootCooldown - dt);
 
-    const moveDir = vec.zero();
-    if (input.up)    moveDir.y -= 1;
-    if (input.down)  moveDir.y += 1;
-    if (input.left)  moveDir.x -= 1;
-    if (input.right) moveDir.x += 1;
+    let mvx = 0, mvy = 0;
+    if (input.up)    mvy -= 1;
+    if (input.down)  mvy += 1;
+    if (input.left)  mvx -= 1;
+    if (input.right) mvx += 1;
+    const mvLen = Math.sqrt(mvx * mvx + mvy * mvy);
+    if (mvLen > 0) {
+        player.velocity.x = (mvx / mvLen) * playerStats.moveSpeed;
+        player.velocity.y = (mvy / mvLen) * playerStats.moveSpeed;
+    } else {
+        player.velocity.x = 0;
+        player.velocity.y = 0;
+    }
 
-    const normalizedMove = vec.normalize(moveDir);
-    player.velocity = vec.scale(normalizedMove, playerStats.moveSpeed);
+    player.rotation = Math.atan2(input.mouseY - player.position.y, input.mouseX - player.position.x);
 
-
-    // Rotation = Richtung der Bewegung (oder bleibt wenn stillstehend)
-    player.rotation = vec.angle(player.position, {
-        x: input.mouseX,
-        y: input.mouseY,
-    });
-
-    player.position = vec.clamp(
-        vec.add(player.position, vec.scale(player.velocity, dt)),
-        GAME_CONFIG.PLAYER_RADIUS, ARENA.WIDTH  - GAME_CONFIG.PLAYER_RADIUS,
-        GAME_CONFIG.PLAYER_RADIUS, ARENA.HEIGHT - GAME_CONFIG.PLAYER_RADIUS,
-    );
+    const pr = GAME_CONFIG.PLAYER_RADIUS;
+    player.position.x = Math.max(pr, Math.min(ARENA.WIDTH  - pr, player.position.x + player.velocity.x * dt));
+    player.position.y = Math.max(pr, Math.min(ARENA.HEIGHT - pr, player.position.y + player.velocity.y * dt));
 
     // ---- Spieler schießt ----
     const playerShotThisFrame = input.shoot && playerShootCooldown === 0;
     if (playerShotThisFrame) {
         playerShootCooldown = playerStats.shootCooldown;
-        const bulletVel = vec.scale(vec.fromAngle(player.rotation), playerStats.bulletSpeed);
         bullets.push({
             id:       `p_${bulletIdCounter++}`,
             position: { ...player.position },
-            velocity: bulletVel,
+            velocity: { x: Math.cos(player.rotation) * playerStats.bulletSpeed, y: Math.sin(player.rotation) * playerStats.bulletSpeed },
             ownerId:  'player',
             lifetime: GAME_CONFIG.BULLET_LIFETIME,
             radius:   GAME_CONFIG.BULLET_RADIUS,
         });
-        agent = { ...agent, stats: { ...agent.stats, bulletsFired: agent.stats.bulletsFired } };
     }
 
     // ---- Agent bewegen (KI) ----
@@ -90,62 +94,63 @@ export function update(
     agent = updatedAgent;
     if (agentBullet) bullets.push(agentBullet);
 
-    // ---- Bullets bewegen & Lifetime ----
-    bullets = bullets
-        .map(b => ({
-            ...b,
-            position: vec.add(b.position, vec.scale(b.velocity, dt)),
-            lifetime: b.lifetime - dt,
-        }))
-        .filter(b =>
-            b.lifetime > 0 &&
-            b.position.x > 0 && b.position.x < ARENA.WIDTH &&
-            b.position.y > 0 && b.position.y < ARENA.HEIGHT
-        );
+    // ---- Stats in-place mutieren (kein Spread pro Frame) ----
+    const stats = agent.stats;
+    stats.timeAlive += dt;
+    const _pdx = player.position.x - agent.position.x;
+    const _pdy = player.position.y - agent.position.y;
+    stats.distanceSum     = (stats.distanceSum     ?? 0) + Math.sqrt(_pdx * _pdx + _pdy * _pdy);
+    stats.distanceSamples = (stats.distanceSamples ?? 0) + 1;
 
-    // ---- Kollisions-Detection ----
-    const newStats = { ...agent.stats, timeAlive: agent.stats.timeAlive + dt };
+    // ---- Bullets bewegen + filtern + Kollision: alles in einem Pass ----
+    const newBullets: Bullet[] = [];
+    for (const b of bullets) {
+        // In-place bewegen (kein Spread → kein GC-Druck)
+        b.position.x += b.velocity.x * dt;
+        b.position.y += b.velocity.y * dt;
+        b.lifetime   -= dt;
 
-    // Distanz-Tracking für Fitness
-    const dist = vec.distance(player.position, agent.position);
-    newStats.distanceSum     = (agent.stats.distanceSum     ?? 0) + dist;
-    newStats.distanceSamples = (agent.stats.distanceSamples ?? 0) + 1;
+        // Out-of-bounds oder abgelaufen → verwerfen
+        if (b.lifetime <= 0 ||
+            b.position.x <= 0 || b.position.x >= ARENA.WIDTH ||
+            b.position.y <= 0 || b.position.y >= ARENA.HEIGHT) continue;
 
-    const newBullets = bullets.filter(bullet => {
-        if (bullet.ownerId === 'agent') {
-            if (vec.distance(bullet.position, player.position) < GAME_CONFIG.PLAYER_RADIUS + bullet.radius) {
-                newStats.hitsLanded++;
-                return false;
-            }
+        // Kollision: inline squared-distance → kein temp-Objekt, kein sqrt
+        if (b.ownerId === 'agent') {
+            const dx = b.position.x - player.position.x;
+            const dy = b.position.y - player.position.y;
+            const r  = GAME_CONFIG.PLAYER_RADIUS + b.radius;
+            if (dx * dx + dy * dy < r * r) { stats.hitsLanded++; continue; }
         } else {
-            if (vec.distance(bullet.position, agent.position) < GAME_CONFIG.AGENT_RADIUS + bullet.radius) {
-                newStats.hitsReceived++;
-                return false;
-            }
-            if (!dodgedBulletIdSet.has(bullet.id) &&
-                vec.distance(bullet.position, agent.position) < GAME_CONFIG.NEAR_MISS_RADIUS) {
-                newStats.dodgedBullets++;
-                dodgedBulletIdSet.add(bullet.id);
+            const dx = b.position.x - agent.position.x;
+            const dy = b.position.y - agent.position.y;
+            const d2 = dx * dx + dy * dy;
+            const hr = GAME_CONFIG.AGENT_RADIUS + b.radius;
+            if (d2 < hr * hr) { stats.hitsReceived++; continue; }
+            const nr = GAME_CONFIG.NEAR_MISS_RADIUS;
+            if (!dodgedBulletIdSet.has(b.id) && d2 < nr * nr) {
+                stats.dodgedBullets++;
+                dodgedBulletIdSet.add(b.id);
             }
         }
-        return true;
-    });
+        newBullets.push(b);
+    }
 
-    agent = { ...agent, stats: newStats };
-
-    const lastPlayerFrame: PlayerGhostFrame = {
+    // ---- Ghost Frames – nur alle 3 Frames aufzeichnen (~20fps reicht für Presim) ----
+    ghostFrameSkip = (ghostFrameSkip + 1) % 3;
+    const lastPlayerFrame: PlayerGhostFrame | null = ghostFrameSkip === 0 ? {
         position: { ...player.position },
         velocity: { ...player.velocity },
         rotation: player.rotation,
         shot:     playerShotThisFrame,
         time:     state.roundTimer,
-    };
+    } : null;
 
-    const lastAgentFrame: AgentGhostFrame = {
+    const lastAgentFrame: AgentGhostFrame | null = ghostFrameSkip === 0 ? {
         position: { ...agent.position },
         rotation: agent.rotation,
         shot:     agentBullet !== null,
-    };
+    } : null;
 
     return {
         ...state,
@@ -158,7 +163,7 @@ export function update(
     };
 }
 
-// ---- Agent KI ----
+// ---- Agent KI (alle vec-Operationen inline, Scratch-Vektoren statt temp-Objekte) ----
 function updateAgent(
     agent:   AgentState,
     player:  PlayerState,
@@ -167,85 +172,100 @@ function updateAgent(
 ): [AgentState, Bullet | null] {
     const dna = agent.dna;
 
-    // 1. Auf Spieler zubewegen
-    const toPlayer  = vec.normalize(vec.sub(player.position, agent.position));
-    let chaseForce = vec.scale(toPlayer, dna[DNA_INDEX.AGGRESSION]);
+    // 1. Richtungsvektor Agent → Spieler (normalisiert), direkt in _agToP schreiben
+    {
+        const dx  = player.position.x - agent.position.x;
+        const dy  = player.position.y - agent.position.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len > 0) { _agToP.x = dx / len; _agToP.y = dy / len; }
+        else          { _agToP.x = 0;        _agToP.y = 0;        }
+    }
+    _agChase.x = _agToP.x * dna[DNA_INDEX.AGGRESSION];
+    _agChase.y = _agToP.y * dna[DNA_INDEX.AGGRESSION];
 
-
-    // 2. Eingehende Bullets ausweichen – single-pass statt filter+sort
+    // 2. Nächste eingehende Bullet finden (squared-distance, kein sqrt)
     let nearBullet: Bullet | undefined;
-    let nearDist = 120;
+    let nearDistSq = 120 * 120;
     for (const b of bullets) {
         if (b.ownerId !== 'player') continue;
-        const d = vec.distance(b.position, agent.position);
-        if (d < nearDist) { nearBullet = b; nearDist = d; }
+        const bdx = b.position.x - agent.position.x;
+        const bdy = b.position.y - agent.position.y;
+        const d2  = bdx * bdx + bdy * bdy;
+        if (d2 < nearDistSq) { nearBullet = b; nearDistSq = d2; }
     }
 
-    const dodgeForce = (() => {
-        if (!nearBullet) return vec.zero();
-        if (Math.random() > dna[DNA_INDEX.DODGE_WEIGHT]) return vec.zero();
-        const perp    = vec.perpendicular(vec.normalize(nearBullet.velocity));
-        const toAgent = vec.sub(agent.position, nearBullet.position);
-        let side      = perp.x * toAgent.x + perp.y * toAgent.y >= 0 ? 1 : -1;
-        const margin  = GAME_CONFIG.AGENT_RADIUS + 40;
-        const dx = perp.x * side;
-        const dy = perp.y * side;
-        const intoWall =
-            (dx > 0 && agent.position.x > ARENA.WIDTH  - margin) ||
-            (dx < 0 && agent.position.x < margin) ||
-            (dy > 0 && agent.position.y > ARENA.HEIGHT - margin) ||
-            (dy < 0 && agent.position.y < margin);
-        if (intoWall) side = -side;
-        return vec.scale(perp, side * dna[DNA_INDEX.MOVEMENT_SPEED]);
-    })();
+    // Dodge-Kraft direkt in _agDodge (kein IIFE, kein temp-Objekt)
+    _agDodge.x = 0; _agDodge.y = 0;
+    if (nearBullet && Math.random() <= dna[DNA_INDEX.DODGE_WEIGHT]) {
+        // perp(normalize(bulletVel)): normalisieren dann 90° drehen (-y, x)
+        const bvLen = Math.sqrt(nearBullet.velocity.x * nearBullet.velocity.x + nearBullet.velocity.y * nearBullet.velocity.y);
+        const nvx   = bvLen > 0 ? nearBullet.velocity.x / bvLen : 0;
+        const nvy   = bvLen > 0 ? nearBullet.velocity.y / bvLen : 0;
+        const px = -nvy, py = nvx;
+        // Seite: dot(perp, agent - bullet)
+        const tax = agent.position.x - nearBullet.position.x;
+        const tay = agent.position.y - nearBullet.position.y;
+        let side = (px * tax + py * tay) >= 0 ? 1 : -1;
+        // Wand-Kollision vermeiden
+        const wm  = GAME_CONFIG.AGENT_RADIUS + 40;
+        const dpx = px * side, dpy = py * side;
+        if ((dpx > 0 && agent.position.x > ARENA.WIDTH  - wm) ||
+            (dpx < 0 && agent.position.x < wm)                 ||
+            (dpy > 0 && agent.position.y > ARENA.HEIGHT - wm)  ||
+            (dpy < 0 && agent.position.y < wm)) side = -side;
+        const s    = side * dna[DNA_INDEX.MOVEMENT_SPEED];
+        _agDodge.x = px * s;
+        _agDodge.y = py * s;
+    }
 
-    // 3. Abstand zum Spieler regulieren
-    const dist          = vec.distance(agent.position, player.position);
-    const preferredDist = dna[DNA_INDEX.PREFERRED_RANGE] * 300 + 100; // PREFERRED_RANGE × 300px + 100px
+    // 3. Abstand + Range-Kraft
+    const _rdx      = agent.position.x - player.position.x;
+    const _rdy      = agent.position.y - player.position.y;
+    const dist      = Math.sqrt(_rdx * _rdx + _rdy * _rdy);
+    const preferredDist = dna[DNA_INDEX.PREFERRED_RANGE] * 300 + 100;
     const rangeFactor   = (dist - preferredDist) / (preferredDist + 1);
-    const rangeForce    = vec.scale(toPlayer, rangeFactor * 0.5);
+    _agRange.x = _agToP.x * rangeFactor * 0.5;
+    _agRange.y = _agToP.y * rangeFactor * 0.5;
 
+    // 4. Kräfte kombinieren → normalisieren → auf Geschwindigkeit skalieren
+    if (preferredDist > dist) { _agChase.x = 0; _agChase.y = 0; }
+    _agMove.x = _agChase.x + _agDodge.x + _agRange.x;
+    _agMove.y = _agChase.y + _agDodge.y + _agRange.y;
+    const combLen = Math.sqrt(_agMove.x * _agMove.x + _agMove.y * _agMove.y);
+    const speed   = GAME_CONFIG.AGENT_SPEED_BASE + dna[DNA_INDEX.MOVEMENT_SPEED] * GAME_CONFIG.AGENT_SPEED_BONUS;
+    if (combLen > 0) { _agMove.x = (_agMove.x / combLen) * speed; _agMove.y = (_agMove.y / combLen) * speed; }
+    else              { _agMove.x = 0;                              _agMove.y = 0;                              }
 
-    // Kräfte kombinieren
-    if(preferredDist > dist) chaseForce = vec.zero();
-    const combined = vec.add(vec.add(chaseForce, dodgeForce), rangeForce);
-    const speed    = GAME_CONFIG.AGENT_SPEED_BASE + dna[DNA_INDEX.MOVEMENT_SPEED] * GAME_CONFIG.AGENT_SPEED_BONUS; // MOVEMENT_SPEED: 40 +  0 - 120 px/s
-    const movement = vec.scale(vec.normalize(combined), speed);
+    // Velocity dämpfen (in-place, kein temp-Objekt)
+    agent.velocity.x = (agent.velocity.x + _agMove.x) * 0.82;
+    agent.velocity.y = (agent.velocity.y + _agMove.y) * 0.82;
 
-    // Dämpfen für flüssigere Bewegung
-    agent.velocity = vec.scale(vec.add(agent.velocity, movement), 0.82);
+    // Position clampen (in-place)
+    const ar = GAME_CONFIG.AGENT_RADIUS;
+    agent.position.x = Math.max(ar, Math.min(ARENA.WIDTH  - ar, agent.position.x + agent.velocity.x * dt));
+    agent.position.y = Math.max(ar, Math.min(ARENA.HEIGHT - ar, agent.position.y + agent.velocity.y * dt));
 
-    agent.position = vec.clamp(
-        vec.add(agent.position, vec.scale(agent.velocity, dt)),
-        GAME_CONFIG.AGENT_RADIUS, ARENA.WIDTH  - GAME_CONFIG.AGENT_RADIUS,
-        GAME_CONFIG.AGENT_RADIUS, ARENA.HEIGHT - GAME_CONFIG.AGENT_RADIUS,
-    );
+    // 5. Zielen mit Predict-Lead (kein temp-Objekt)
+    const la    = dna[DNA_INDEX.PREDICT_LEAD];
+    const predX = player.position.x + player.velocity.x * la * 0.4;
+    const predY = player.position.y + player.velocity.y * la * 0.4;
+    agent.rotation = Math.atan2(predY - agent.position.y, predX - agent.position.x);
 
-    // 4. Zielen – Spieler "leaden"
-    const leadAmount    = dna[DNA_INDEX.PREDICT_LEAD]; // PREDICT_LEAD
-    const predictedPos  = vec.add(player.position, vec.scale(player.velocity, leadAmount * 0.4));
-    agent.rotation      = vec.angle(agent.position, predictedPos);
-
-    // 5. Schießen (cooldown wird außerhalb verwaltet)
+    // 6. Schießen
     let newBullet: Bullet | null = null;
-
     if (agentShootCooldown <= 0) {
-        const scatter    = (Math.random() - 0.5) * (1 - dna[DNA_INDEX.SHOOT_ACCURACY]) * 1.2;
+        const scatter          = (Math.random() - 0.5) * (1 - dna[DNA_INDEX.SHOOT_ACCURACY]) * 1.2;
         const agentBulletSpeed = GAME_CONFIG.BULLET_SPEED_MIN + dna[DNA_INDEX.BULLET_SPEED] * (GAME_CONFIG.BULLET_SPEED_MAX - GAME_CONFIG.BULLET_SPEED_MIN);
-        const bulletVel = vec.scale(
-            vec.fromAngle(agent.rotation + scatter),
-            agentBulletSpeed
-        );
+        const ang              = agent.rotation + scatter;
         newBullet = {
             id:       `a_${bulletIdCounter++}`,
             position: { ...agent.position },
-            velocity: bulletVel,
+            velocity: { x: Math.cos(ang) * agentBulletSpeed, y: Math.sin(ang) * agentBulletSpeed },
             ownerId:  'agent',
             lifetime: GAME_CONFIG.BULLET_LIFETIME,
             radius:   GAME_CONFIG.BULLET_RADIUS,
         };
-        agent.stats = { ...agent.stats, bulletsFired: agent.stats.bulletsFired + 1 };
-
+        agent.stats.bulletsFired++;
         agentShootCooldown = GAME_CONFIG.SHOOT_COOLDOWN_MIN +
             (1 - dna[DNA_INDEX.FIRE_RATE]) * GAME_CONFIG.SHOOT_COOLDOWN_MAX;
     }

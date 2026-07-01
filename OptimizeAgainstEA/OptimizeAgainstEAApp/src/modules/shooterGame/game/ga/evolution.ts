@@ -1,7 +1,7 @@
 import type { Population, Individual, DNA, PlayerGhost } from '../../shooter.types';
 import { GAME_CONFIG, DNA_LENGTH, DNA_INDEX, ARENA, emptyStats } from '../../shooter.types';
 import { vec } from '../core/vec';
-import { updatePopulationStats, initPopulation, randomDNA } from './population';
+import { updatePopulationStats, initPopulation } from './population';
 import { calculateFitness } from './fitness';
 
 const INJECTION_COUNT = 4;
@@ -17,7 +17,7 @@ function tournamentSelect(individuals: Individual[], tournamentSize = 3): Indivi
 // ---- Crossover ----
 function crossover(dnaA: number[], dnaB: number[], type: 'uniform' | 'single-point' = 'uniform'): number[] {
     if (type === 'single-point') {
-        const point = Math.floor(Math.random() * DNA_LENGTH);
+        const point = Math.floor(Math.random() * (DNA_LENGTH - 1)) + 1;
         return [...dnaA.slice(0, point), ...dnaB.slice(point)];
     }
     return dnaA.map((gene, i) => Math.random() < 0.5 ? gene : dnaB[i]);
@@ -40,11 +40,12 @@ function mutate(
 
 // ---- Evolution ----
 export function evolve(
-    population:       Population,
-    agentFitness?:    number,
-    mutationRate:     number = GAME_CONFIG.MUTATION_RATE,
-    mutationStrength: number = GAME_CONFIG.MUTATION_STRENGTH,
-    crossoverType:    'uniform' | 'single-point' = 'uniform',
+    population:          Population,
+    agentFitness?:       number,
+    mutationRate:        number = GAME_CONFIG.MUTATION_RATE,
+    mutationStrength:    number = GAME_CONFIG.MUTATION_STRENGTH,
+    crossoverType:       'uniform' | 'single-point' = 'uniform',
+    injectionDeviation:  number = 0.3,
 ): Population {
     const updatedIndividuals = [...population.individuals];
     if (agentFitness !== undefined) {
@@ -63,9 +64,15 @@ export function evolve(
         offspring.push({ dna: childDna, fitness: 0 });
     }
 
+    const bestDna = sorted[0].dna;
     const injected: Individual[] = Array.from(
         { length: INJECTION_COUNT },
-        () => ({ dna: randomDNA(), fitness: 0 }),
+        () => ({
+            dna: bestDna.map(v =>
+                Math.max(0, Math.min(1, v + (Math.random() * 2 - 1) * injectionDeviation))
+            ),
+            fitness: 0,
+        }),
     );
 
     return updatePopulationStats({

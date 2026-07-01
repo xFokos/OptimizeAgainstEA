@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useScaledCanvas } from '../hooks/useScaledCanvas';
+import { useOrientationLock } from '../hooks/useOrientationLock';
 import { ARENA } from '../modules/shooterGame/shooter.types';
 import { GameLayout } from '../components/layout/GameLayout';
 import { ShooterLeftBar } from '../components/layout/ShooterLeftBar';
@@ -11,15 +12,15 @@ import { MobileAimZone } from '../modules/shooterGame/components/MobileAimZone';
 import { useInput } from '../modules/shooterGame/hooks/useInput';
 import PageContainer from '../components/layout/PageContainer';
 
-function useIsMobileLandscape() {
-    const check = () => typeof window !== 'undefined' && window.innerHeight < 500;
-    const [is, setIs] = useState(check);
+function useViewport() {
+    const get = () => ({ W: window.innerWidth, H: window.innerHeight });
+    const [vp, setVp] = useState(get);
     useEffect(() => {
-        const h = () => setIs(check());
+        const h = () => setVp(get());
         window.addEventListener('resize', h);
         return () => window.removeEventListener('resize', h);
     }, []);
-    return is;
+    return vp;
 }
 
 const supportsFullscreen =
@@ -45,9 +46,54 @@ function useFullscreen() {
     return { isFullscreen, toggle };
 }
 
+// Drehhinweis-Overlay: zeigt wenn das Gerät im Portrait-Modus ist und zu klein für Desktop-Layout
+function RotateOverlay() {
+    return (
+        <div style={{
+            position:       'fixed',
+            inset:          0,
+            zIndex:         9999,
+            background:     '#0f0f1a',
+            display:        'flex',
+            flexDirection:  'column',
+            alignItems:     'center',
+            justifyContent: 'center',
+            gap:            20,
+        }}>
+            <div style={{
+                fontSize:   56,
+                lineHeight: 1,
+                animation:  'rotateHint 2.4s ease-in-out infinite',
+            }}>
+                📱
+            </div>
+            <p style={{
+                color:       'rgba(255,255,255,0.65)',
+                fontFamily:  '"JetBrains Mono", monospace',
+                fontSize:    13,
+                letterSpacing: '0.06em',
+                margin:      0,
+            }}>
+                Bitte Gerät drehen
+            </p>
+            <style>{`
+                @keyframes rotateHint {
+                    0%, 100% { transform: rotate(0deg); }
+                    40%       { transform: rotate(90deg); }
+                    60%       { transform: rotate(90deg); }
+                }
+            `}</style>
+        </div>
+    );
+}
+
 export default function ShooterGamePage() {
     const navigate             = useNavigate();
-    const isMobileLandscape    = useIsMobileLandscape();
+    const { W, H }             = useViewport();
+    const isMobileDevice       = Math.min(W, H) < 550;   // kleines Gerät?
+    const isPortrait           = H > W;                   // hochkant?
+    const isMobileLandscape    = isMobileDevice && !isPortrait;
+    useOrientationLock('landscape');
     const inputRef             = useInput();
     const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
     const leaveHandlerRef      = useRef<(() => Promise<void>) | undefined>(undefined);
@@ -60,6 +106,9 @@ export default function ShooterGamePage() {
 
     return (
         <PageContainer>
+            {/* Overlay wenn das Handy im Portrait-Modus ist */}
+            {isMobileDevice && isPortrait && <RotateOverlay />}
+
             <GameLayout
                 canvasRef={containerRef}
                 touchLayout={isMobileLandscape}
@@ -92,25 +141,25 @@ export default function ShooterGamePage() {
                 <button
                     onClick={async () => {
                         await leaveHandlerRef.current?.();
+                        if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
                         navigate('/lobby/shooter', { state: { mode: 'normal' } });
                     }}
                     style={{
-                        position:       'fixed',
-                        top:            6,
-                        left:           6,
-                        zIndex:         200,
-                        background:     'rgba(0,0,0,0.55)',
-                        border:         '1px solid rgba(255,255,255,0.18)',
-                        borderRadius:   6,
-                        color:          'rgba(255,255,255,0.6)',
-                        fontFamily:     '"JetBrains Mono", monospace',
-                        fontSize:       11,
-                        padding:        '3px 10px',
-                        cursor:         'pointer',
-                        letterSpacing:  '0.06em',
-                        backdropFilter: 'blur(4px)',
-                        touchAction:    'manipulation',
-                        userSelect:     'none',
+                        position:      'fixed',
+                        top:           6,
+                        left:          6,
+                        zIndex:        200,
+                        background:    'rgba(15,15,26,0.85)',
+                        border:        '1px solid rgba(255,255,255,0.18)',
+                        borderRadius:  6,
+                        color:         'rgba(255,255,255,0.6)',
+                        fontFamily:    '"JetBrains Mono", monospace',
+                        fontSize:      11,
+                        padding:       '3px 10px',
+                        cursor:        'pointer',
+                        letterSpacing: '0.06em',
+                        touchAction:   'manipulation',
+                        userSelect:    'none',
                     }}
                 >
                     ← Lobby
@@ -122,25 +171,24 @@ export default function ShooterGamePage() {
                 <button
                     onClick={toggleFullscreen}
                     style={{
-                        position:        'fixed',
-                        top:             6,
-                        left:            '50%',
-                        transform:       'translateX(-50%)',
-                        zIndex:          200,
-                        background:      isFullscreen
-                            ? 'rgba(255,255,255,0.08)'
-                            : 'rgba(0,0,0,0.55)',
-                        border:          '1px solid rgba(255,255,255,0.18)',
-                        borderRadius:    6,
-                        color:           'rgba(255,255,255,0.6)',
-                        fontFamily:      '"JetBrains Mono", monospace',
-                        fontSize:        11,
-                        padding:         '3px 10px',
-                        cursor:          'pointer',
-                        letterSpacing:   '0.06em',
-                        backdropFilter:  'blur(4px)',
-                        touchAction:     'manipulation',
-                        userSelect:      'none',
+                        position:      'fixed',
+                        top:           6,
+                        left:          '50%',
+                        transform:     'translateX(-50%)',
+                        zIndex:        200,
+                        background:    isFullscreen
+                            ? 'rgba(255,255,255,0.12)'
+                            : 'rgba(15,15,26,0.85)',
+                        border:        '1px solid rgba(255,255,255,0.18)',
+                        borderRadius:  6,
+                        color:         'rgba(255,255,255,0.6)',
+                        fontFamily:    '"JetBrains Mono", monospace',
+                        fontSize:      11,
+                        padding:       '3px 10px',
+                        cursor:        'pointer',
+                        letterSpacing: '0.06em',
+                        touchAction:   'manipulation',
+                        userSelect:    'none',
                     }}
                 >
                     {isFullscreen ? '✕ EXIT' : '⛶ FULLSCREEN'}

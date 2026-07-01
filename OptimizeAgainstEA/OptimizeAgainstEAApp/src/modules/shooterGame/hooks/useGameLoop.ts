@@ -23,8 +23,7 @@ export const useGameLoop = ({
         if (!isRunning) return;
 
         const loop = (timestamp: number) => {
-            // dt = delta time in Sekunden (Zeit seit letztem Frame)
-            // Wir cappen bei 100ms damit Lag-Spikes die Physik nicht brechen
+            // dt = delta time in Sekunden, cap bei 100ms damit Lag-Spikes die Physik nicht brechen
             const dt = Math.min((timestamp - lastTimeRef.current) / 1000, 0.1);
             lastTimeRef.current = timestamp;
 

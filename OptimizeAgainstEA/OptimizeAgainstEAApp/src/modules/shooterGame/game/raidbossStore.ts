@@ -7,8 +7,9 @@ import { evolve } from './ga/evolution';
 const RAIDBOSS_DOC = doc(db, 'raidboss', 'current');
 
 export interface RaidbossIndividual {
-    dna:     number[];
-    fitness: number | null;
+    dna:        number[];
+    fitness:    number | null;
+    evaluating: boolean;   // wird gerade von einem Spieler bewertet
 }
 
 export interface RaidbossDoc {
@@ -51,9 +52,17 @@ function makeInitialDoc(): RaidbossDoc {
     const pop = initPopulation(STARTER_DNA, GAME_CONFIG.POPULATION_SIZE);
     return {
         generation:       1,
-        individuals:      pop.individuals.map(ind => ({ dna: ind.dna, fitness: null })),
+        individuals:      pop.individuals.map(ind => ({ dna: ind.dna, fitness: null, evaluating: false })),
         populationSize:   GAME_CONFIG.POPULATION_SIZE,
         contributorCount: 0,
+    };
+}
+
+// Normalisiert alte Docs ohne evaluating-Feld (Backward-Compat)
+function normalize(data: RaidbossDoc): RaidbossDoc {
+    return {
+        ...data,
+        individuals: data.individuals.map(ind => ({ ...ind, evaluating: ind.evaluating ?? false })),
     };
 }
 
@@ -63,26 +72,52 @@ export async function getRaidbossStatus(): Promise<RaidbossDoc | null> {
     return snap.data() as RaidbossDoc;
 }
 
-// Lädt aktuelle Population, sucht erstes unbewertetes Individuum und speichert es als pendingSlot
+// Beansprucht atomar einen freien Slot (nicht evaluating, fitness === null).
+// Falls alle null-Slots gerade evaluiert werden (abgestürzte Spieler), werden die Flags resettet.
 export async function claimRaidbossSlot(): Promise<RaidbossDoc> {
+    // Initialisierung falls Dokument fehlt oder veraltete Größe
     const snap = await getDoc(RAIDBOSS_DOC);
-
-    let data: RaidbossDoc;
     if (!snap.exists() || snap.data().populationSize !== GAME_CONFIG.POPULATION_SIZE) {
-        data = makeInitialDoc();
-        await setDoc(RAIDBOSS_DOC, data);
-    } else {
-        data = snap.data() as RaidbossDoc;
+        const initial = makeInitialDoc();
+        await setDoc(RAIDBOSS_DOC, initial);
     }
 
-    const index = data.individuals.findIndex(ind => ind.fitness === null);
-    // Falls alle bewertet (Runde läuft gerade): nimm zufälliges Individuum
-    const claimIndex = index !== -1
-        ? index
-        : Math.floor(Math.random() * data.individuals.length);
+    let claimedDoc: RaidbossDoc | null = null;
+    let claimedIndex = -1;
 
-    pendingSlot = { index: claimIndex, dna: data.individuals[claimIndex].dna, doc: data };
-    return data;
+    await runTransaction(db, async (tx) => {
+        const txSnap = await tx.get(RAIDBOSS_DOC);
+        if (!txSnap.exists()) throw new Error('Raidboss doc fehlt');
+
+        const data = normalize(txSnap.data() as RaidbossDoc);
+
+        // 1. Freier Slot: noch nicht bewertet, nicht reserviert
+        let idx = data.individuals.findIndex(ind => ind.fitness === null && !ind.evaluating);
+        // 2. Alle reserviert aber noch nicht bewertet → Duplikat erlaubt (wird später gemittelt)
+        if (idx === -1)
+            idx = data.individuals.findIndex(ind => ind.fitness === null);
+        // 3. Alle schon bewertet → zufälligen nehmen (seltener Edge-Case)
+        if (idx === -1)
+            idx = Math.floor(Math.random() * data.individuals.length);
+
+        const updated: RaidbossDoc = {
+            ...data,
+            individuals: data.individuals.map((ind, i) =>
+                i === idx ? { ...ind, evaluating: true } : ind
+            ),
+        };
+
+        tx.set(RAIDBOSS_DOC, updated);
+        claimedDoc  = updated;
+        claimedIndex = idx;
+    });
+
+    pendingSlot = {
+        index: claimedIndex,
+        dna:   (claimedDoc as unknown as RaidbossDoc).individuals[claimedIndex].dna,
+        doc:   claimedDoc as unknown as RaidbossDoc,
+    };
+    return claimedDoc as unknown as RaidbossDoc;
 }
 
 // Schreibt Fitness für einen Slot; wenn alle bewertet → Evolution → neue Generation
@@ -96,9 +131,14 @@ export async function submitRaidbossFitness(index: number, fitness: number, clai
         // Generation schon weitergerückt → überspringen
         if (data.generation !== claimedDoc.generation) return;
 
-        const updated = data.individuals.map((ind, i) =>
-            i === index ? { ...ind, fitness } : ind
-        );
+        const updated = normalize(data).individuals.map((ind, i) => {
+            if (i !== index) return ind;
+            // Duplikat: anderer Spieler hat diesen Slot schon submitted → Fitness mitteln
+            const merged = ind.fitness !== null
+                ? (ind.fitness + fitness) / 2
+                : fitness;
+            return { ...ind, fitness: merged, evaluating: false };
+        });
 
         const allEvaluated = updated.every(ind => ind.fitness !== null);
 
@@ -115,10 +155,10 @@ export async function submitRaidbossFitness(index: number, fitness: number, clai
                 bestFitness: Math.max(...fitnesses),
                 avgFitness:  fitnesses.reduce((a, b) => a + b, 0) / fitnesses.length,
             };
-            const evolved = evolve(pop, undefined, GAME_CONFIG.MUTATION_RATE, GAME_CONFIG.MUTATION_STRENGTH);
+            const evolved = evolve(pop, undefined, GAME_CONFIG.MUTATION_RATE, GAME_CONFIG.MUTATION_STRENGTH, 'uniform', 0.3);
             const newDoc: RaidbossDoc = {
                 generation:       evolved.generation,
-                individuals:      evolved.individuals.map(ind => ({ dna: ind.dna, fitness: null })),
+                individuals:      evolved.individuals.map(ind => ({ dna: ind.dna, fitness: null, evaluating: false })),
                 populationSize:   data.populationSize,
                 contributorCount: data.contributorCount + 1,
             };

@@ -102,9 +102,10 @@ export type GamePhase =
     | 'evolving';   // GA rechnet neue Generation (kurz)
 
 export interface CrossoverExample {
-    parentA:    DNA;
-    parentB:    DNA;
-    crossPoint: number; // Gen-Index wo Crossover stattfand
+    parentA:     DNA;
+    parentB:     DNA;
+    geneOrigins: boolean[];  // true = Gen von Elternteil A
+    type:        'uniform' | 'single-point';
 }
 
 export interface GameState {

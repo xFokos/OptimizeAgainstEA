@@ -73,14 +73,15 @@ export function EASettingsPanel() {
             </div>
 
             <div style={styles.row}>
-                <label style={styles.label}>Max. Runden (Analytics)</label>
+                <label style={styles.label}>Injection Deviation</label>
                 <input
-                    type="range" min={5} max={50} step={5}
-                    value={s.maxAnalyticsRounds}
-                    onChange={e => setEaSettings({ ...s, maxAnalyticsRounds: parseInt(e.target.value) })}
+                    type="range" min={0.05} max={1} step={0.05}
+                    value={s.injectionDeviation}
+                    onChange={e => setEaSettings({ ...s, injectionDeviation: parseFloat(e.target.value) })}
+                    className="slider"
                     style={styles.slider}
                 />
-                <span style={styles.value}>{s.maxAnalyticsRounds}</span>
+                <span style={styles.value}>{s.injectionDeviation.toFixed(2)}</span>
             </div>
 
             <div style={styles.row}>

@@ -4,38 +4,59 @@ import { ARENA } from '../../shooter.types';
 
 // Alle Canvas-draw()-Calls leben hier – keine Logik, nur Zeichnen
 
+// Context-Cache: alpha:false → Browser muss Canvas nicht mit Hintergrund compositen
+const ctxCache = new WeakMap<HTMLCanvasElement, CanvasRenderingContext2D>();
+function getCtx(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
+    let ctx = ctxCache.get(canvas);
+    if (!ctx) {
+        // alpha:false: Canvas-Hintergrund ist immer undurchsichtig (wird immer komplett gezeichnet)
+        const c = canvas.getContext('2d', { alpha: false });
+        if (!c) return null;
+        ctxCache.set(canvas, c);
+        ctx = c;
+    }
+    return ctx;
+}
+
+// Statischer Hintergrund (Grid + Rand) einmal gerendert, dann per drawImage kopiert
+let arenaCache: HTMLCanvasElement | null = null;
+
+function buildArenaCache(): HTMLCanvasElement {
+    const c = document.createElement('canvas');
+    c.width  = ARENA.WIDTH;
+    c.height = ARENA.HEIGHT;
+    const ctx = c.getContext('2d')!;
+
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, ARENA.WIDTH, ARENA.HEIGHT);
+
+    // Alle Grid-Linien in einem einzigen Pfad
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    const gridSize = 40;
+    for (let x = 0; x <= ARENA.WIDTH; x += gridSize) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, ARENA.HEIGHT);
+    }
+    for (let y = 0; y <= ARENA.HEIGHT; y += gridSize) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(ARENA.WIDTH, y);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth   = 2;
+    ctx.strokeRect(1, 1, ARENA.WIDTH - 2, ARENA.HEIGHT - 2);
+
+    return c;
+}
+
 export const renderer = {
 
-    clear(ctx: CanvasRenderingContext2D) {
-        ctx.clearRect(0, 0, ARENA.WIDTH, ARENA.HEIGHT);
-    },
-
     drawArena(ctx: CanvasRenderingContext2D) {
-        // Hintergrund
-        ctx.fillStyle = '#0f0f1a';
-        ctx.fillRect(0, 0, ARENA.WIDTH, ARENA.HEIGHT);
-
-        // Feines Grid
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-        ctx.lineWidth = 1;
-        const gridSize = 40;
-        for (let x = 0; x <= ARENA.WIDTH; x += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, ARENA.HEIGHT);
-            ctx.stroke();
-        }
-        for (let y = 0; y <= ARENA.HEIGHT; y += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(ARENA.WIDTH, y);
-            ctx.stroke();
-        }
-
-        // Rand
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(1, 1, ARENA.WIDTH - 2, ARENA.HEIGHT - 2);
+        if (!arenaCache) arenaCache = buildArenaCache();
+        ctx.drawImage(arenaCache, 0, 0);
     },
 
     drawPlayer(ctx: CanvasRenderingContext2D, state: GameState) {
@@ -115,26 +136,25 @@ export const renderer = {
     },
 
     drawBullets(ctx: CanvasRenderingContext2D, state: GameState, isRaidboss = false) {
-        for (const bullet of state.bullets) {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(bullet.position.x, bullet.position.y, bullet.radius, 0, Math.PI * 2);
-
-            if (bullet.ownerId === 'player') {
-                ctx.fillStyle = '#80d8ff';
-                ctx.shadowColor = '#4fc3f7';
-            } else if (isRaidboss) {
-                ctx.fillStyle = '#c084fc';
-                ctx.shadowColor = '#a855f7';
-            } else {
-                ctx.fillStyle = '#ff8a80';
-                ctx.shadowColor = '#ef5350';
-            }
-
-            ctx.shadowBlur = 8;
-            ctx.fill();
-            ctx.restore();
+        // Spieler-Bullets: alle in einem Pfad
+        ctx.fillStyle = '#80d8ff';
+        ctx.beginPath();
+        for (const b of state.bullets) {
+            if (b.ownerId !== 'player') continue;
+            ctx.moveTo(b.position.x + b.radius, b.position.y);
+            ctx.arc(b.position.x, b.position.y, b.radius, 0, Math.PI * 2);
         }
+        ctx.fill();
+
+        // Agent-Bullets: alle in einem Pfad
+        ctx.fillStyle = isRaidboss ? '#c084fc' : '#ff8a80';
+        ctx.beginPath();
+        for (const b of state.bullets) {
+            if (b.ownerId === 'player') continue;
+            ctx.moveTo(b.position.x + b.radius, b.position.y);
+            ctx.arc(b.position.x, b.position.y, b.radius, 0, Math.PI * 2);
+        }
+        ctx.fill();
     },
 
     drawHUD(ctx: CanvasRenderingContext2D, state: GameState, raidbossInfo?: { generation: number; index: number; total: number }) {
@@ -232,7 +252,6 @@ export const renderer = {
     drawAimLaser(ctx: CanvasRenderingContext2D, state: GameState, mouseX: number, mouseY: number) {
         const { position, radius } = state.player;
 
-        // Keine Linie wenn noch kein Ziel gesetzt (initiale 0/0 ignorieren)
         if (mouseX === 0 && mouseY === 0) return;
 
         const dx = mouseX - position.x;
@@ -243,11 +262,9 @@ export const renderer = {
         const ndx = dx / len;
         const ndy = dy / len;
 
-        // Start knapp ausserhalb des Spieler-Radius
         const sx = position.x + ndx * (radius + 4);
         const sy = position.y + ndy * (radius + 4);
 
-        // Schnittpunkt mit Wand berechnen
         let t = 2000;
         if (ndx > 0) t = Math.min(t, (ARENA.WIDTH  - sx) / ndx);
         if (ndx < 0) t = Math.min(t, (0            - sx) / ndx);
@@ -258,28 +275,21 @@ export const renderer = {
         const ex = sx + ndx * t;
         const ey = sy + ndy * t;
 
-        ctx.save();
-
-        // Strahlkörper (gestrichelt)
+        // Strahlkörper (gestrichelt, ohne shadowBlur)
         ctx.beginPath();
         ctx.moveTo(sx, sy);
         ctx.lineTo(ex, ey);
         ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
         ctx.lineWidth   = 3;
-        ctx.shadowColor = '#4fc3f7';
-        ctx.shadowBlur  = 8;
         ctx.setLineDash([6, 8]);
         ctx.stroke();
+        ctx.setLineDash([]);
 
         // Auftreffpunkt
         ctx.beginPath();
         ctx.arc(ex, ey, 6, 0, Math.PI * 2);
-        ctx.fillStyle   = 'rgba(79, 195, 247, 0.9)';
-        ctx.shadowBlur  = 12;
+        ctx.fillStyle = 'rgba(79, 195, 247, 0.9)';
         ctx.fill();
-
-        ctx.setLineDash([]);
-        ctx.restore();
     },
 
     render(
@@ -290,12 +300,11 @@ export const renderer = {
         aimLaser?:     { mouseX: number; mouseY: number } | null,
     ) {
         if (!canvas) return;
-        const ctx = canvas.getContext('2d');
+        const ctx = getCtx(canvas);
         if (!ctx) return;
 
         const isRaidboss = !!raidbossInfo;
-        renderer.clear(ctx);
-        renderer.drawArena(ctx);
+        renderer.drawArena(ctx);  // drawImage überschreibt den gesamten Canvas – clearRect nicht nötig
         if (aimLaser) renderer.drawAimLaser(ctx, state, aimLaser.mouseX, aimLaser.mouseY);
         renderer.drawBullets(ctx, state, isRaidboss);
         renderer.drawPlayer(ctx, state);

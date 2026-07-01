@@ -121,23 +121,23 @@ export function ShooterPlayerSection() {
 
 // ── Section: Spielrunde ──────────────────────────────────────────────────────
 
-export function ShooterRoundSection() {
+export function ShooterRoundSection({ onBeforeChange }: { onBeforeChange?: () => void } = {}) {
     const { shooterSettings: s, setShooterSettings } = useSettings();
     return (
         <div>
             <SliderRow
-                label="Rundendauer"
+                label="Timelimit"
                 min={10} max={120} step={5}
                 value={s.roundDuration}
                 display={s.roundDuration + 's'}
-                onChange={v => setShooterSettings({ ...s, roundDuration: Math.round(v) })}
+                onChange={v => { onBeforeChange?.(); setShooterSettings({ ...s, roundDuration: Math.round(v) }); }}
             />
             <SliderRow
-                label="Tug-of-War Ziel"
+                label="Hit to Win"
                 min={3} max={30} step={1}
                 value={s.tugWinThreshold}
                 display={String(s.tugWinThreshold)}
-                onChange={v => setShooterSettings({ ...s, tugWinThreshold: Math.round(v) })}
+                onChange={v => { onBeforeChange?.(); setShooterSettings({ ...s, tugWinThreshold: Math.round(v) }); }}
             />
         </div>
     );

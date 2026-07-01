@@ -5,7 +5,6 @@ import {
     GAME_CONFIG,
     DNA_LENGTH,
     DNA_NAMES,
-    emptyStats,
     type GameState,
     type GamePhase,
     type InputState,
@@ -15,6 +14,7 @@ import {
     type Population,
     type CrossoverExample,
 } from '../shooter.types';
+import { makeInitialGameState } from '../game/makeGameState';
 
 import { evolve, getNextAgent } from '../game/ga/evolution';
 import type { EvolutionWorkerIn, EvolutionWorkerOut } from '../game/ga/evolution.worker';
@@ -37,57 +37,6 @@ import styles                from './ShooterCanvas.module.css';
 
 const COL_A = '#60a5fa';
 const COL_B = '#f97316';
-
-const GENE_LABELS: Record<string, string> = {
-    AGGRESSION:      'Aggression',
-    DODGE_WEIGHT:    'Dodge',
-    SHOOT_ACCURACY:  'Accuracy',
-    PREFERRED_RANGE: 'Range',
-    MOVEMENT_SPEED:  'Speed',
-    PREDICT_LEAD:    'Lead',
-    FIRE_RATE:       'Fire Rate',
-    BULLET_SPEED:    'Bullet Speed',
-};
-
-function Bar({ value, color }: { value: number; color: string }) {
-    return (
-        <div className={styles.crossoverBar}>
-            <div className={styles.crossoverBarTrack}>
-                <div style={{ width: `${value * 100}%`, background: color, height: '100%', borderRadius: 3, opacity: 0.8 }} />
-            </div>
-            <span className={styles.crossoverBarVal} style={{ color }}>{value.toFixed(2)}</span>
-        </div>
-    );
-}
-
-function CrossoverViz({ example }: { example: CrossoverExample }) {
-    const child = [
-        ...example.parentA.slice(0, example.crossPoint),
-        ...example.parentB.slice(example.crossPoint),
-    ];
-
-    return (
-        <div className={styles.crossover}>
-            <div className={styles.crossoverTitle}>Neue DNA</div>
-
-            <div className={styles.crossoverGeneRow}>
-                <span className={styles.crossoverGeneName} />
-                <span className={styles.crossoverColLabel} style={{ color: COL_A }}>DNA A</span>
-                <span className={styles.crossoverColLabel} style={{ color: COL_B }}>DNA B</span>
-                <span className={styles.crossoverColLabel} style={{ color: 'rgba(255,255,255,0.7)' }}>Neu</span>
-            </div>
-
-            {DNA_NAMES.map((name, i) => (
-                <div key={i} className={styles.crossoverGeneRow}>
-                    <span className={styles.crossoverGeneName}>{GENE_LABELS[name] ?? name}</span>
-                    <Bar value={example.parentA[i]} color={COL_A} />
-                    <Bar value={example.parentB[i]} color={COL_B} />
-                    <Bar value={child[i]}           color={i < example.crossPoint ? COL_A : COL_B} />
-                </div>
-            ))}
-        </div>
-    );
-}
 
 // ---- Tug of War Bar ----
 
@@ -120,36 +69,10 @@ function TugOfWarBar({ score, threshold }: { score: number; threshold: number })
     );
 }
 
-// ---- Hilfsfunktionen ----
-
-const makeInitialGameState = (settings: ShooterSettings): GameState => ({
-    phase:            'idle',
-    roundTimer:       settings.roundDuration,
-    roundNumber:      0,
-    bullets:          [],
-    population:       null,
-    lastPlayerFrame:  null,
-    lastAgentFrame:   null,
-    crossoverExample: null,
-    player: {
-        id:       'player',
-        position: { x: 200, y: ARENA.HEIGHT / 2 },
-        velocity: { x: 0, y: 0 },
-        rotation: 0,
-        radius:   GAME_CONFIG.PLAYER_RADIUS,
-        health:   100,
-    },
-    agent: {
-        id:             'agent',
-        position:       { x: ARENA.WIDTH - 200, y: ARENA.HEIGHT / 2 },
-        velocity:       { x: 0, y: 0 },
-        rotation:       Math.PI,
-        radius:         GAME_CONFIG.AGENT_RADIUS,
-        health:         100,
-        dna: [...settings.starterDna],
-        stats: emptyStats(),
-    },
-});
+// ---- Raidboss-feste Spielkonfiguration ----
+// Unabhängig von den Spielereinstellungen, damit Fitness-Werte verschiedener Spieler vergleichbar sind
+const RAIDBOSS_ROUND_DURATION = 30;
+const RAIDBOSS_TUG_THRESHOLD  = 15;
 
 // ---- Komponente ----
 
@@ -187,12 +110,32 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
     const touchCanvasRef       = externalInputRef ? nullCanvasRef : canvasRef;
     const touchVisualRef       = useTouchControls(inputRef, touchCanvasRef);
 
-    const [matchScore, setMatchScore]           = useState(0);
-    const [isRaidbossRound, setIsRaidbossRound] = useState(false);
-    const [trainNextLoading, setTrainNextLoading] = useState(false);
+    const [matchScore, setMatchScore]                     = useState(0);
+    const [isRaidbossRound, setIsRaidbossRound]           = useState(false);
+    const [trainNextLoading, setTrainNextLoading]         = useState(false);
+    const [revealDna, setRevealDna]                       = useState<number[] | null>(null);
+    const [displayedRevealDna, setDisplayedRevealDna]     = useState<number[]>([]);
+    const [revealGeneration, setRevealGeneration]         = useState<number | null>(null);
+    const [revealCrossoverExample, setRevealCrossoverExample] = useState<CrossoverExample | null>(null);
     const raidbossSlotRef    = useRef<RaidbossSlot | null>(null);
     const raidbossInfoRef    = useRef<{ generation: number; index: number; total: number } | null>(null);
     const pendingSubmitRef   = useRef<Promise<void>>(Promise.resolve());
+    const pendingNewStateRef = useRef<GameState | null>(null);
+    const revealAnimTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+    // Im Raidboss-Modus feste Spielwerte verwenden damit Fitness-Vergleiche zwischen Spielern fair sind
+    const gameShooterSettings: ShooterSettings = isRaidbossRound
+        ? {
+            ...shooterSettings,
+            roundDuration:   RAIDBOSS_ROUND_DURATION,
+            tugWinThreshold: RAIDBOSS_TUG_THRESHOLD,
+            playerStats: {
+                bulletSpeed:   GAME_CONFIG.BULLET_SPEED,
+                moveSpeed:     GAME_CONFIG.PLAYER_SPEED,
+                shootCooldown: GAME_CONFIG.SHOOT_COOLDOWN,
+            },
+        }
+        : shooterSettings;
 
     useEffect(() => {
         const slot = consumePendingSlot();
@@ -216,8 +159,9 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
     }, []);
 
     useEffect(() => {
-        shooterSettingsRef.current = shooterSettings;
-    }, [shooterSettings]);
+        shooterSettingsRef.current = gameShooterSettings;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isRaidbossRound, shooterSettings]);
 
     useEffect(() => {
         return () => {
@@ -259,11 +203,55 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
 
         playerFramesRef.current = [];
         agentFramesRef.current  = [];
-        gameStateRef.current    = newState;
-        gameStore.state         = newState;
+
+        // Kein DNA-Reveal für Runde 1 oder Raidboss (DNA hat sich nicht durch Evolution geändert)
+        if (pending.overrideDna !== null) {
+            gameStateRef.current = newState;
+            gameStore.state      = newState;
+            gameStore.notify();
+            setPhase('playing');
+            return;
+        }
+
+        // DNA-Reveal: neue evolved DNA animiert zeigen, bevor nächste Runde startet
+        const oldDna = gameStateRef.current?.agent.dna ?? nextDna;
+        setDisplayedRevealDna([...oldDna]);
+
+        // gameStore schon jetzt mit neuer DNA updaten → DNADisplay rechts aktualisiert sich sofort
+        const revealState: GameState = { ...newState, phase: gameStateRef.current?.phase ?? 'roundEnd' };
+        gameStateRef.current = revealState;
+        gameStore.state      = revealState;
         gameStore.notify();
-        setPhase('playing');
+
+        pendingNewStateRef.current = newState;
+        setRevealGeneration(evolvedPopulation.generation);
+        setRevealCrossoverExample(pending.crossoverExample);
+        setRevealDna([...nextDna]);
     }, []);
+
+    useEffect(() => {
+        if (!revealDna) return;
+
+        revealAnimTimersRef.current.forEach(clearTimeout);
+        revealAnimTimersRef.current = [];
+
+        revealDna.forEach((target, i) => {
+            const t = setTimeout(() => {
+                setDisplayedRevealDna(prev => {
+                    const next = [...prev];
+                    next[i] = target;
+                    return next;
+                });
+            }, Math.floor(i / 2) * 200 + 150);
+            revealAnimTimersRef.current.push(t);
+        });
+
+        return () => {
+            revealAnimTimersRef.current.forEach(clearTimeout);
+            revealAnimTimersRef.current = [];
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [revealDna]);
 
     const saved = gameStore.state;
     const restoredPhase: GamePhase =
@@ -277,7 +265,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
         const state =
             saved?.roundNumber > 0
                 ? { ...saved, phase: restoredPhase }
-                : makeInitialGameState(shooterSettings);
+                : makeInitialGameState(gameShooterSettings);
         gameStateRef.current = state;
         gameStore.state      = state;
     }
@@ -324,7 +312,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
         dt:    number,
         input: InputState,
     ): GameState => {
-        const next = update(state, dt, input, shooterSettings.playerStats);
+        const next = update(state, dt, input, gameShooterSettings.playerStats);
 
         if (next.lastPlayerFrame) playerFramesRef.current.push(next.lastPlayerFrame);
         if (next.lastAgentFrame)  agentFramesRef.current.push(next.lastAgentFrame);
@@ -342,7 +330,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
         const receivedDelta = next.agent.stats.hitsReceived  - prevHitsRef.current.received;
         if (landedDelta > 0 || receivedDelta > 0) {
             prevHitsRef.current = { landed: next.agent.stats.hitsLanded, received: next.agent.stats.hitsReceived };
-            const threshold = shooterSettings.tugWinThreshold;
+            const threshold = gameShooterSettings.tugWinThreshold;
             const newScore = Math.max(-threshold,
                 Math.min(threshold, matchScoreRef.current + receivedDelta - landedDelta));
             matchScoreRef.current = newScore;
@@ -383,7 +371,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
         const slot  = raidbossSlotRef.current;
         const state = gameStateRef.current;
         if (slot && state && state.roundNumber > 0) {
-            const fitness = calculateRaidbossFitness(state.agent.stats, shooterSettings.roundDuration);
+            const fitness = calculateRaidbossFitness(state.agent.stats, gameShooterSettings.roundDuration);
             const p = submitRaidbossFitness(slot.index, fitness, slot.doc)
                 .catch(console.error)
                 .then(() => undefined);
@@ -454,9 +442,15 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
         const crossoverExample: CrossoverExample | null =
             currentState.roundNumber > 0 && population.individuals.length >= 2
                 ? {
-                    parentA:    population.individuals[0].dna,
-                    parentB:    population.individuals[1].dna,
-                    crossPoint: Math.floor(Math.random() * (DNA_LENGTH - 1)) + 1,
+                    parentA:     population.individuals[0].dna,
+                    parentB:     population.individuals[1].dna,
+                    type:        eaSettings.crossoverType,
+                    geneOrigins: eaSettings.crossoverType === 'single-point'
+                        ? (() => {
+                            const point = Math.floor(Math.random() * (DNA_LENGTH - 1)) + 1;
+                            return Array.from({ length: DNA_LENGTH }, (_, i) => i < point);
+                        })()
+                        : Array.from({ length: DNA_LENGTH }, () => Math.random() < 0.5),
                 }
                 : null;
 
@@ -464,7 +458,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
         const slot = raidbossSlotRef.current;
         const useRaidbossDna = slot !== null && currentState.roundNumber === 0;
         if (slot && currentState.roundNumber > 0) {
-            const raidbossFitness = calculateRaidbossFitness(currentState.agent.stats, shooterSettings.roundDuration);
+            const raidbossFitness = calculateRaidbossFitness(currentState.agent.stats, gameShooterSettings.roundDuration);
             submitRaidbossFitness(slot.index, raidbossFitness, slot.doc).catch(console.error);
             raidbossSlotRef.current = null;
             raidbossInfoRef.current = null;
@@ -480,7 +474,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                 : currentState.roundNumber === 0
                     ? [...shooterSettings.starterDna]
                     : null,
-            settings: shooterSettings,
+            settings: gameShooterSettings,
         };
 
         // Runde 0 oder kein Presim → direkt synchron
@@ -492,14 +486,14 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
         const realFitness = calculateFitness(currentState.agent.stats);
 
         if (eaSettings.presimGenerations === 0 || playerFramesRef.current.length === 0) {
-            completeRound(evolve(population, realFitness, eaSettings.mutationRate, eaSettings.mutationStrength, eaSettings.crossoverType));
+            completeRound(evolve(population, realFitness, eaSettings.mutationRate, eaSettings.mutationStrength, eaSettings.crossoverType, eaSettings.injectionDeviation));
             return;
         }
 
         // Schwere Arbeit → Web Worker
         const ghost: PlayerGhost = {
             frames:        playerFramesRef.current,
-            roundDuration: shooterSettings.roundDuration,
+            roundDuration: gameShooterSettings.roundDuration,
         };
 
         const playerHitsThisRound = currentState.agent.stats.hitsReceived;
@@ -525,7 +519,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
             } else {
                 console.error('[EvolutionWorker]', (e.data as { message: string }).message);
                 // Fallback: synchron ohne Presim
-                completeRound(evolve(population, realFitness, eaSettings.mutationRate, eaSettings.mutationStrength, eaSettings.crossoverType));
+                completeRound(evolve(population, realFitness, eaSettings.mutationRate, eaSettings.mutationStrength, eaSettings.crossoverType, eaSettings.injectionDeviation));
             }
             worker.terminate();
             evolutionWorkerRef.current = null;
@@ -537,11 +531,25 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
             hofGhost,
             population,
             realFitness,
-            generations:      eaSettings.presimGenerations,
-            mutationRate:     eaSettings.mutationRate,
-            mutationStrength: eaSettings.mutationStrength,
-            crossoverType:    eaSettings.crossoverType,
+            generations:         eaSettings.presimGenerations,
+            mutationRate:        eaSettings.mutationRate,
+            mutationStrength:    eaSettings.mutationStrength,
+            crossoverType:       eaSettings.crossoverType,
+            injectionDeviation:  eaSettings.injectionDeviation,
         } satisfies EvolutionWorkerIn);
+    };
+
+    const applyAndPlay = () => {
+        const newState = pendingNewStateRef.current;
+        if (!newState) return;
+        pendingNewStateRef.current = null;
+        setRevealDna(null);
+        setRevealGeneration(null);
+        setRevealCrossoverExample(null);
+        gameStateRef.current = newState;
+        gameStore.state      = newState;
+        gameStore.notify();
+        setPhase('playing');
     };
 
     return (
@@ -560,7 +568,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                     left: 0,
                 }}
             >
-                <TugOfWarBar score={matchScore} threshold={shooterSettings.tugWinThreshold} />
+                <TugOfWarBar score={matchScore} threshold={gameShooterSettings.tugWinThreshold} />
 
                 <canvas
                     ref={canvasRef}
@@ -569,7 +577,44 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                     className={styles.canvas}
                 />
 
-                {phase === 'idle' ? (
+                {revealDna !== null ? (
+                    <div className={styles.overlay}>
+                        <h2 className={styles.title}>Neue DNA</h2>
+                        <p className={styles.subtitle}>Generation {revealGeneration ?? '—'}</p>
+                        <div style={{
+                            display:       'flex',
+                            flexDirection: 'column',
+                            gap:           8,
+                            width:         'min(300px, 80%)',
+                        }}>
+                            {DNA_NAMES.map((name, i) => {
+                                const cx    = revealCrossoverExample;
+                                const color = cx ? (cx.geneOrigins[i] ? COL_A : COL_B) : COL_B;
+                                const val   = displayedRevealDna[i] ?? 0;
+                                return (
+                                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                            <span style={{
+                                                fontFamily:    'var(--font-mono)',
+                                                fontSize:      10,
+                                                color:         'rgba(255,255,255,0.38)',
+                                                textTransform: 'uppercase' as const,
+                                                letterSpacing: '0.06em',
+                                            }}>{name}</span>
+                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color }}>{val.toFixed(2)}</span>
+                                        </div>
+                                        <div style={{ height: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 2, overflow: 'hidden' }}>
+                                            <div style={{ width: `${val * 100}%`, height: '100%', background: color, borderRadius: 2, opacity: 0.65, transition: 'width 0.15s ease' }} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <button className="btn btn--primary" onClick={applyAndPlay}>
+                            Nächste Runde →
+                        </button>
+                    </div>
+                ) : phase === 'idle' ? (
                     <div className={styles.overlay}>
                         {isRaidbossRound && raidbossInfoRef.current ? (
                             <>
@@ -609,9 +654,6 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                                 <span className={styles.roundStatSub}>Treffer</span>
                             </div>
                         </div>
-                        {!isRaidbossRound && gameStateRef.current?.crossoverExample && (
-                            <CrossoverViz example={gameStateRef.current.crossoverExample} />
-                        )}
                         {isRaidbossRound ? (
                             <div style={{ display: 'flex', gap: 10 }}>
                                 <button
@@ -620,6 +662,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                                     onClick={async () => {
                                         setTrainNextLoading(true);
                                         try { await submitCurrentRaidbossFitness(); } finally { setTrainNextLoading(false); }
+                                        if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
                                         navigate('/lobby/shooter', { state: { mode: 'raidboss' } });
                                     }}
                                     disabled={trainNextLoading}
@@ -637,7 +680,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                             </div>
                         ) : (
                             <button className="btn btn--primary" onClick={startRound}>
-                                Nächste Runde →
+                                Weiter →
                             </button>
                         )}
                     </div>
