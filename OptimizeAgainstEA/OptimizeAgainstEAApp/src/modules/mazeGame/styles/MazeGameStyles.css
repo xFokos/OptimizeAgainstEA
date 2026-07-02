@@ -1,5 +1,172 @@
-/* Maze game — replay overlay. Self-contained (does not depend on BattleShips
-   CSS, which only loads on the BattleShips page). */
+/* ─────────────────────────────────────────────
+   MAZE GAME — page shell, creator & experiment
+   Built on the shared design tokens (index.css) and the global primitives
+   (buttons / panels / eyebrows / sliders, loaded in main.tsx). The EA
+   settings drawer classes come from styles/specific/EASettingsPanel.css.
+───────────────────────────────────────────── */
+
+/* ── App shell ──
+   index.css locks html/body/#root to 100vh with overflow hidden (other games
+   need a fixed full-viewport canvas), so this page fills the viewport and
+   becomes its own scroll container — same pattern as PeakFinder's .app. */
+.maze-app {
+  height: 100vh; /* fallback for older browsers */
+  height: 100dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  box-sizing: border-box;
+}
+
+/* ── Top bar ── */
+.maze-topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.maze-topbar__title {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+}
+.maze-topbar__meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.maze-topbar__meta-accent { color: var(--accent); font-weight: 700; }
+.maze-topbar__meta-warn   { color: var(--danger); font-weight: 700; }
+
+/* ── Two-column layout: maze square left, control stack right ── */
+.maze-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--sp-5);
+  align-items: start;
+  width: 100%;
+  max-width: 1100px;
+  margin-inline: auto;
+}
+@media (max-width: 880px) {
+  .maze-layout { grid-template-columns: 1fr; }
+}
+
+.maze-map-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+  /* The maze is square, so capping width also caps height — keeps the whole
+     grid visible without scrolling on short viewports. */
+  width: 100%;
+  max-width: min(100%, calc(100dvh - 160px));
+  margin-inline: auto;
+}
+.maze-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+
+/* ── Panels & controls ── */
+.maze-panel   { display: flex; flex-direction: column; gap: var(--sp-3); }
+.maze-toolbar { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.maze-row     { display: flex; gap: var(--sp-2); align-items: center; }
+
+.maze-note        { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; margin: 0; }
+.maze-note--warn  { color: var(--danger); }
+
+.maze-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.maze-check input { accent-color: var(--accent); cursor: pointer; }
+
+.maze-input {
+  width: 100%;
+  min-width: 0;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.maze-input:focus { border-color: var(--accent); }
+/* Prevent iOS Safari auto-zoom on focus (triggers below 16px font-size). */
+@media (max-width: 768px) {
+  .maze-input { font-size: 16px; }
+}
+
+/* ── Maze canvas surface ── */
+.maze-canvas {
+  width: 100%;
+  background: var(--map-bg);
+  border: 1px solid var(--map-border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+/* Creator paint surface wraps the canvas; pointer-capture painting needs the
+   browser gestures (scroll/zoom) disabled over it. */
+.maze-paint-surface {
+  touch-action: none;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Genotype strip (experiment) — the best individual's move sequence ── */
+.maze-genome-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.maze-genome-stats {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.maze-genome-stats b { color: var(--accent); font-weight: 700; }
+
+.maze-genome {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.7;
+  letter-spacing: 0.08em;
+  word-break: break-all;
+  margin: 0;
+}
+.maze-gene           { padding: 0 1px; border-radius: 2px; color: var(--text-secondary); }
+.maze-gene--done     { color: var(--accent); }
+.maze-gene--bump     { color: var(--danger); opacity: 0.8; }
+.maze-gene--current  { background: var(--accent); color: var(--bg); font-weight: 700; }
+.maze-gene--unused   { color: var(--text-muted); }
+
+/* ─────────────────────────────────────────────
+   REPLAY OVERLAY (generation dissection)
+───────────────────────────────────────────── */
 
 .maze-replay-backdrop {
   position: fixed;
@@ -14,14 +181,14 @@
 }
 
 .maze-replay-modal {
-  background: #11131a;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--r-lg);
   width: min(1080px, 100%);
   max-height: 92vh;
   overflow-y: auto;
   padding: 20px 22px;
-  color: #e8eaf0;
+  color: var(--text-primary);
 }
 
 .maze-replay-header {
@@ -32,18 +199,18 @@
 }
 
 .maze-replay-phase-tag {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
-  color: rgba(232, 234, 240, 0.5);
+  color: var(--text-muted);
   letter-spacing: 0.08em;
   white-space: nowrap;
 }
 
 .maze-replay-headline {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 0.95rem;
   font-weight: 700;
-  color: #4af0a0;
+  color: var(--accent);
   letter-spacing: 0.03em;
   margin: 0;
 }
@@ -52,18 +219,18 @@
   margin-left: auto;
   background: none;
   border: none;
-  color: rgba(232, 234, 240, 0.6);
+  color: var(--text-secondary);
   font-size: 1.1rem;
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
-.maze-replay-close:hover { color: #fff; }
+.maze-replay-close:hover { color: var(--text-primary); }
 
 .maze-replay-description {
   font-size: 0.85rem;
   line-height: 1.5;
-  color: rgba(232, 234, 240, 0.8);
+  color: var(--text-secondary);
   margin: 0 0 14px;
 }
 
@@ -72,6 +239,9 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
+}
+@media (max-width: 768px) {
+  .maze-replay-body { grid-template-columns: 1fr; }
 }
 
 .maze-replay-controls {
@@ -84,13 +254,13 @@
 .maze-replay-progress {
   flex: 1;
   height: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-hover);
   border-radius: 3px;
   overflow: hidden;
 }
 .maze-replay-progress__fill {
   height: 100%;
-  background: #4af0a0;
+  background: var(--accent);
   border-radius: 3px;
   transition: width 0.3s ease;
 }
@@ -107,9 +277,9 @@
   gap: 8px;
 }
 .maze-replay-card__label {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
-  color: rgba(232, 234, 240, 0.5);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   min-width: 48px;
@@ -117,7 +287,7 @@
 
 .maze-replay-winbar {
   height: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-hover);
   border-radius: 3px;
   overflow: hidden;
   margin-top: 4px;

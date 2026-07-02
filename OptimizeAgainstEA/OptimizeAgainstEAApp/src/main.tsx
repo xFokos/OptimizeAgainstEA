@@ -10,6 +10,7 @@ import "./styles/primitives/panels.css";
 import "./styles/primitives/badges.css";
 import "./styles/primitives/eyebrows.css";
 import "./styles/specific/GameModeSelector.css";
+import "./styles/specific/EASettingsPanel.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>

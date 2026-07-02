@@ -1,0 +1,123 @@
+/* ─────────────────────────────────────────────
+   EA SETTINGS PANEL — shared drawer + controls
+   Extracted from BattleShipsStyles.css so every game with an EA can present
+   the same settings UI (PeakFinder vs-ea, Maze experiment, …). Loaded
+   globally via main.tsx. The React control atoms that pair with these
+   classes live in src/components/settings/eaControls.tsx.
+───────────────────────────────────────────── */
+
+/* Trigger button — blue border so it stands out from other controls.
+   Uses .btn.ea-settings-btn so it wins over the base .btn--ghost rule. */
+.btn.ea-settings-btn {
+	border-color: var(--accent-min);
+	color: var(--accent-min);
+	box-shadow: 0 0 0 1px var(--accent-min) inset;
+}
+.btn.ea-settings-btn:hover:not(:disabled) {
+	border-color: var(--accent-min);
+	color: var(--accent-min);
+	box-shadow: 0 0 12px rgba(74, 144, 240, 0.35);
+}
+
+.ea-settings-backdrop {
+	/* Above the anchored hint popovers (z-index 150) so opening the panel
+	   covers any hint bubbles pinned to the buttons behind it. The backdrop
+	   also forms its own stacking context, so the panel's own HintPopover
+	   still layers correctly inside it. Starts below the page top bar (pages
+	   without a fixed top bar leave --peak-topbar-h unset → 0). */
+	position: fixed; inset: var(--peak-topbar-h, 0px) 0 0 0; z-index: 250;
+	background: rgba(0, 0, 0, 0.45);
+	backdrop-filter: blur(2px);
+	display: flex; justify-content: flex-end;
+	animation: eaFadeIn 0.15s ease;
+}
+
+.ea-settings-panel {
+	width: min(340px, 92vw);
+	height: 100%;
+	background: var(--bg-elevated);
+	border-left: 1px solid var(--border-bright);
+	display: flex; flex-direction: column;
+	animation: eaSlideInRight 0.2s ease;
+	overflow: hidden;
+}
+
+.ea-settings-panel__header { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.ea-settings-panel__title  { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.06em; color: var(--text-primary); }
+.ea-settings-panel__close  { background: none; border: none; color: var(--text-muted); font-size: 0.9rem; cursor: pointer; padding: 4px 6px; border-radius: 3px; transition: color 0.15s; }
+.ea-settings-panel__close:hover { color: var(--text-primary); }
+.ea-settings-panel__body   { flex: 1; overflow-y: auto; padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-4); }
+
+.ea-divider { font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); padding-bottom: var(--sp-1); border-bottom: 1px solid var(--accent-dim); margin-top: var(--sp-2); }
+
+/* ── EA difficulty presets — slim panel beside the settings panel ── */
+.ea-presets-panel {
+	width: 190px; height: 100%; flex-shrink: 0;
+	background: var(--bg-elevated);
+	border-left: 1px solid var(--border-bright);
+	display: flex; flex-direction: column;
+	overflow: hidden;
+	animation: eaSlideInRight 0.2s ease;
+}
+.ea-presets-panel__body {
+	flex: 1; overflow-y: auto;
+	padding: var(--sp-4);
+	display: flex; flex-direction: column; gap: var(--sp-3);
+}
+.ea-preset-btn {
+	width: 100%;
+	justify-content: center;
+	height: auto;
+	padding: var(--sp-3) var(--sp-4);
+	font-size: 0.9rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+}
+
+/* On small screens the two panels can't sit side by side, so stack them:
+   the presets become a short top bar of buttons, the settings panel fills
+   the rest of the height below it. */
+@media (max-width: 640px) {
+	.ea-settings-backdrop { flex-direction: column; justify-content: flex-start; }
+
+	.ea-presets-panel {
+		width: 100%; height: auto; flex-shrink: 0;
+		border-left: none;
+		border-bottom: 1px solid var(--border-bright);
+		animation: eaFadeIn 0.2s ease;
+	}
+	.ea-presets-panel__body {
+		flex-direction: row; flex-wrap: wrap;
+		padding: var(--sp-3); gap: var(--sp-2);
+	}
+	.ea-preset-btn {
+		flex: 1 1 0; min-width: 64px;
+		padding: var(--sp-2) var(--sp-3);
+		font-size: 0.8rem;
+	}
+
+	/* Settings drawer + its hint wrapper take the remaining height, full width. */
+	.ea-settings-backdrop > .hint-anchor { width: 100%; height: auto; flex: 1; min-height: 0; }
+	.ea-settings-panel { width: 100%; }
+}
+
+/* ── Setting rows (SliderRow / SelectRow atoms) ── */
+.ea-setting         { display: flex; flex-direction: column; gap: 4px; }
+.ea-setting__header { display: flex; justify-content: space-between; align-items: baseline; }
+.ea-setting__label  { font-size: 0.78rem; color: var(--text-secondary); }
+.ea-setting__value  { font-family: var(--font-mono); font-size: 0.78rem; color: var(--accent); min-width: 36px; text-align: right; }
+.ea-setting__range  { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); margin-top: 1px; }
+
+/* Range inputs use the global `.slider` primitive (src/styles/primitives/sliders.css). */
+
+.ea-select { width: 100%; padding: var(--sp-2) var(--sp-3); background: var(--bg-surface); border: 1px solid var(--border-bright); border-radius: var(--r-sm); color: var(--text-primary); font-family: var(--font-mono); font-size: 0.75rem; cursor: pointer; outline: none; transition: border-color 0.15s; }
+.ea-select:focus { border-color: var(--accent); }
+
+/* Prevent iOS Safari auto-zoom on focus (triggers below 16px font-size). */
+@media (max-width: 768px) {
+	.ea-select { font-size: 16px; }
+}
+
+/* Scoped keyframes so this file is self-contained. */
+@keyframes eaFadeIn      { from { opacity: 0; } to { opacity: 1; } }
+@keyframes eaSlideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }

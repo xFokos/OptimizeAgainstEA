@@ -4,7 +4,6 @@ import { useMazeEAReplay } from '../../hooks/useMazeEAReplay';
 import { walkPath } from '../../engine/ea/individual';
 import { MazePathMap } from './replay/MazePathMap';
 import { MazeIndividualList, type IndividualRole, type GenomeHighlight } from './replay/MazeIndividualList';
-import { btn } from '../shared/mazeStyles';
 import '../../styles/MazeGameStyles.css';
 
 interface MazeEAReplayOverlayProps {
@@ -42,10 +41,10 @@ export function MazeEAReplayOverlay({ frames, problem, onClose }: MazeEAReplayOv
         </div>
 
         <div className="maze-replay-controls">
-          <button style={btn} onClick={() => goTo(0)} disabled={isFirst}>⏮</button>
-          <button style={btn} onClick={prev} disabled={isFirst}>◀</button>
-          <button style={btn} onClick={next} disabled={isLast}>▶</button>
-          <button style={btn} onClick={() => goTo(totalFrames - 1)} disabled={isLast}>⏭</button>
+          <button className="btn btn--ghost btn--sm" onClick={() => goTo(0)} disabled={isFirst}>⏮</button>
+          <button className="btn btn--ghost btn--sm" onClick={prev} disabled={isFirst}>◀</button>
+          <button className="btn btn--ghost btn--sm" onClick={next} disabled={isLast}>▶</button>
+          <button className="btn btn--ghost btn--sm" onClick={() => goTo(totalFrames - 1)} disabled={isLast}>⏭</button>
           <div className="maze-replay-progress">
             <div className="maze-replay-progress__fill" style={{ width: `${(frameIndex / Math.max(totalFrames - 1, 1)) * 100}%` }} />
           </div>

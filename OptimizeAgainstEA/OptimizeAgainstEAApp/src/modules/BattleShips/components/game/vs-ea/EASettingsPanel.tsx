@@ -7,6 +7,7 @@ import type {
 } from '../../../types/ea';
 import { EA_PRESETS } from '../../../types/ea';
 import { HintPopover } from '../../../../../components/hints';
+import { SliderRow, SelectRow, Divider } from '../../../../../components/settings/eaControls';
 
 interface EASettingsPanelProps {
     config: EAConfig;
@@ -14,65 +15,6 @@ interface EASettingsPanelProps {
     onConfigChange: (patch: Partial<EAConfig>) => void;
     onRevealRadiusChange: (r: number) => void;
     onClose: () => void;
-}
-
-// ── Small reusable input atoms ────────────────────────────────────────────
-
-function SliderRow({
-                       label, value, min, max, step, format, onChange,
-                   }: {
-    label: string; value: number; min: number; max: number;
-    step: number; format: (v: number) => string;
-    onChange: (v: number) => void;
-}) {
-    return (
-        <div className="ea-setting">
-            <div className="ea-setting__header">
-                <span className="ea-setting__label">{label}</span>
-                <span className="ea-setting__value">{format(value)}</span>
-            </div>
-            <input
-                type="range"
-                className="slider"
-                min={min} max={max} step={step}
-                value={value}
-                onChange={(e) => onChange(parseFloat(e.target.value))}
-            />
-            <div className="ea-setting__range">
-                <span>{format(min)}</span>
-                <span>{format(max)}</span>
-            </div>
-        </div>
-    );
-}
-
-function SelectRow<T extends string>({
-                                         label, value, options, onChange,
-                                     }: {
-    label: string; value: T;
-    options: { value: T; label: string }[];
-    onChange: (v: T) => void;
-}) {
-    return (
-        <div className="ea-setting">
-            <div className="ea-setting__header">
-                <span className="ea-setting__label">{label}</span>
-            </div>
-            <select
-                className="ea-select"
-                value={value}
-                onChange={(e) => onChange(e.target.value as T)}
-            >
-                {options.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-            </select>
-        </div>
-    );
-}
-
-function Divider({ label }: { label: string }) {
-    return <div className="ea-divider">{label}</div>;
 }
 
 // True when the live settings exactly match a preset (so we can light it up).

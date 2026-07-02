@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { IndividualSnapshot } from '../../../engine/ea/eaReplayLog';
 import type { Cell, MazeProblem } from '../../../types/maze';
 import { sampleGradientRgb } from '../../../../BattleShips/engine/colorScale';
@@ -58,6 +59,15 @@ export function MazePathMap({
   spliceCell,
   mutatedCells,
 }: MazePathMapProps) {
+  // Fully sealed cells (creator wall blocks) render as filled squares.
+  const solidCells = useMemo(() => {
+    const out = new Set<number>();
+    for (let i = 0; i < problem.grid.walls.length; i++) {
+      if (problem.grid.walls[i] === 0) out.add(i);
+    }
+    return out;
+  }, [problem]);
+
   // Build trails, ordering so emphasised paths render last (on top).
   const base: MazeTrail[] = [];
   const top: MazeTrail[] = [];
@@ -100,6 +110,7 @@ export function MazePathMap({
       walls={problem.grid.walls}
       start={problem.start}
       goal={problem.goal}
+      solidCells={solidCells}
       trails={[...base, ...top]}
       markers={markers}
     />

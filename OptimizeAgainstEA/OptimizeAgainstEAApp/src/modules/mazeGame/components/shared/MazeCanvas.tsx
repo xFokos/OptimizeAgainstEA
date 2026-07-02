@@ -8,27 +8,6 @@ export interface MazeTrail {
   width?: number;
 }
 
-interface MazeCanvasProps {
-  cols: number;
-  rows: number;
-  walls: Uint8Array;
-  start: Cell;
-  goal: Cell;
-  /** Population / player trails to overlay, drawn in order (last on top). */
-  trails?: MazeTrail[];
-  /**
-   * Fog-of-war: if provided, only these cell indices are revealed; everything
-   * else is drawn as fog and their walls are hidden.
-   */
-  fog?: Set<number>;
-  /** Player marker cell. */
-  playerPos?: Cell;
-  /** Whether to show the goal beacon even under fog (player mode). */
-  goalVisible?: boolean;
-  /** Cell highlights drawn as filled dots (e.g. splice / mutated cells in replay). */
-  markers?: MazeMarker[];
-}
-
 export interface MazeMarker {
   cell: Cell;
   color: string;
@@ -37,8 +16,40 @@ export interface MazeMarker {
   ring?: boolean;
 }
 
-const WALL_COLOR = 'rgba(255,255,255,0.55)';
+/**
+ * A moving dot (best walker, ghost individuals). Rendered with a CSS
+ * transform transition so stepping cell-to-cell glides instead of teleporting.
+ */
+export interface MazeAgent {
+  id: string | number;
+  cell: Cell;
+  color: string;
+  opacity?: number;
+  r?: number;
+  /** Outline + glow for the highlighted agent. */
+  emphasis?: boolean;
+}
+
+interface MazeCanvasProps {
+  cols: number;
+  rows: number;
+  walls: Uint8Array;
+  start: Cell;
+  goal: Cell;
+  /** Population / player trails to overlay, drawn in order (last on top). */
+  trails?: MazeTrail[];
+  /** Cells drawn as solid blocks (the creator's painted walls). */
+  solidCells?: Set<number>;
+  /** Cell highlights drawn as filled dots (e.g. splice / mutated cells in replay). */
+  markers?: MazeMarker[];
+  /** Animated agent dots (drawn above walls so they always stay visible). */
+  agents?: MazeAgent[];
+}
+
+const WALL_COLOR = 'rgba(255, 255, 255, 0.55)';
 const WALL_W = 0.12;
+const SOLID_FILL = 'rgba(255, 255, 255, 0.09)';
+const START_COLOR = '#4af0a0';
 
 /** Cell centre in viewBox units. */
 function cx(c: Cell): number { return c.x + 0.5; }
@@ -53,30 +64,30 @@ function trailPath(points: Cell[]): string {
 
 /**
  * SVG maze renderer. Scales to its container via viewBox. Draws walls, the
- * start/goal markers, any number of overlaid trails (EA population spaghetti or
- * the player route), and — when `fog` is supplied — hides unrevealed cells.
+ * start/goal markers, any number of overlaid trails (EA population spaghetti),
+ * solid creator blocks, replay markers, and animated agent dots.
  */
 export function MazeCanvas({
-  cols, rows, walls, start, goal, trails = [], fog, playerPos, goalVisible = true, markers = [],
+  cols, rows, walls, start, goal, trails = [], solidCells, markers = [], agents = [],
 }: MazeCanvasProps) {
-  const revealed = (i: number) => !fog || fog.has(i);
-
-  // Build wall segments for revealed cells (closed edges only).
+  // Build wall segments (closed edges only).
   const segs: { x1: number; y1: number; x2: number; y2: number }[] = [];
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const i = cellIndex(x, y, cols);
-      if (!revealed(i)) continue;
+      // Solid blocks are drawn as filled cells; skip their edge strokes so the
+      // editor view stays clean (adjacent blocks would double-stroke anyway).
+      if (solidCells?.has(i)) continue;
       const w = walls[i];
-      if (!(w & MOVE_WALL_BIT[0])) segs.push({ x1: x, y1: y, x2: x + 1, y2: y });       // N
+      if (!(w & MOVE_WALL_BIT[0])) segs.push({ x1: x, y1: y, x2: x + 1, y2: y });         // N
       if (!(w & MOVE_WALL_BIT[1])) segs.push({ x1: x + 1, y1: y, x2: x + 1, y2: y + 1 }); // E
       if (!(w & MOVE_WALL_BIT[2])) segs.push({ x1: x, y1: y + 1, x2: x + 1, y2: y + 1 }); // S
-      if (!(w & MOVE_WALL_BIT[3])) segs.push({ x1: x, y1: y, x2: x, y2: y + 1 });        // W
+      if (!(w & MOVE_WALL_BIT[3])) segs.push({ x1: x, y1: y, x2: x, y2: y + 1 });         // W
     }
   }
 
   return (
-    <div style={{ width: '100%', aspectRatio: `${cols} / ${rows}`, background: '#0c0d12', borderRadius: 8 }}>
+    <div className="maze-canvas" style={{ aspectRatio: `${cols} / ${rows}` }}>
       <svg
         viewBox={`0 0 ${cols} ${rows}`}
         width="100%"
@@ -84,24 +95,24 @@ export function MazeCanvas({
         preserveAspectRatio="xMidYMid meet"
         style={{ display: 'block' }}
       >
-        {/* Fog backdrop for unrevealed cells */}
-        {fog && (
-          <g>
-            {Array.from({ length: cols * rows }, (_, i) =>
-              fog.has(i) ? null : (
-                <rect key={i} x={i % cols} y={Math.floor(i / cols)} width={1} height={1} fill="#070709" />
-              ),
-            )}
+        {/* Solid wall blocks (creator mode) */}
+        {solidCells && (
+          <g fill={SOLID_FILL}>
+            {Array.from(solidCells, (i) => (
+              <rect key={i} x={i % cols} y={Math.floor(i / cols)} width={1} height={1} />
+            ))}
           </g>
         )}
 
         {/* Start & goal markers */}
-        {revealed(cellIndex(start.x, start.y, cols)) && (
-          <rect x={start.x + 0.18} y={start.y + 0.18} width={0.64} height={0.64} rx={0.12} fill="#4af0a0" opacity={0.85} />
-        )}
-        {(goalVisible || revealed(cellIndex(goal.x, goal.y, cols))) && (
-          <rect x={goal.x + 0.12} y={goal.y + 0.12} width={0.76} height={0.76} rx={0.14} fill="#f0c44a" opacity={0.95} />
-        )}
+        <rect
+          x={start.x + 0.18} y={start.y + 0.18} width={0.64} height={0.64} rx={0.12}
+          fill={START_COLOR} opacity={0.85}
+        />
+        <rect
+          x={goal.x + 0.12} y={goal.y + 0.12} width={0.76} height={0.76} rx={0.14}
+          fill="var(--accent-global)" opacity={0.95}
+        />
 
         {/* Trails */}
         <g fill="none" strokeLinejoin="round" strokeLinecap="round">
@@ -136,10 +147,27 @@ export function MazeCanvas({
           ))}
         </g>
 
-        {/* Player marker */}
-        {playerPos && (
-          <circle cx={cx(playerPos)} cy={cy(playerPos)} r={0.3} fill="#ffffff" stroke="#4af0a0" strokeWidth={0.08} />
-        )}
+        {/* Animated agents — a transform transition glides them between cells. */}
+        <g>
+          {agents.map((a) => (
+            <g
+              key={a.id}
+              style={{
+                transform: `translate(${cx(a.cell)}px, ${cy(a.cell)}px)`,
+                transition: 'transform 0.12s linear',
+              }}
+              opacity={a.opacity ?? 1}
+            >
+              <circle
+                r={a.r ?? 0.28}
+                fill={a.color}
+                stroke={a.emphasis ? '#ffffff' : 'none'}
+                strokeWidth={a.emphasis ? 0.08 : 0}
+                style={a.emphasis ? { filter: `drop-shadow(0 0 0.3px ${a.color})` } : undefined}
+              />
+            </g>
+          ))}
+        </g>
       </svg>
     </div>
   );
