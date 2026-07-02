@@ -30,7 +30,7 @@ export default function BattleShipsPage() {
             className="btn btn--ghost btn--sm peakfinder-topbar__home"
             onClick={onHome}
           >
-            ← Dashboard
+            ← Back
           </button>
           <HintToggle />
         </header>

@@ -80,11 +80,11 @@ export const EA_PRESETS: EAPreset[] = [
     label: 'Easy',
     revealRadius: 0.08,
     config: {
-      populationSize: 20,
+      populationSize: 30,
       crossoverRate: 0.6, mutationRate: 0.2,
       mutationStrength: 0.15, mutationDecay: 0.95,
       winPopulationFraction: 0.60,
-      selectionStrategy: 'roulette', crossoverStrategy: 'arithmetic', mutationStrategy: 'uniform',
+      selectionStrategy: 'roulette', crossoverStrategy: 'singlePoint', mutationStrategy: 'uniform',
     },
   },
   {
@@ -92,11 +92,11 @@ export const EA_PRESETS: EAPreset[] = [
     label: 'Normal',
     revealRadius: 0.05,
     config: {
-      populationSize: 20,
+      populationSize: 30,
       crossoverRate: 0.7, mutationRate: 0.3,
       mutationStrength: 0.25, mutationDecay: 0.90,
       winPopulationFraction: 0.35,
-      selectionStrategy: 'tournament', crossoverStrategy: 'arithmetic', mutationStrategy: 'gaussian',
+      selectionStrategy: 'elitist', crossoverStrategy: 'uniform', mutationStrategy: 'gaussian',
     },
   },
   {
@@ -104,11 +104,11 @@ export const EA_PRESETS: EAPreset[] = [
     label: 'Hard',
     revealRadius: 0.04,
     config: {
-      populationSize: 40,
+      populationSize: 50,
       crossoverRate: 0.8, mutationRate: 0.4,
       mutationStrength: 0.35, mutationDecay: 0.850,
       winPopulationFraction: 0.25,
-      selectionStrategy: 'tournament', crossoverStrategy: 'arithmetic', mutationStrategy: 'gaussian',
+      selectionStrategy: 'tournament', crossoverStrategy: 'arithmetic', mutationStrategy: 'cauchy',
     },
   },
   {
@@ -120,7 +120,7 @@ export const EA_PRESETS: EAPreset[] = [
       crossoverRate: 0.9, mutationRate: 0.35,
       mutationStrength: 0.4, mutationDecay: 0.99,
       winPopulationFraction: 0.15,
-      selectionStrategy: 'elitist', crossoverStrategy: 'uniform', mutationStrategy: 'cauchy',
+      selectionStrategy: 'tournament', crossoverStrategy: 'arithmetic', mutationStrategy: 'uniform',
     },
   },
 ];

@@ -173,7 +173,7 @@ export const HINTS: Record<HintId, HintDef> = {
   'vsEa.settingsButton': {
     title: 'Tune the EA',
     body:
-      'Open this to change the algorithm. ' +
+      'Open the EA settings to change the algorithm. ' +
       'Experiment with different settings and see how it makes a difference.',
     style: 'toast',
     once: true,
