@@ -85,7 +85,7 @@ export function MobileJoystickZone({ inputRef }: Props) {
             {!joy ? (
                 <div style={styles.hint}>
                     <div style={styles.hintRing} />
-                    <span style={styles.hintLabel}>BEWEGEN</span>
+                    <span style={styles.hintLabel}>MOVE</span>
                 </div>
             ) : (
                 <>

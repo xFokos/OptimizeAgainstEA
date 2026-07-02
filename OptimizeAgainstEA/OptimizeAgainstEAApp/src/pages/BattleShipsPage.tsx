@@ -20,7 +20,7 @@ export default function BattleShipsPage() {
     const backToSelect = () => goToMode('select');
     // On the selector itself, Home leaves PeakFinder for the website homepage;
     // inside a mode it returns to the selector first.
-    const onHome = () => (mode === 'select' ? navigate('/') : backToSelect());
+    const onHome = () => (mode === 'select' ? navigate('/Dashboard') : backToSelect());
 
   return (
     <HintsProvider>
@@ -30,7 +30,7 @@ export default function BattleShipsPage() {
             className="btn btn--ghost btn--sm peakfinder-topbar__home"
             onClick={onHome}
           >
-            ⛰ Home
+            ← Dashboard
           </button>
           <HintToggle />
         </header>

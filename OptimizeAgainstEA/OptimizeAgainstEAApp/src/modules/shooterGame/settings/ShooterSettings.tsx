@@ -154,15 +154,15 @@ export function ShooterSettingsPanel() {
                 <ShooterDnaSection />
             </section>
             <section style={styles.section}>
-                <h3 style={styles.sectionTitle}>Spielrunde</h3>
+                <h3 style={styles.sectionTitle}>Game Round</h3>
                 <ShooterRoundSection />
             </section>
             <section style={styles.section}>
-                <h3 style={styles.sectionTitle}>Spieler</h3>
+                <h3 style={styles.sectionTitle}>Player</h3>
                 <ShooterPlayerSection />
             </section>
             <button style={styles.resetBtn} onClick={() => setShooterSettings(resetShooterSettings())}>
-                Zurücksetzen
+                Reset
             </button>
         </div>
     );

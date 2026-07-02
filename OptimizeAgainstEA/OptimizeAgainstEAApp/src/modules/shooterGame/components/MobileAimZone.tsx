@@ -87,7 +87,7 @@ export function MobileAimZone({ inputRef }: Props) {
             {!joy ? (
                 <div style={styles.hint}>
                     <div style={styles.hintRing} />
-                    <span style={styles.hintLabel}>ZIELEN &amp; SCHUSS</span>
+                    <span style={styles.hintLabel}>AIM &amp; SHOOT</span>
                 </div>
             ) : (
                 <>

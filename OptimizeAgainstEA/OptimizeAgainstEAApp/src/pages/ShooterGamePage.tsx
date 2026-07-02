@@ -74,7 +74,7 @@ function RotateOverlay() {
                 letterSpacing: '0.06em',
                 margin:      0,
             }}>
-                Bitte Gerät drehen
+                Please rotate device
             </p>
             <style>{`
                 @keyframes rotateHint {

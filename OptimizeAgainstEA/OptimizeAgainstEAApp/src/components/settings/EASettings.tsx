@@ -6,11 +6,10 @@ export function EASettingsPanel() {
 
     return (
         <section style={styles.section}>
-            <h3 style={styles.sectionTitle}>Allgemeine EA Einstellungen</h3>
-            <p style={styles.hint}>Diese Einstellungen gelten für alle Spiele</p>
+            <h3 style={styles.sectionTitle}>EA Settings</h3>
 
             <div style={styles.row}>
-                <label style={styles.label}>Mutations-Rate</label>
+                <label style={styles.label}>Mutation Rate</label>
                 <input
                     type="range" min={0} max={0.5} step={0.01}
                     value={s.mutationRate}
@@ -22,7 +21,7 @@ export function EASettingsPanel() {
             </div>
 
             <div style={styles.row}>
-                <label style={styles.label}>Mutations-Stärke</label>
+                <label style={styles.label}>Mutation Strength</label>
                 <input
                     type="range" min={0} max={0.5} step={0.01}
                     value={s.mutationStrength}
@@ -34,7 +33,7 @@ export function EASettingsPanel() {
             </div>
 
             <div style={styles.row}>
-                <label style={styles.label}>Presim Generationen</label>
+                <label style={styles.label}>Presim Generations</label>
                 <input
                     type="range" min={0} max={10} step={1}
                     value={s.presimGenerations}
@@ -46,7 +45,7 @@ export function EASettingsPanel() {
             </div>
 
             <div style={styles.row}>
-                <label style={styles.label}>Populations-Größe</label>
+                <label style={styles.label}>Population Size</label>
                 <input
                     type="range" min={5} max={50} step={5}
                     value={s.populationSize}
@@ -58,7 +57,7 @@ export function EASettingsPanel() {
             </div>
 
             <div style={styles.row}>
-                <label style={styles.label}>Crossover Typ</label>
+                <label style={styles.label}>Crossover Type</label>
                 <div style={styles.toggleGroup}>
                     {(['uniform', 'single-point'] as const).map(type => (
                         <button
@@ -93,14 +92,14 @@ export function EASettingsPanel() {
                             onClick={() => setEaSettings({ ...s, useHallOfFame: val })}
                             style={s.useHallOfFame === val ? styles.toggleActive : styles.toggleInactive}
                         >
-                            {val ? 'An' : 'Aus'}
+                            {val ? 'On' : 'Off'}
                         </button>
                     ))}
                 </div>
             </div>
 
             <button style={styles.resetBtn} onClick={() => setEaSettings(resetEASettings())}>
-                Zurücksetzen
+                Reset
             </button>
         </section>
     );
@@ -119,11 +118,6 @@ const styles: Record<string, CSSProperties> = {
         letterSpacing: '0.1em',
         textTransform: 'uppercase',
         margin:        '0 0 8px 0',
-    },
-    hint: {
-        fontSize: '12px',
-        color:    'var(--text-muted)',
-        margin:   '0 0 16px 0',
     },
     row: {
         display:      'flex',

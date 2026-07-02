@@ -43,11 +43,11 @@ interface GameModeSelectorLayoutProps {
 export function GameModeSelectorLayout({
     title,
     subtitle,
-    logoText,
+    logoText: _logoText,
     modes,
     onSelect,
     onBack,
-    backLabel = '← Zurück',
+    backLabel = '← Back',
     rightContent,
 }: GameModeSelectorLayoutProps) {
     return (
@@ -61,10 +61,7 @@ export function GameModeSelectorLayout({
                     </button>
                 </div>
 
-                <div className="game-selector-topbar__center">
-                    <span className="game-selector-topbar__logo">{logoText}</span>
-                    <span className="game-selector-topbar__name">{title}</span>
-                </div>
+                <div className="game-selector-topbar__center" />
 
                 <div className="game-selector-topbar__right">
                     {rightContent}

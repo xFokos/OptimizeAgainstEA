@@ -11,6 +11,7 @@ import ShooterGamePage from "./pages/ShooterGamePage.tsx";
 import BattleShipsPage from "./pages/BattleShipsPage.tsx";
 import MazeGamePage from "./pages/MazeGamePage.tsx";
 import ShooterLobbyPage from "./pages/lobby/ShooterLobbyPage";
+import HordeGamePage from "./pages/HordeGamePage.tsx";
 import ButtonsPage from "./pages/ButtonsPage.tsx";
 import FunctionTunerPage from "./pages/FunctionTunerPage.tsx";
 
@@ -28,6 +29,7 @@ export default function App() {
                 <Route path="Dashboard" element={<DashboardPage />}/>
                 <Route path="ShooterGame" element={<ShooterGamePage/>}/>
                 <Route path="/lobby/shooter" element={<ShooterLobbyPage />} />
+                <Route path="/HordeGame" element={<HordeGamePage />} />
                 <Route path="/Buttons" element={<ButtonsPage />} />
                 <Route path="/FunctionTuner" element={<FunctionTunerPage />} />
             </Routes>

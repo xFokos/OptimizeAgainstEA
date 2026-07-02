@@ -1,3 +1,4 @@
+import type { Transaction } from 'firebase/firestore';
 import { doc, getDoc, setDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { GAME_CONFIG, STARTER_DNA } from '../shooter.types';
@@ -85,7 +86,7 @@ export async function claimRaidbossSlot(): Promise<RaidbossDoc> {
     let claimedDoc: RaidbossDoc | null = null;
     let claimedIndex = -1;
 
-    await runTransaction(db, async (tx) => {
+    await runTransaction(db, async (tx: Transaction) => {
         const txSnap = await tx.get(RAIDBOSS_DOC);
         if (!txSnap.exists()) throw new Error('Raidboss doc fehlt');
 
@@ -122,7 +123,7 @@ export async function claimRaidbossSlot(): Promise<RaidbossDoc> {
 
 // Schreibt Fitness für einen Slot; wenn alle bewertet → Evolution → neue Generation
 export async function submitRaidbossFitness(index: number, fitness: number, claimedDoc: RaidbossDoc): Promise<void> {
-    await runTransaction(db, async (tx) => {
+    await runTransaction(db, async (tx: Transaction) => {
         const snap = await tx.get(RAIDBOSS_DOC);
         const data: RaidbossDoc = snap.exists()
             ? snap.data() as RaidbossDoc

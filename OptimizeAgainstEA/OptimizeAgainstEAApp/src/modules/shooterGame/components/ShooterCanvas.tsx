@@ -64,7 +64,7 @@ function TugOfWarBar({ score, threshold }: { score: number; threshold: number })
                 <div className={styles.tugCenter} />
                 <div className={styles.tugKnot} style={{ left: `${pct}%` }} />
             </div>
-            <span className={styles.tugLabelPlayer}>DU</span>
+            <span className={styles.tugLabelPlayer}>YOU</span>
         </div>
     );
 }
@@ -579,7 +579,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
 
                 {revealDna !== null ? (
                     <div className={styles.overlay}>
-                        <h2 className={styles.title}>Neue DNA</h2>
+                        <h2 className={styles.title}>New DNA</h2>
                         <p className={styles.subtitle}>Generation {revealGeneration ?? '—'}</p>
                         <div style={{
                             display:       'flex',
@@ -611,7 +611,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                             })}
                         </div>
                         <button className="btn btn--primary" onClick={applyAndPlay}>
-                            Nächste Runde →
+                            Next Round →
                         </button>
                     </div>
                 ) : phase === 'idle' ? (
@@ -620,38 +620,38 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                             <>
                                 <h2 className={styles.title} style={{ color: '#a855f7' }}>Community Raidboss</h2>
                                 <p className={styles.subtitle} style={{ color: 'rgba(168,85,247,0.7)' }}>
-                                    Generation {raidbossInfoRef.current.generation} · Individuum {raidbossInfoRef.current.index}/{raidbossInfoRef.current.total}
+                                    Generation {raidbossInfoRef.current.generation} · Individual {raidbossInfoRef.current.index}/{raidbossInfoRef.current.total}
                                 </p>
-                                <p className={styles.subtitle}>WASD bewegen · Maus zielen · Linksklick schießen</p>
+                                <p className={styles.subtitle}>WASD to move · Mouse to aim · Left-click to shoot</p>
                             </>
                         ) : (
                             <>
                                 <h2 className={styles.title}>Shooter vs GA</h2>
-                                <p className={styles.subtitle}>WASD bewegen · Maus zielen · Linksklick schießen</p>
+                                <p className={styles.subtitle}>WASD to move · Mouse to aim · Left-click to shoot</p>
                             </>
                         )}
                         <button className="btn btn--primary" onClick={() => startRound()}>
-                            Runde starten
+                            Start Round
                         </button>
                     </div>
                 ) : phase === 'roundEnd' ? (
                     <div className={styles.overlay}>
-                        <h2 className={styles.title}>Runde beendet</h2>
+                        <h2 className={styles.title}>Round Over</h2>
                         <div className={styles.roundStats}>
                             <div className={styles.roundStatSide}>
                                 <span className={styles.roundStatLabel} style={{ color: '#f97316' }}>EA</span>
                                 <span className={styles.roundStatCount} style={{ color: '#f97316' }}>
                                     {gameStateRef.current?.agent.stats.hitsLanded ?? 0}
                                 </span>
-                                <span className={styles.roundStatSub}>Treffer</span>
+                                <span className={styles.roundStatSub}>Hits</span>
                             </div>
                             <span className={styles.roundStatDivider}>:</span>
                             <div className={styles.roundStatSide}>
-                                <span className={styles.roundStatLabel} style={{ color: '#60a5fa' }}>DU</span>
+                                <span className={styles.roundStatLabel} style={{ color: '#60a5fa' }}>YOU</span>
                                 <span className={styles.roundStatCount} style={{ color: '#60a5fa' }}>
                                     {gameStateRef.current?.agent.stats.hitsReceived ?? 0}
                                 </span>
-                                <span className={styles.roundStatSub}>Treffer</span>
+                                <span className={styles.roundStatSub}>Hits</span>
                             </div>
                         </div>
                         {isRaidbossRound ? (
@@ -667,7 +667,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                                     }}
                                     disabled={trainNextLoading}
                                 >
-                                    {trainNextLoading ? 'Speichert...' : '← Lobby'}
+                                    {trainNextLoading ? 'Saving...' : '← Lobby'}
                                 </button>
                                 <button
                                     className="btn btn--outline"
@@ -675,18 +675,18 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                                     onClick={handleTrainNext}
                                     disabled={trainNextLoading}
                                 >
-                                    {trainNextLoading ? 'Lade...' : 'Weiter beitragen →'}
+                                    {trainNextLoading ? 'Loading...' : 'Contribute more →'}
                                 </button>
                             </div>
                         ) : (
                             <button className="btn btn--primary" onClick={startRound}>
-                                Weiter →
+                                Continue →
                             </button>
                         )}
                     </div>
                 ) : phase === 'evolving' ? (
                     <div className={styles.overlay}>
-                        <h2 className={styles.title}>EA evoliert...</h2>
+                        <h2 className={styles.title}>EA is evolving...</h2>
                         <p className={styles.subtitle}>
                             Generation {(gameStateRef.current?.population?.generation ?? 0) + 1}
                         </p>

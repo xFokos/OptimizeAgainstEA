@@ -232,12 +232,12 @@ export const HINTS: Record<HintId, HintDef> = {
   },
 
   'shooter.dnaChangeDuringRound': {
-    title: 'Achtung: DNA geändert',
+    title: 'Settings changed mid-run',
     body:
-      'Du hast die Starter-DNA geändert, obwohl bereits Runden gespielt wurden. ' +
-      'Der EA hat sich bis jetzt auf Basis der alten DNA entwickelt — ' +
-      'ein Wechsel mittendrin kann die Lernkurve verfälschen. ' +
-      'Für einen sauberen Neustart empfiehlt sich ein Reset.',
+      'You changed the settings after rounds have already been played. ' +
+      'The EA has been evolving based on the previous values — ' +
+      'changing them mid-run can skew the learning curve. ' +
+      'A reset is recommended for a clean start.',
     style: 'toast',
     once: true,
     sticky: true,

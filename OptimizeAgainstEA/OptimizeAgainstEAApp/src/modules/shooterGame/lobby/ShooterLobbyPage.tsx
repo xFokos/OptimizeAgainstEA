@@ -4,7 +4,7 @@ import PageContainer from '../../../components/layout/PageContainer';
 import { GameModeSelectorLayout } from '../../../components/layout/GameModeSelectorLayout';
 import { HintsProvider, HintToggle, HintLayer, useHints } from '../../../components/hints';
 import { ShooterPlayerSection, ShooterRoundSection } from '../settings/ShooterSettings';
-import { useSettings, resetShooterSettings } from '../../../context/SettingsContext';
+import { useSettings, resetShooterSettings, defaultShooterSettings } from '../../../context/SettingsContext';
 import { EASettingsPanel } from '../../../components/settings/EASettings';
 import { makeInitialGameState } from '../game/makeGameState';
 import { vec } from '../game/core/vec';
@@ -25,6 +25,18 @@ function useMobile(bp = 768) {
         return () => window.removeEventListener('resize', h);
     }, [bp]);
     return mob;
+}
+
+// ---- Viewport-height zoom: shrinks the lobby on small screens ----
+
+function useZoom(referenceH = 900, minZoom = 0.72) {
+    const [h, setH] = useState(() => window.innerHeight);
+    useEffect(() => {
+        const update = () => setH(window.innerHeight);
+        window.addEventListener('resize', update);
+        return () => window.removeEventListener('resize', update);
+    }, []);
+    return Math.min(1, Math.max(minZoom, h / referenceH));
 }
 
 // ---- Mini Preview Canvas ----
@@ -255,6 +267,197 @@ function ShooterPreview() {
     );
 }
 
+// ---- Raidboss Preview Canvas ----
+
+const BOSS_DNA = [0.85, 0.7, 0.9, 0.5, 0.8, 0.8, 0.9, 0.8];
+const PLAYER_R = 14;
+const BOSS_R   = 22;
+
+function RaidbossPreview() {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const { shooterSettings } = useSettings();
+    const dnaRef = useRef(shooterSettings.starterDna);
+    useEffect(() => { dnaRef.current = shooterSettings.starterDna; }, [shooterSettings.starterDna]);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d', { alpha: false });
+        if (!ctx) return;
+
+        let agentA: PreviewAgent = {
+            pos: { x: PREVIEW_W * 0.25, y: PREVIEW_H * 0.5 },
+            vel: { x: 0, y: 0 },
+            rot: 0,
+            color:     '#4fc3f7',
+            glowColor: 'rgba(79, 195, 247, 0.3)',
+        };
+        let agentB: PreviewAgent = {
+            pos: { x: PREVIEW_W * 0.75, y: PREVIEW_H * 0.5 },
+            vel: { x: 0, y: 0 },
+            rot: Math.PI,
+            color:     '#a855f7',
+            glowColor: 'rgba(168, 85, 247, 0.55)',
+        };
+
+        let bullets: PreviewBullet[] = [];
+        let bulletTimer   = 0;
+        let lastTimestamp = 0;
+
+        const bgCache = document.createElement('canvas');
+        bgCache.width  = PREVIEW_W;
+        bgCache.height = PREVIEW_H;
+        const bgCtx = bgCache.getContext('2d')!;
+        bgCtx.fillStyle = '#0f0f1a';
+        bgCtx.fillRect(0, 0, PREVIEW_W, PREVIEW_H);
+        bgCtx.strokeStyle = 'rgba(255,255,255,0.04)';
+        bgCtx.lineWidth   = 1;
+        bgCtx.beginPath();
+        for (let x = 0; x <= PREVIEW_W; x += 40) { bgCtx.moveTo(x, 0); bgCtx.lineTo(x, PREVIEW_H); }
+        for (let y = 0; y <= PREVIEW_H; y += 40) { bgCtx.moveTo(0, y); bgCtx.lineTo(PREVIEW_W, y); }
+        bgCtx.stroke();
+        bgCtx.strokeStyle = 'rgba(168,85,247,0.18)';
+        bgCtx.lineWidth   = 2;
+        bgCtx.strokeRect(1, 1, PREVIEW_W - 2, PREVIEW_H - 2);
+
+        const drawArena = () => ctx.drawImage(bgCache, 0, 0);
+
+        const drawAgent = (agent: PreviewAgent, radius: number) => {
+            ctx.save();
+            ctx.translate(agent.pos.x, agent.pos.y);
+            ctx.rotate(agent.rot);
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.fillStyle = agent.color;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(radius + 12, 0);
+            ctx.strokeStyle = agent.color;
+            ctx.lineWidth   = radius === BOSS_R ? 4 : 3;
+            ctx.lineCap     = 'round';
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0, 0, radius + 5, 0, Math.PI * 2);
+            ctx.strokeStyle = agent.glowColor;
+            ctx.lineWidth   = radius === BOSS_R ? 5 : 3;
+            ctx.stroke();
+            ctx.restore();
+        };
+
+        const drawBullets = () => {
+            const groups: Record<string, PreviewBullet[]> = {};
+            for (const b of bullets) { (groups[b.color] ??= []).push(b); }
+            for (const [color, group] of Object.entries(groups)) {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                for (const b of group) {
+                    ctx.moveTo(b.pos.x + 4, b.pos.y);
+                    ctx.arc(b.pos.x, b.pos.y, 4, 0, Math.PI * 2);
+                }
+                ctx.fill();
+            }
+        };
+
+        const updateAgent = (agent: PreviewAgent, target: PreviewAgent, dna: readonly number[], dt: number): PreviewAgent => {
+            const speed      = 30 + dna[DNA_INDEX.MOVEMENT_SPEED] * 70;
+            const aggression = 0.3 + dna[DNA_INDEX.AGGRESSION] * 0.7;
+            const prefRange  = 60 + dna[DNA_INDEX.PREFERRED_RANGE] * 150;
+            const diff       = vec.sub(target.pos, agent.pos);
+            const dist       = Math.sqrt(diff.x * diff.x + diff.y * diff.y);
+            const toTarget   = dist > 1 ? vec.scale(diff, 1 / dist) : { x: 1, y: 0 };
+            const orbitAngle = Math.atan2(toTarget.y, toTarget.x) + Math.PI / 2;
+            const orbitVel   = { x: Math.cos(orbitAngle) * speed, y: Math.sin(orbitAngle) * speed };
+            const rangeError = dist - prefRange;
+            const rangeVel   = vec.scale(toTarget, rangeError * aggression * 1.5);
+            const combined   = vec.add(orbitVel, rangeVel);
+            agent.vel = vec.scale(vec.add(agent.vel, vec.scale(combined, dt)), 0.88);
+            agent.pos = {
+                x: Math.max(20, Math.min(PREVIEW_W - 20, agent.pos.x + agent.vel.x * dt)),
+                y: Math.max(20, Math.min(PREVIEW_H - 20, agent.pos.y + agent.vel.y * dt)),
+            };
+            agent.rot = Math.atan2(toTarget.y, toTarget.x);
+            return agent;
+        };
+
+        const spawnBullets = (a: PreviewAgent, b: PreviewAgent) => {
+            const playerDna = dnaRef.current;
+            const shootA = (from: PreviewAgent, to: PreviewAgent) => {
+                const spread = (1 - playerDna[DNA_INDEX.SHOOT_ACCURACY]) * 0.6;
+                const speed  = (GAME_CONFIG.BULLET_SPEED_MIN + playerDna[DNA_INDEX.BULLET_SPEED] * (GAME_CONFIG.BULLET_SPEED_MAX - GAME_CONFIG.BULLET_SPEED_MIN)) * (PREVIEW_W / 800);
+                const base   = Math.atan2(to.pos.y - from.pos.y, to.pos.x - from.pos.x);
+                const angle  = base + (Math.random() - 0.5) * spread * 2;
+                bullets.push({ pos: { ...from.pos }, vel: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed }, color: '#80d8ff', lifetime: 1.5, owner: 'a' });
+            };
+            const shootB = (from: PreviewAgent, to: PreviewAgent) => {
+                const spread = (1 - BOSS_DNA[DNA_INDEX.SHOOT_ACCURACY]) * 0.6;
+                const speed  = (GAME_CONFIG.BULLET_SPEED_MIN + BOSS_DNA[DNA_INDEX.BULLET_SPEED] * (GAME_CONFIG.BULLET_SPEED_MAX - GAME_CONFIG.BULLET_SPEED_MIN)) * (PREVIEW_W / 800);
+                const base   = Math.atan2(to.pos.y - from.pos.y, to.pos.x - from.pos.x);
+                const angle  = base + (Math.random() - 0.5) * spread * 2;
+                bullets.push({ pos: { ...from.pos }, vel: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed }, color: '#cc88ff', lifetime: 1.5, owner: 'b' });
+            };
+            shootA(a, b);
+            shootB(b, a);
+        };
+
+        const loop = (timestamp: number) => {
+            if (timestamp - lastTimestamp < 31) {
+                animRef = requestAnimationFrame(loop);
+                return;
+            }
+            const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.1);
+            lastTimestamp = timestamp;
+
+            agentA = updateAgent(agentA, agentB, dnaRef.current, dt);
+            agentB = updateAgent(agentB, agentA, BOSS_DNA, dt);
+
+            bulletTimer -= dt;
+            if (bulletTimer <= 0) {
+                const fireRate  = BOSS_DNA[DNA_INDEX.FIRE_RATE];
+                bulletTimer = 1.4 - fireRate * 1.1 + Math.random() * 0.2;
+                spawnBullets(agentA, agentB);
+            }
+
+            bullets = bullets
+                .map(b => ({ ...b, pos: { x: b.pos.x + b.vel.x * dt, y: b.pos.y + b.vel.y * dt }, lifetime: b.lifetime - dt }))
+                .filter(b => {
+                    if (b.lifetime <= 0 || !Number.isFinite(b.pos.x) || !Number.isFinite(b.pos.y) || b.pos.x <= 0 || b.pos.x >= PREVIEW_W || b.pos.y <= 0 || b.pos.y >= PREVIEW_H) return false;
+                    const target = b.owner === 'a' ? agentB : agentA;
+                    const hitR   = b.owner === 'a' ? BOSS_R : PLAYER_R;
+                    const dx = b.pos.x - target.pos.x;
+                    const dy = b.pos.y - target.pos.y;
+                    return dx * dx + dy * dy >= (hitR + 4) * (hitR + 4);
+                });
+
+            drawArena();
+            drawBullets();
+            drawAgent(agentA, PLAYER_R);
+            drawAgent(agentB, BOSS_R);
+
+            animRef = requestAnimationFrame(loop);
+        };
+
+        let animRef = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(animRef);
+    }, []);
+
+    return (
+        <canvas
+            ref={canvasRef}
+            width={PREVIEW_W}
+            height={PREVIEW_H}
+            style={{
+                borderRadius: '8px',
+                border:       '1px solid rgba(168,85,247,0.2)',
+                display:      'block',
+                width:        '100%',
+                height:       'auto',
+                maxWidth:     PREVIEW_W,
+            }}
+        />
+    );
+}
+
 // ---- Fullscreen vor dem Navigieren zum Spiel anfordern ----
 // Chrome on Android erlaubt orientation.lock nur in Fullscreen → innerhalb des User-Gesture-Kontexts aufrufen
 
@@ -277,19 +480,19 @@ const SHOOTER_MODES = [
         id:    'raidboss',
         key:   'R',
         label: 'Community Raidboss',
-        sub:   'Trainiere die Community-Population. Jeder Kampf verbessert den gemeinsamen Boss für alle Spieler.',
+        sub:   'Train the community population. Every battle improves the shared boss for all players.',
     },
     {
         id:    'normal',
         key:   'S',
         label: 'Solo Play',
-        sub:   'Kämpfe gegen einen genetischen Algorithmus, der sich nach jeder Runde an deinen Spielstil anpasst.',
+        sub:   'Fight a genetic algorithm that adapts to your playstyle after every round.',
     },
     {
         id:    'horde',
         key:   'H',
         label: 'Horde Mode',
-        sub:   'Überlebe endlose Wellen immer stärker werdender Agenten. Wie lange hältst du durch?',
+        sub:   'Survive endless waves of increasingly powerful agents. How long can you last?',
     },
 ];
 
@@ -298,30 +501,30 @@ const SHOOTER_MODES = [
 // DNA-Reihenfolge: AGGRESSION, DODGE, ACCURACY, RANGE, SPEED, LEAD, FIRE_RATE, BULLET_SPEED
 const PRESETS = [
     {
-        id:       'einfach',
-        label:    'Einfach',
+        id:       'easy',
+        label:    'Easy',
         color:    '#4ade80',
-        desc:     'Der EA lernt langsam und ohne Vorsimulation.',
+        desc:     'The EA learns slowly and without pre-simulation.',
         dna:      [0.2, 0.2, 0.2, 0.4, 0.2, 0.2, 0.2, 0.2],
         mutation: 0.05,
         strength: 0.1,
         presim:   0,
     },
     {
-        id:       'mittel',
-        label:    'Mittel',
+        id:       'medium',
+        label:    'Medium',
         color:    '#facc15',
-        desc:     'Ausgewogener Start mit 1 Presim-Generation.',
+        desc:     'Balanced start with 1 pre-sim generation.',
         dna:      [0.2, 0.25, 0.25, 0.4, 0.25, 0.25, 0.25, 0.25],
         mutation: 0.15,
         strength: 0.2,
         presim:   1,
     },
     {
-        id:       'schwer',
-        label:    'Schwer',
+        id:       'hard',
+        label:    'Hard',
         color:    '#f87171',
-        desc:     'Der EA simuliert 3 Generationen gegen deinen Spielstil.',
+        desc:     'The EA simulates 3 generations against your playstyle.',
         dna:      [0.2, 0.3, 0.3, 0.4, 0.3, 0.3, 0.35, 0.3],
         mutation: 0.25,
         strength: 0.3,
@@ -373,7 +576,7 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset }: SoloPlayOvervie
 
     const applyPreset = (p: typeof PRESETS[number]) => {
         setSelectedPreset(p.id);
-        setShooterSettings({ ...shooterSettings, starterDna: [...p.dna] });
+        setShooterSettings({ ...defaultShooterSettings, starterDna: [...p.dna] });
         setEaSettings({ ...eaSettings, mutationRate: p.mutation, mutationStrength: p.strength, presimGenerations: p.presim });
     };
 
@@ -448,7 +651,7 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset }: SoloPlayOvervie
             {hasGame ? (
                     <div style={ovStyles.activeSlot}>
                         <div style={ovStyles.header}>
-                            <div style={ovStyles.roundLabel}>Runde</div>
+                            <div style={ovStyles.roundLabel}>Round</div>
                             <div style={ovStyles.roundValue}>{round}</div>
                         </div>
 
@@ -461,7 +664,7 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset }: SoloPlayOvervie
                                     <span style={ovStyles.statsCompactValue}>{Math.round(lastRecord.accuracy * 100)}%</span>
                                 </div>
                                 <div style={ovStyles.statsCompactRow}>
-                                    <span style={ovStyles.statsCompactLabel}>Score (EA : Du)</span>
+                                    <span style={ovStyles.statsCompactLabel}>Score (EA : You)</span>
                                     <span style={ovStyles.statsCompactValue}>{lastRecord.hitsLanded} : {lastRecord.hitsReceived}</span>
                                 </div>
                                 <div style={ovStyles.statsCompactRow}>
@@ -470,7 +673,7 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset }: SoloPlayOvervie
                                 </div>
                             </div>
                         ) : (
-                            <div style={{ ...ovStyles.statsCompactLabel, flex: 1 }}>Noch keine Runde abgeschlossen</div>
+                            <div style={{ ...ovStyles.statsCompactLabel, flex: 1 }}>No round completed yet</div>
                         )}
 
                         <div style={ovStyles.divider} />
@@ -489,10 +692,10 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset }: SoloPlayOvervie
                     <div style={ovStyles.emptySlot}>
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
                             <span style={ovStyles.slotIcon}>🎮</span>
-                            <span style={ovStyles.slotTitle}>Kein aktives Spiel</span>
+                            <span style={ovStyles.slotTitle}>No active game</span>
                             <span style={ovStyles.slotSub}>
-                                Wähle einen Schwierigkeitsgrad<br />
-                                und starte deine erste Runde.
+                                Choose a difficulty<br />
+                                and start your first round.
                             </span>
                         </div>
                         <button
@@ -500,13 +703,13 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset }: SoloPlayOvervie
                             style={{ width: '100%', marginTop: 16 }}
                             onClick={handlePrepare}
                         >
-                            Runde aufbauen →
+                            Set up round →
                         </button>
                     </div>
                 )}
             </div>
             <div style={ovStyles.placeholder}>
-                <span style={ovStyles.placeholderHeading}>Schwierigkeitsgrad</span>
+                <span style={ovStyles.placeholderHeading}>Difficulty</span>
                 <div style={ovStyles.presetBtns}>
                     {PRESETS.map(p => (
                         <button
@@ -540,18 +743,18 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset }: SoloPlayOvervie
                 <p style={ovStyles.presetDesc}>
                     {activePreset
                         ? activePreset.desc
-                        : 'Eigene Konfiguration — Einstellungen manuell angepasst.'}
+                        : 'Custom configuration — settings adjusted manually.'}
                 </p>
                 <div style={ovStyles.divider} />
-                <span style={ovStyles.placeholderHeading}>Rundeneinstellungen</span>
-                <ShooterRoundSection onBeforeChange={() => { if (round > 0 && hasGame) showHint('shooter.dnaChangeDuringRound'); }} />
+                <span style={ovStyles.placeholderHeading}>Round Settings</span>
+                <ShooterRoundSection onBeforeChange={() => { setSelectedPreset('custom'); if (round > 0 && hasGame) showHint('shooter.dnaChangeDuringRound'); }} />
             </div>
         </div>
 
         {/* DNA-Sektion */}
         <div style={tabStyles.box}>
             <p style={{ ...tabStyles.sectionLabel, marginBottom: 12 }}>
-                {showActiveDna ? 'Aktuelle DNA' : 'Starter DNA'}
+                {showActiveDna ? 'Current DNA' : 'Starter DNA'}
             </p>
             <div style={isMobile ? { display: 'grid', gridTemplateColumns: '1fr', gap: '8px 16px' } : ovStyles.dnaGrid}>
                 {DNA_NAMES.map((name, i) => (
@@ -783,7 +986,7 @@ const ovStyles: Record<string, React.CSSProperties> = {
 
 // ---- Settings Tabs ----
 
-const LOBBY_TABS = ['Übersicht', 'Algorithmus', 'Performance', 'Spieler'] as const;
+const LOBBY_TABS = ['Overview', 'Algorithm', 'Performance', 'Player'] as const;
 type LobbyTab = typeof LOBBY_TABS[number];
 
 const tabStyles: Record<string, React.CSSProperties> = {
@@ -865,7 +1068,7 @@ function PerformanceTab() {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={tabStyles.box}>
-                <p style={tabStyles.sectionLabel}>Aufzeichnung</p>
+                <p style={tabStyles.sectionLabel}>Recording</p>
                 <div style={perfStyles.row}>
                     <label style={perfStyles.label}>Round record limit</label>
                     <input
@@ -907,11 +1110,20 @@ const perfStyles: Record<string, React.CSSProperties> = {
 
 function NormalLobby({ onBack }: { onBack: () => void }) {
     const navigate = useNavigate();
-    const [tab, setTab] = useState<LobbyTab>('Übersicht');
+    const [tab, setTab] = useState<LobbyTab>('Overview');
     const [hasActiveGame, setHasActiveGame] = useState(!!gameStore.state);
-    const [selectedPreset, setSelectedPreset] = useState<PresetId>('custom');
-    const { setShooterSettings } = useSettings();
+    const { shooterSettings, eaSettings, setShooterSettings } = useSettings();
+    const [selectedPreset, setSelectedPreset] = useState<PresetId>(() => {
+        const match = PRESETS.find(p =>
+            p.dna.every((v, i) => Math.abs(v - shooterSettings.starterDna[i]) < 0.001) &&
+            Math.abs(p.mutation - eaSettings.mutationRate) < 0.001 &&
+            Math.abs(p.strength - eaSettings.mutationStrength) < 0.001 &&
+            p.presim === eaSettings.presimGenerations
+        );
+        return match?.id ?? 'custom';
+    });
     const isMobile = useMobile();
+    const zoom = useZoom();
 
     useEffect(() => {
         const sync = () => setHasActiveGame(!!gameStore.state);
@@ -932,15 +1144,15 @@ function NormalLobby({ onBack }: { onBack: () => void }) {
 
     const tabContent = (
         <div style={{ ...tabStyles.panel, overflowY: isMobile ? 'visible' : 'auto' }}>
-            {tab === 'Übersicht' && <SoloPlayOverview selectedPreset={selectedPreset} setSelectedPreset={setSelectedPreset} />}
-            {tab === 'Algorithmus' && <EASettingsPanel />}
+            {tab === 'Overview' && <SoloPlayOverview selectedPreset={selectedPreset} setSelectedPreset={setSelectedPreset} />}
+            {tab === 'Algorithm' && <EASettingsPanel />}
             {tab === 'Performance' && <PerformanceTab />}
-            {tab === 'Spieler' && (
+            {tab === 'Player' && (
                 <>
                     <div style={tabStyles.box}>
                         <ShooterPlayerSection />
                     </div>
-                    <button style={tabStyles.resetBtn} onClick={() => setShooterSettings(resetShooterSettings())}>Zurücksetzen</button>
+                    <button style={tabStyles.resetBtn} onClick={() => setShooterSettings(resetShooterSettings())}>Reset</button>
                 </>
             )}
         </div>
@@ -955,9 +1167,9 @@ function NormalLobby({ onBack }: { onBack: () => void }) {
                     {tabContent}
                 </div>
                 <div style={mobileBtnsStyle}>
-                    <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Modus</button>
+                    <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Mode</button>
                     <button className="btn btn--primary" style={{ flex: 1 }} onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
-                        {hasActiveGame ? 'Fortsetzen →' : 'Spielen →'}
+                        {hasActiveGame ? 'Continue →' : 'Play →'}
                     </button>
                 </div>
             </div>
@@ -965,7 +1177,7 @@ function NormalLobby({ onBack }: { onBack: () => void }) {
     }
 
     return (
-        <div style={lobbyStyles.page}>
+        <div style={{ ...lobbyStyles.page, zoom }}>
             <div style={lobbyStyles.leftTop}>
                 <div style={lobbyStyles.brand}>
                     <div style={lobbyStyles.brandLogo}>SG</div>
@@ -986,11 +1198,11 @@ function NormalLobby({ onBack }: { onBack: () => void }) {
             </div>
 
             <div style={lobbyStyles.leftBottom}>
-                <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Modus</button>
+                <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Mode</button>
             </div>
             <div style={lobbyStyles.rightBottom}>
                 <button className="btn btn--primary" onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
-                    {hasActiveGame ? 'Fortsetzen →' : 'Spielen →'}
+                    {hasActiveGame ? 'Continue →' : 'Play →'}
                 </button>
             </div>
         </div>
@@ -1004,6 +1216,7 @@ const RB = '#a855f7';
 function RaidbossLobby({ onBack }: { onBack: () => void }) {
     const navigate = useNavigate();
     const isMobile = useMobile();
+    const zoom = useZoom();
     const [doc,     setDoc]     = useState<RaidbossDoc | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -1035,19 +1248,19 @@ function RaidbossLobby({ onBack }: { onBack: () => void }) {
     const statusContent = doc === null ? (
         <div style={rbStyles.emptyState}>
             <span style={rbStyles.emptyIcon}>🧬</span>
-            <span style={rbStyles.emptyTitle}>Noch kein Boss trainiert</span>
-            <span style={rbStyles.emptySub}>Sei der Erste und starte die erste Generation.</span>
+            <span style={rbStyles.emptyTitle}>No boss trained yet</span>
+            <span style={rbStyles.emptySub}>Be the first and start the first generation.</span>
         </div>
     ) : (
         <div style={rbStyles.statusPanel}>
             <div style={rbStyles.genRow}>
                 <span style={rbStyles.genLabel}>Generation</span>
                 <span style={rbStyles.genValue}>{doc.generation}</span>
-                <span style={rbStyles.genTotal}>{genTotal} Individuen gesamt bewertet</span>
+                <span style={rbStyles.genTotal}>{genTotal} individuals evaluated in total</span>
             </div>
             <div style={rbStyles.progressBlock}>
                 <div style={rbStyles.progressHeader}>
-                    <span style={rbStyles.progressLabel}>Fortschritt diese Generation</span>
+                    <span style={rbStyles.progressLabel}>Progress this generation</span>
                     <span style={rbStyles.progressCount}>{evalCount} / {total}</span>
                 </div>
                 <div style={rbStyles.progressTrack}>
@@ -1061,7 +1274,7 @@ function RaidbossLobby({ onBack }: { onBack: () => void }) {
                     return (
                         <div
                             key={i}
-                            title={`Individuum ${i + 1}${isDone ? ` · Fitness ${ind.fitness?.toFixed(2)}` : isNext ? ' · Als nächstes' : ''}`}
+                            title={`Individual ${i + 1}${isDone ? ` · Fitness ${ind.fitness?.toFixed(2)}` : isNext ? ' · Next up' : ''}`}
                             style={{
                                 ...rbStyles.dot,
                                 background:  isDone ? RB : isNext ? 'rgba(168,85,247,0.35)' : 'rgba(255,255,255,0.08)',
@@ -1074,13 +1287,13 @@ function RaidbossLobby({ onBack }: { onBack: () => void }) {
             </div>
             {nextIndex !== -1 ? (
                 <div style={rbStyles.nextUp}>
-                    <span style={rbStyles.nextUpLabel}>Als nächstes</span>
-                    <span style={rbStyles.nextUpValue}>Individuum {nextIndex + 1} von {total}</span>
+                    <span style={rbStyles.nextUpLabel}>Next up</span>
+                    <span style={rbStyles.nextUpValue}>Individual {nextIndex + 1} of {total}</span>
                 </div>
             ) : (
                 <div style={rbStyles.nextUp}>
                     <span style={rbStyles.nextUpLabel}>Status</span>
-                    <span style={{ ...rbStyles.nextUpValue, color: '#4ade80' }}>Alle bewertet — Evolution läuft</span>
+                    <span style={{ ...rbStyles.nextUpValue, color: '#4ade80' }}>All evaluated — evolution running</span>
                 </div>
             )}
         </div>
@@ -1093,7 +1306,7 @@ function RaidbossLobby({ onBack }: { onBack: () => void }) {
             onClick={handlePlay}
             disabled={loading}
         >
-            {loading ? 'Lade...' : 'Raidboss kämpfen →'}
+            {loading ? 'Loading...' : 'Fight Raidboss →'}
         </button>
     );
 
@@ -1102,12 +1315,12 @@ function RaidbossLobby({ onBack }: { onBack: () => void }) {
             <div style={mobilePageStyle}>
                 <h1 style={{ ...lobbyStyles.title, fontSize: 20, color: RB, margin: 0 }}>Community Raidboss</h1>
                 <p style={{ ...lobbyStyles.description, margin: 0 }}>
-                    Jeder Spieler bewertet einen Agenten der Community-Population.
-                    Sind alle bewertet, evoliert die Population automatisch zur nächsten Generation.
+                    Each player evaluates one agent from the community population.
+                    Once all are evaluated, the population automatically evolves to the next generation.
                 </p>
                 {statusContent}
                 <div style={mobileBtnsStyle}>
-                    <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Modus</button>
+                    <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Mode</button>
                     <div style={{ flex: 1 }}>{playBtn}</div>
                 </div>
             </div>
@@ -1115,14 +1328,14 @@ function RaidbossLobby({ onBack }: { onBack: () => void }) {
     }
 
     return (
-        <div style={lobbyStyles.page}>
+        <div style={{ ...lobbyStyles.page, zoom }}>
             <div style={lobbyStyles.leftTop}>
                 <div style={lobbyStyles.brand}>
                     <div style={{ ...lobbyStyles.brandLogo, color: RB, background: 'rgba(168,85,247,0.1)', borderColor: 'rgba(168,85,247,0.25)' }}>SG</div>
                     <span style={lobbyStyles.brandName}>Shooter Game</span>
                 </div>
-                <ShooterPreview />
-                <div style={lobbyStyles.previewLabel}>Live Preview</div>
+                <RaidbossPreview />
+                <div style={lobbyStyles.previewLabel}>Boss Preview</div>
             </div>
 
             <div style={lobbyStyles.rightTop}>
@@ -1137,7 +1350,7 @@ function RaidbossLobby({ onBack }: { onBack: () => void }) {
             </div>
 
             <div style={lobbyStyles.leftBottom}>
-                <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Modus</button>
+                <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Mode</button>
             </div>
             <div style={lobbyStyles.rightBottom}>
                 {playBtn}
@@ -1270,50 +1483,47 @@ const rbStyles: Record<string, React.CSSProperties> = {
 // ---- Horde Lobby ----
 
 function HordeLobby({ onBack }: { onBack: () => void }) {
+    const navigate = useNavigate();
     const isMobile = useMobile();
+    const zoom     = useZoom();
+    const HO       = '#fb923c';
 
-    const wip = (
-        <div style={{
-            display:       'flex',
-            flexDirection: 'column',
-            gap:           8,
-            padding:       '20px',
-            background:    'rgba(251,146,60,0.05)',
-            border:        '1px dashed rgba(251,146,60,0.25)',
-            borderRadius:  10,
-        }}>
-            <span style={{ fontSize: 28 }}>🚧</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: 'rgba(253,186,116,0.9)' }}>In Entwicklung</span>
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>
-                Horde Mode ist noch nicht implementiert. Waves, Schwierigkeitskurve und Scoring kommen in einem späteren Update.
-            </span>
-        </div>
+    const handlePlay = async () => {
+        await enterGameFullscreen();
+        navigate('/HordeGame');
+    };
+
+    const playBtn = (
+        <button
+            className="btn btn--outline"
+            style={{ '--btn-color': HO } as React.CSSProperties}
+            onClick={handlePlay}
+        >
+            Play Horde →
+        </button>
     );
 
     if (isMobile) {
         return (
             <div style={mobilePageStyle}>
-                <h1 style={{ ...lobbyStyles.title, fontSize: 20, color: '#fb923c', margin: 0 }}>Horde Mode</h1>
+                <h1 style={{ ...lobbyStyles.title, fontSize: 20, color: HO, margin: 0 }}>Horde Mode</h1>
                 <p style={{ ...lobbyStyles.description, margin: 0 }}>
-                    Überlebe endlose Wellen immer stärker werdender Agenten.
-                    Jede Welle wird schwieriger — wie lange kannst du standhalten?
+                    Survive endless waves of agents rushing toward you.
+                    Each wave the EA evolves — how long can you hold out?
                 </p>
-                {wip}
                 <div style={mobileBtnsStyle}>
-                    <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Modus</button>
-                    <button className="btn btn--outline" style={{ flex: 1, '--btn-color': '#fb923c' } as React.CSSProperties} disabled>
-                        Bald verfügbar
-                    </button>
+                    <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Mode</button>
+                    <div style={{ flex: 1 }}>{playBtn}</div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div style={lobbyStyles.page}>
+        <div style={{ ...lobbyStyles.page, zoom }}>
             <div style={lobbyStyles.leftTop}>
                 <div style={lobbyStyles.brand}>
-                    <div style={{ ...lobbyStyles.brandLogo, color: '#fb923c', background: 'rgba(251,146,60,0.1)', borderColor: 'rgba(251,146,60,0.25)' }}>SG</div>
+                    <div style={{ ...lobbyStyles.brandLogo, color: HO, background: 'rgba(251,146,60,0.1)', borderColor: 'rgba(251,146,60,0.25)' }}>SG</div>
                     <span style={lobbyStyles.brandName}>Shooter Game</span>
                 </div>
                 <ShooterPreview />
@@ -1322,26 +1532,20 @@ function HordeLobby({ onBack }: { onBack: () => void }) {
 
             <div style={lobbyStyles.rightTop}>
                 <div style={lobbyStyles.header}>
-                    <h1 style={{ ...lobbyStyles.title, color: '#fb923c' }}>Horde Mode</h1>
+                    <h1 style={{ ...lobbyStyles.title, color: HO }}>Horde Mode</h1>
                     <p style={lobbyStyles.description}>
-                        Überlebe endlose Wellen immer stärker werdender Agenten.
-                        Jede Welle wird schwieriger — wie lange kannst du standhalten?
+                        Survive endless waves of agents rushing toward you.
+                        One shot kills, but if one touches you it&apos;s game over.
+                        The EA evolves between waves — see how long you can last.
                     </p>
                 </div>
-                {wip}
             </div>
 
             <div style={lobbyStyles.leftBottom}>
-                <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Modus</button>
+                <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Mode</button>
             </div>
             <div style={lobbyStyles.rightBottom}>
-                <button
-                    className="btn btn--outline"
-                    style={{ '--btn-color': '#fb923c' } as React.CSSProperties}
-                    disabled
-                >
-                    Bald verfügbar
-                </button>
+                {playBtn}
             </div>
         </div>
     );
@@ -1473,14 +1677,11 @@ function TopBar({ onBack }: { onBack: () => void }) {
         <div style={topBarStyles.bar}>
             <div style={topBarStyles.side}>
                 <button className="btn btn--ghost btn--sm" onClick={onBack}>
-                    ← Modus
+                    ← Mode
                 </button>
             </div>
 
-            <div style={topBarStyles.center}>
-                <span style={topBarStyles.logoMark}>SG</span>
-                <span style={topBarStyles.centerTitle}>Shooter vs EA</span>
-            </div>
+            <div style={topBarStyles.center} />
 
             <div style={{ ...topBarStyles.side, justifyContent: 'flex-end' }}>
                 <HintToggle />
@@ -1547,7 +1748,7 @@ function ShooterLobbyContent() {
         return (
             <GameModeSelectorLayout
                 title="SHOOTER VS EA"
-                subtitle="Wähle deinen Spielmodus"
+                subtitle="Choose your game mode"
                 logoText="SG"
                 modes={SHOOTER_MODES}
                 onSelect={(id) => setMode(id as LobbyMode)}

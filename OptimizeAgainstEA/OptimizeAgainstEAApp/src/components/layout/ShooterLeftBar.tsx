@@ -62,12 +62,12 @@ function LiveStats() {
     return (
         <div style={statStyles.section}>
             <div style={statStyles.sectionTitle}>Stats</div>
-            <div style={statStyles.roundLabel}>Runde {state.roundNumber}</div>
-            <StatRow label="Zeit" value={`${timer}s`} />
+            <div style={statStyles.roundLabel}>Round {state.roundNumber}</div>
+            <StatRow label="Time" value={`${timer}s`} />
             <div style={statStyles.divider} />
-            <StatRow label="Treffer" value={String(s.hitsReceived)} />
-            <StatRow label="Kassiert" value={String(s.hitsLanded)} />
-            <StatRow label="Ausgewichen" value={String(s.dodgedBullets)} />
+            <StatRow label="Hits" value={String(s.hitsReceived)} />
+            <StatRow label="Taken" value={String(s.hitsLanded)} />
+            <StatRow label="Dodged" value={String(s.dodgedBullets)} />
             {state.population && (
                 <>
                     <div style={statStyles.divider} />
@@ -154,7 +154,7 @@ export function ShooterLeftBar({ onAnalytics, onLobby }: ShooterLeftBarProps) {
             {/* Bottom – Quit */}
             <div style={styles.group}>
                 <NavButton
-                    label="Beenden"
+                    label="Quit"
                     variant="red"
                     onClick={() => navigate('/Dashboard')}
                 />

@@ -18,10 +18,28 @@ const ROUTES: Record<ProblemId, string> = {
 export default function DashboardPage() {
     const [active, setActive] = useState<Section>("gameSelect");
     const [config, setConfig] = useState<GameConfig>({ problem: undefined });
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    function handleNav(section: Section) {
+        setActive(section);
+        setSidebarOpen(false);
+    }
 
     return (
         <div className="layout">
-            <aside className="sidebar">
+            <button
+                className="sidebar-toggle"
+                onClick={() => setSidebarOpen((o) => !o)}
+                aria-label="Toggle sidebar"
+            >
+                {sidebarOpen ? "✕" : "☰"}
+            </button>
+
+            {sidebarOpen && (
+                <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+            )}
+
+            <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
                 <div className="sidebar-brand">
                     <div className="sidebar-logo">OAE</div>
                     <span className="sidebar-brand-name">Optimize Against EA</span>
@@ -31,17 +49,17 @@ export default function DashboardPage() {
                     <MenuItem
                         label="Game Selection"
                         active={active === "gameSelect"}
-                        onClick={() => setActive("gameSelect")}
+                        onClick={() => handleNav("gameSelect")}
                     />
                     <MenuItem
                         label="Settings"
                         active={active === "settings"}
-                        onClick={() => setActive("settings")}
+                        onClick={() => handleNav("settings")}
                     />
                     <MenuItem
                         label="EA Explained"
                         active={active === "eaExplained"}
-                        onClick={() => setActive("eaExplained")}
+                        onClick={() => handleNav("eaExplained")}
                     />
                 </nav>
             </aside>
