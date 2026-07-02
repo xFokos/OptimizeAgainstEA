@@ -134,53 +134,54 @@
 .roundStats {
     display: flex;
     align-items: center;
-    gap: 28px;
+    gap: 40px;
 }
 
 .roundStatSide {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    min-width: 60px;
+    gap: 6px;
+    min-width: 80px;
 }
 
 .roundStatLabel {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    font-size: 15px;
     font-weight: 700;
     letter-spacing: 0.08em;
 }
 
 .roundStatCount {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 36px;
+    font-size: 52px;
     font-weight: 700;
     line-height: 1;
 }
 
 .roundStatSub {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    font-size: 14px;
     color: rgba(255, 255, 255, 0.35);
     letter-spacing: 0.06em;
 }
 
 .roundStatDivider {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 24px;
+    font-size: 34px;
     color: rgba(255, 255, 255, 0.2);
     line-height: 1;
 }
 
 /* Start/next-round button now uses the shared `.btn btn--primary` primitive
-   (see src/styles/primitives/buttons.css). */
+   (see src/styles/primitives/buttons.css); the Continue button is sized up
+   inline for this reveal (see ShooterCanvas.tsx) rather than in the global class. */
 
 @media (max-width: 768px) {
     .title    { font-size: 22px; }
     .subtitle { font-size: 11px; }
     .overlay  { gap: 12px; padding: 16px; }
-    .roundStatCount { font-size: 28px; }
+    .roundStatCount { font-size: 36px; }
 }
 
 /* ---- Crossover Visualization ---- */

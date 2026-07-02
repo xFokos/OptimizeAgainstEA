@@ -584,33 +584,33 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                         <div style={{
                             display:       'flex',
                             flexDirection: 'column',
-                            gap:           8,
-                            width:         'min(300px, 80%)',
+                            gap:           16,
+                            width:         'min(560px, 90%)',
                         }}>
                             {DNA_NAMES.map((name, i) => {
                                 const cx    = revealCrossoverExample;
                                 const color = cx ? (cx.geneOrigins[i] ? COL_A : COL_B) : COL_B;
                                 const val   = displayedRevealDna[i] ?? 0;
                                 return (
-                                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                                             <span style={{
                                                 fontFamily:    'var(--font-mono)',
-                                                fontSize:      10,
-                                                color:         'rgba(255,255,255,0.38)',
+                                                fontSize:      15,
+                                                color:         'rgba(255,255,255,0.5)',
                                                 textTransform: 'uppercase' as const,
                                                 letterSpacing: '0.06em',
                                             }}>{name}</span>
-                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color }}>{val.toFixed(2)}</span>
+                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color }}>{val.toFixed(2)}</span>
                                         </div>
-                                        <div style={{ height: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 2, overflow: 'hidden' }}>
-                                            <div style={{ width: `${val * 100}%`, height: '100%', background: color, borderRadius: 2, opacity: 0.65, transition: 'width 0.15s ease' }} />
+                                        <div style={{ height: 10, background: 'rgba(255,255,255,0.07)', borderRadius: 5, overflow: 'hidden' }}>
+                                            <div style={{ width: `${val * 100}%`, height: '100%', background: color, borderRadius: 5, opacity: 0.75, transition: 'width 0.15s ease' }} />
                                         </div>
                                     </div>
                                 );
                             })}
                         </div>
-                        <button className="btn btn--primary" onClick={applyAndPlay}>
+                        <button className="btn btn--primary" style={{ fontSize: 16, padding: '14px 32px' }} onClick={applyAndPlay}>
                             Next Round →
                         </button>
                     </div>
@@ -679,7 +679,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                                 </button>
                             </div>
                         ) : (
-                            <button className="btn btn--primary" onClick={startRound}>
+                            <button className="btn btn--primary" style={{ fontSize: 16, padding: '14px 32px' }} onClick={startRound}>
                                 Continue →
                             </button>
                         )}

@@ -143,6 +143,23 @@ export function ShooterRoundSection({ onBeforeChange }: { onBeforeChange?: () =>
     );
 }
 
+// ── Section: Horde ───────────────────────────────────────────────────────────
+
+export function HordeWaveSection() {
+    const { hordeSettings: s, setHordeSettings } = useSettings();
+    return (
+        <div>
+            <SliderRow
+                label="Wave Size"
+                min={5} max={40} step={1}
+                value={s.waveSize}
+                display={String(s.waveSize)}
+                onChange={v => setHordeSettings({ ...s, waveSize: Math.round(v) })}
+            />
+        </div>
+    );
+}
+
 // ── Legacy full panel (still used outside the lobby) ────────────────────────
 
 export function ShooterSettingsPanel() {

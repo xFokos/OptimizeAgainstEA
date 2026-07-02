@@ -20,7 +20,7 @@ export function ProblemSelection({ value, onChange }: ProblemSelectionProps) {
                 />
                 <ProblemCard
                     title="Shooter vs EA"
-                    description="Kämpfe gegen einen lernenden genetischen Algorithmus."
+                    description="Fight against a learning genetic algorithm."
                     image="/game-shooter.png"
                     active={value === "shooter"}
                     onClick={() => onChange("shooter")}

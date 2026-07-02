@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { useSettings, resetEASettings } from '../../context/SettingsContext';
+import { useSettings, resetEASettings, defaultHordeSettings } from '../../context/SettingsContext';
 
 export function EASettingsPanel() {
     const { eaSettings: s, setEaSettings } = useSettings();
@@ -99,6 +99,68 @@ export function EASettingsPanel() {
             </div>
 
             <button style={styles.resetBtn} onClick={() => setEaSettings(resetEASettings())}>
+                Reset
+            </button>
+        </section>
+    );
+}
+
+// Horde runs its own EA tuning (see HordeSettings) so difficulty presets there
+// never bleed into — or get overwritten by — Solo Play's EASettings.
+export function HordeEASettingsPanel() {
+    const { hordeSettings: s, setHordeSettings } = useSettings();
+
+    const resetAlgorithm = () => setHordeSettings({
+        ...s,
+        mutationRate:     defaultHordeSettings.mutationRate,
+        mutationStrength: defaultHordeSettings.mutationStrength,
+        crossoverType:    defaultHordeSettings.crossoverType,
+    });
+
+    return (
+        <section style={styles.section}>
+            <h3 style={styles.sectionTitle}>Horde EA Settings</h3>
+
+            <div style={styles.row}>
+                <label style={styles.label}>Mutation Rate</label>
+                <input
+                    type="range" min={0} max={0.5} step={0.01}
+                    value={s.mutationRate}
+                    onChange={e => setHordeSettings({ ...s, mutationRate: parseFloat(e.target.value) })}
+                    className="slider"
+                    style={styles.slider}
+                />
+                <span style={styles.value}>{s.mutationRate.toFixed(2)}</span>
+            </div>
+
+            <div style={styles.row}>
+                <label style={styles.label}>Mutation Strength</label>
+                <input
+                    type="range" min={0} max={0.5} step={0.01}
+                    value={s.mutationStrength}
+                    onChange={e => setHordeSettings({ ...s, mutationStrength: parseFloat(e.target.value) })}
+                    className="slider"
+                    style={styles.slider}
+                />
+                <span style={styles.value}>{s.mutationStrength.toFixed(2)}</span>
+            </div>
+
+            <div style={styles.row}>
+                <label style={styles.label}>Crossover Type</label>
+                <div style={styles.toggleGroup}>
+                    {(['uniform', 'single-point'] as const).map(type => (
+                        <button
+                            key={type}
+                            onClick={() => setHordeSettings({ ...s, crossoverType: type })}
+                            style={s.crossoverType === type ? styles.toggleActive : styles.toggleInactive}
+                        >
+                            {type === 'uniform' ? 'Uniform' : 'Single-Point'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <button style={styles.resetBtn} onClick={resetAlgorithm}>
                 Reset
             </button>
         </section>

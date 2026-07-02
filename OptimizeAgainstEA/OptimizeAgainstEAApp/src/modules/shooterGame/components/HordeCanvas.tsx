@@ -5,26 +5,66 @@ import {
     type InputState, type Bullet, type Population, type Individual, type DNA,
 } from '../shooter.types';
 import type { HordeGameState, HordeAgent, HordePhase } from '../horde/hordeTypes';
+import { hordeRunStore }  from '../horde/hordeRunStore';
 import { useInput }       from '../hooks/useInput';
 import { useSettings }    from '../../../context/SettingsContext';
-import type { EASettings } from '../../../context/SettingsContext';
+import type { HordeSettings } from '../../../context/SettingsContext';
 import type { PlayerStats } from '../shooter.types';
+
+// Horde has its own mutation/crossover tuning (via HordeSettings) — deliberately
+// decoupled from the shared EASettings used by Solo Play, so changing difficulty
+// here never bleeds into the other game mode.
+type HordeEA = Pick<HordeSettings, 'mutationRate' | 'mutationStrength' | 'crossoverType' | 'shootCooldown'>;
 
 // ---- Constants ----
 
 const HC         = '#fb923c';
-const AGENT_R    = 16;
-const TOUCH_DIST = GAME_CONFIG.PLAYER_RADIUS + AGENT_R;
 const SPD_MAX           = 220;   // top speed when MOVEMENT_SPEED = 1
 const ARENA_DIAG        = Math.sqrt(ARENA.WIDTH ** 2 + ARENA.HEIGHT ** 2);
-const HORDE_SHOOT_CD    = 0.12;  // faster fire rate than solo mode
+const ELITE_FRACTION    = 0.15;  // top 15% of the population reincarnate unchanged on death
+const STUCK_TIMEOUT     = 1.2;   // seconds pinned against a wall before an agent is culled/respawned
+const WALL_DEATH_PENALTY       = 0.5;   // fitness multiplier for dying stuck against a wall
+const DIVERSITY_INJECTION_RATE = 0.08;  // chance a non-elite replacement is a random immigrant instead of an offspring
+
+// Loop movement genes: an evolved sequence of steering-rotation offsets, applied
+// on top of the chase/wander/dodge direction — creates emergent zigzag/spiral
+// approach patterns while the agent still tracks the player (never open-loop).
+const LOOP_STEPS         = 4;
+const LOOP_STEP_DURATION = 0.6;                       // seconds per step
+const LOOP_MAX_ANGLE_RAD = (70 * Math.PI) / 180;       // max rotation per step
+const LOOP_GENE_START    = DNA_LENGTH;                 // loop genes sit right after the shared DNA genes
+
+function loopOffsetRad(gene: number): number {
+    return (gene - 0.5) * 2 * LOOP_MAX_ANGLE_RAD;
+}
+
+// Size/opacity genes: an evolvable body — smaller & more transparent agents are
+// genuinely harder to hit (smaller hitbox, harder for the player to spot), so
+// there's a real, emergent selection pressure toward shrinking/fading if that
+// out-survives the disadvantage of needing to get closer to actually touch the player.
+const SIZE_GENE_INDEX    = LOOP_GENE_START + LOOP_STEPS;
+const OPACITY_GENE_INDEX = SIZE_GENE_INDEX + 1;
+const MIN_AGENT_R  = 8;
+const MAX_AGENT_R  = 22;
+const MIN_OPACITY  = 0.15;
+const MAX_OPACITY  = 1.0;
+
+function agentRadius(dna: DNA): number {
+    const gene = dna[SIZE_GENE_INDEX] ?? 0.5;
+    return MIN_AGENT_R + gene * (MAX_AGENT_R - MIN_AGENT_R);
+}
+
+function agentOpacity(dna: DNA): number {
+    const gene = dna[OPACITY_GENE_INDEX] ?? 0.5;
+    return MIN_OPACITY + gene * (MAX_OPACITY - MIN_OPACITY);
+}
 
 let bulletCounter = 0;
-let shootCooldown = 0;
+let shootTimer    = 0; // countdown until the player can fire again; reset to ea.shootCooldown
 
 // ---- Mini-GA helpers (no rounds, just per-death offspring) ----
 
-function tournament(inds: Individual[], k = 6): Individual {
+function tournament(inds: Individual[], k = 8): Individual {
     let best = inds[Math.floor(Math.random() * inds.length)];
     for (let i = 1; i < k; i++) {
         const c = inds[Math.floor(Math.random() * inds.length)];
@@ -33,7 +73,7 @@ function tournament(inds: Individual[], k = 6): Individual {
     return best;
 }
 
-function offspring(pop: Population, ea: EASettings): DNA {
+function offspring(pop: Population, ea: HordeEA): DNA {
     const p1  = tournament(pop.individuals);
     const p2  = tournament(pop.individuals);
     const dna = p1.dna.map((g, i) =>
@@ -52,15 +92,28 @@ function offspring(pop: Population, ea: EASettings): DNA {
     );
 }
 
+// Completely fresh, unrelated genome — same distribution as the initial population.
+// Used both to seed a new run and for diversity injection (see DIVERSITY_INJECTION_RATE),
+// which occasionally drops a "random immigrant" into the population instead of breeding
+// from existing parents, to keep genetic diversity from collapsing.
+function randomDna(): DNA {
+    return [
+        ...Array.from({ length: DNA_LENGTH }, () => Math.random() * 0.6),
+        ...Array.from({ length: LOOP_STEPS }, () => Math.random()),
+        Math.random(), // size
+        Math.random(), // opacity
+    ];
+}
+
 // ---- Spawn helpers ----
 
 let agentIdCounter = 0;
 
-function edgePos(i: number, total: number): { x: number; y: number } {
+function edgePos(i: number, total: number, radius: number): { x: number; y: number } {
     const perimeter = 2 * (ARENA.WIDTH + ARENA.HEIGHT);
     const segment   = perimeter / total;
     const raw       = (i * segment + (Math.random() - 0.5) * segment * 0.5 + perimeter) % perimeter;
-    const pad = AGENT_R + 12;
+    const pad = radius + 12;
     let t = raw;
     if (t < ARENA.WIDTH)  return { x: t,                y: pad };
     t -= ARENA.WIDTH;
@@ -71,18 +124,21 @@ function edgePos(i: number, total: number): { x: number; y: number } {
     return { x: pad, y: ARENA.HEIGHT - t };
 }
 
-function spawnAgent(dna: DNA, popIndex: number, spawnI: number, total: number): HordeAgent {
+function spawnAgent(dna: DNA, popIndex: number, spawnI: number, total: number, isElite = false): HordeAgent {
     return {
         id:          agentIdCounter++,
         popIndex,
         dna,
-        position:    edgePos(spawnI, total),
+        position:    edgePos(spawnI, total, agentRadius(dna)),
         velocity:    { x: 0, y: 0 },
         rotation:    0,
         alive:       true,
         closestDist: ARENA_DIAG,
         wanderAngle: Math.random() * Math.PI * 2,
         stuckTimer:  0,
+        loopIndex:   Math.floor(Math.random() * LOOP_STEPS),
+        loopTimer:   Math.random() * LOOP_STEP_DURATION,
+        isElite,
     };
 }
 
@@ -114,7 +170,7 @@ function updateHorde(
     dt:     number,
     input:  InputState,
     pStats: PlayerStats,
-    ea:     EASettings,
+    ea:     HordeEA,
 ): HordeGameState {
     if (state.phase !== 'playing') return state;
 
@@ -140,9 +196,9 @@ function updateHorde(
 
     // --- Player shoots ---
     const bullets: Bullet[] = [...state.bullets];
-    shootCooldown = Math.max(0, shootCooldown - dt);
-    if (input.shoot && shootCooldown === 0) {
-        shootCooldown = HORDE_SHOOT_CD;
+    shootTimer = Math.max(0, shootTimer - dt);
+    if (input.shoot && shootTimer === 0) {
+        shootTimer = ea.shootCooldown;
         bullets.push({
             id:       `h_${bulletCounter++}`,
             position: { ...player.position },
@@ -163,6 +219,7 @@ function updateHorde(
     const agents = state.agents.map(a => {
         if (!a.alive) return a;
         const agent = { ...a, position: { ...a.position }, velocity: { ...a.velocity } };
+        const r     = agentRadius(agent.dna);
 
         const dx   = player.position.x - agent.position.x;
         const dy   = player.position.y - agent.position.y;
@@ -199,22 +256,45 @@ function updateHorde(
             }
         }
 
+        // Evolved loop pattern: rotate the steering direction by a per-step offset that
+        // cycles on a fixed schedule. Applied on top of the chase/wander/dodge blend, so
+        // the agent keeps tracking the player while tracing out emergent zigzag/spiral shapes.
+        agent.loopTimer -= dt;
+        if (agent.loopTimer <= 0) {
+            agent.loopIndex = (agent.loopIndex + 1) % LOOP_STEPS;
+            agent.loopTimer += LOOP_STEP_DURATION;
+        }
+        const loopGene  = agent.dna[LOOP_GENE_START + agent.loopIndex] ?? 0.5;
+        const loopAngle = loopOffsetRad(loopGene);
+        const cosL = Math.cos(loopAngle), sinL = Math.sin(loopAngle);
+        const rotX = dirX * cosL - dirY * sinL;
+        const rotY = dirX * sinL + dirY * cosL;
+        dirX = rotX;
+        dirY = rotY;
+
         const dirLen = Math.sqrt(dirX ** 2 + dirY ** 2);
         const normX  = dirLen > 0 ? dirX / dirLen : wandX;
         const normY  = dirLen > 0 ? dirY / dirLen : wandY;
         const speed  = agent.dna[DNA_INDEX.MOVEMENT_SPEED] * SPD_MAX;
 
-        agent.velocity.x = (agent.velocity.x + normX * speed) * 0.80;
-        agent.velocity.y = (agent.velocity.y + normY * speed) * 0.80;
-        agent.position.x = Math.max(AGENT_R, Math.min(ARENA.WIDTH  - AGENT_R, agent.position.x + agent.velocity.x * dt));
-        agent.position.y = Math.max(AGENT_R, Math.min(ARENA.HEIGHT - AGENT_R, agent.position.y + agent.velocity.y * dt));
+        // Blend towards target velocity — converges to (normX*speed, normY*speed),
+        // not 4x it (the old "(v + target) * 0.8" recurrence overshot the intended top speed).
+        agent.velocity.x = agent.velocity.x * 0.80 + normX * speed * 0.20;
+        agent.velocity.y = agent.velocity.y * 0.80 + normY * speed * 0.20;
+        const prevX = agent.position.x;
+        const prevY = agent.position.y;
+        agent.position.x = Math.max(r, Math.min(ARENA.WIDTH  - r, agent.position.x + agent.velocity.x * dt));
+        agent.position.y = Math.max(r, Math.min(ARENA.HEIGHT - r, agent.position.y + agent.velocity.y * dt));
         agent.rotation   = Math.atan2(normY, normX);
 
-        // Stuck detection: hugging a wall with near-zero velocity
-        const spd    = Math.sqrt(agent.velocity.x ** 2 + agent.velocity.y ** 2);
-        const onEdge = agent.position.x <= AGENT_R + 2 || agent.position.x >= ARENA.WIDTH  - AGENT_R - 2 ||
-                       agent.position.y <= AGENT_R + 2 || agent.position.y >= ARENA.HEIGHT - AGENT_R - 2;
-        agent.stuckTimer = onEdge && spd < 20
+        // Stuck detection: hugging a wall with near-zero *actual* movement.
+        // Must use real displacement, not agent.velocity — velocity keeps climbing
+        // even when the wall clamp above is fully cancelling the agent's position change,
+        // which let fast/aggressive agents get wedged in corners without ever being detected.
+        const actualSpd = Math.hypot(agent.position.x - prevX, agent.position.y - prevY) / dt;
+        const onEdge = agent.position.x <= r + 2 || agent.position.x >= ARENA.WIDTH  - r - 2 ||
+                       agent.position.y <= r + 2 || agent.position.y >= ARENA.HEIGHT - r - 2;
+        agent.stuckTimer = onEdge && actualSpd < 20
             ? agent.stuckTimer + dt
             : Math.max(0, agent.stuckTimer - dt * 3);
 
@@ -237,7 +317,7 @@ function updateHorde(
             if (!agent.alive || hitIds.has(agent.id)) continue;
             const dx = b.position.x - agent.position.x;
             const dy = b.position.y - agent.position.y;
-            if (dx * dx + dy * dy < (AGENT_R + b.radius) ** 2) {
+            if (dx * dx + dy * dy < (agentRadius(agent.dna) + b.radius) ** 2) {
                 hitIds.add(agent.id);
                 hit = true;
                 score++;
@@ -248,32 +328,61 @@ function updateHorde(
     }
 
     // --- Process kills + stuck agents + respawn offspring ---
-    let { population, generation } = state;
-    const stuckIds = new Set(agents.filter(a => a.alive && a.stuckTimer > 3).map(a => a.id));
+    let { population } = state;
+    const { generation } = state;
+    const stuckIds = new Set(agents.filter(a => a.alive && a.stuckTimer > STUCK_TIMEOUT).map(a => a.id));
     const removeIds = new Set([...hitIds, ...stuckIds]);
 
     const finalAgents = agents.map(a => {
         if (!removeIds.has(a.id)) return a;
-        const rawFit  = Math.max(0, 1 - a.closestDist / ARENA_DIAG);
-        const newFit  = rawFit * rawFit;
-        const prevFit = population.individuals[a.popIndex].fitness;
-        const fitness = Math.max(newFit, prevFit * 0.6);
+        // Fitness reflects only this agent's own performance — no inherited
+        // credit from whatever DNA previously occupied this slot.
+        const rawFit    = Math.max(0, 1 - a.closestDist / ARENA_DIAG);
+        // Dying stuck against a wall is punished — it's dead weight in the gene pool,
+        // not a genuine approach on the player, so it shouldn't score like one.
+        const wallPenalty = stuckIds.has(a.id) ? WALL_DEATH_PENALTY : 1;
+        const measured     = rawFit * rawFit * wallPenalty;
+        // A single life is a noisy sample of a genome's quality (spawn position, RNG
+        // wander/dodge, player behaviour all vary). For elites — which replay the exact
+        // same DNA across multiple lives — blend in the prior reading to smooth that
+        // noise out, instead of letting one unlucky life erase a proven-good genome.
+        // Fresh (non-elite) offspring always get an unbiased, un-smoothed first reading.
+        const prevFitness = population.individuals[a.popIndex].fitness;
+        const fitness = a.isElite ? measured * 0.6 + prevFitness * 0.4 : measured;
         const updatedInds = [...population.individuals];
         updatedInds[a.popIndex] = { ...updatedInds[a.popIndex], fitness };
         population = { ...population, individuals: updatedInds };
         return { ...a, alive: false };
     });
 
+    // Elitism: the top ELITE_FRACTION of the population (by proven fitness) reincarnate
+    // with their own DNA unchanged instead of going through crossover/mutation — otherwise
+    // a genuinely good genome only ever survives by luck once its agent dies.
+    const eliteCount     = Math.max(1, Math.round(population.individuals.length * ELITE_FRACTION));
+    const sortedFitness  = population.individuals.map(ind => ind.fitness).sort((x, y) => y - x);
+    const eliteThreshold = sortedFitness[eliteCount - 1];
+
     let nextGeneration = generation;
     const replacements: HordeAgent[] = [];
     for (const a of finalAgents) {
         if (removeIds.has(a.id)) {
-            const newDna       = offspring(population, ea);
-            const updatedInds  = [...population.individuals];
-            const inheritedFit = population.individuals[a.popIndex].fitness * 0.5;
-            updatedInds[a.popIndex] = { dna: newDna, fitness: inheritedFit };
+            const ownFitness = population.individuals[a.popIndex].fitness;
+            const isElite     = ownFitness > 0 && ownFitness >= eliteThreshold;
+            // Diversity injection: occasionally drop in a completely fresh random genome
+            // instead of breeding one, so the gene pool can't fully converge/stagnate on
+            // whatever the current population happens to be exploring.
+            const isDiversityInjection = !isElite && Math.random() < DIVERSITY_INJECTION_RATE;
+            const newDna = isElite
+                ? [...population.individuals[a.popIndex].dna]
+                : isDiversityInjection
+                    ? randomDna()
+                    : offspring(population, ea);
+            // Newborn is unproven and starts at 0; an elite keeps the fitness it already earned.
+            const newFitness  = isElite ? ownFitness : 0;
+            const updatedInds = [...population.individuals];
+            updatedInds[a.popIndex] = { dna: newDna, fitness: newFitness };
             population = { ...population, individuals: updatedInds };
-            replacements.push(spawnAgent(newDna, a.popIndex, a.popIndex, state.maxOnField));
+            replacements.push(spawnAgent(newDna, a.popIndex, a.popIndex, state.maxOnField, isElite));
             nextGeneration++;
         }
     }
@@ -286,7 +395,8 @@ function updateHorde(
     for (const a of livingAgents.filter(a => !stuckIds.has(a.id))) {
         const dx = a.position.x - player.position.x;
         const dy = a.position.y - player.position.y;
-        if (dx * dx + dy * dy < TOUCH_DIST ** 2) { phase = 'dead'; break; }
+        const touchDist = GAME_CONFIG.PLAYER_RADIUS + agentRadius(a.dna);
+        if (dx * dx + dy * dy < touchDist ** 2) { phase = 'dead'; break; }
     }
 
     return {
@@ -327,18 +437,18 @@ function render(ctx: CanvasRenderingContext2D, state: HordeGameState) {
     }
     ctx.fill();
 
-    // Agents — opacity reflects aggression (dim when planlos, bright when evolved)
+    // Agents — size and opacity are both evolved genes (SIZE_GENE_INDEX / OPACITY_GENE_INDEX)
     for (const a of state.agents) {
         if (!a.alive) continue;
-        const agg     = a.dna[DNA_INDEX.AGGRESSION];
-        const opacity = 0.3 + agg * 0.7;
+        const r       = agentRadius(a.dna);
+        const opacity = agentOpacity(a.dna);
         ctx.save();
         ctx.translate(a.position.x, a.position.y);
         ctx.rotate(a.rotation);
         ctx.globalAlpha = opacity;
-        ctx.beginPath(); ctx.arc(0, 0, AGENT_R + 5, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(0, 0, r + 5, 0, Math.PI * 2);
         ctx.strokeStyle = HC; ctx.lineWidth = 2; ctx.stroke();
-        ctx.beginPath(); ctx.arc(0, 0, AGENT_R, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2);
         ctx.fillStyle = HC; ctx.fill();
         ctx.globalAlpha = 1;
         ctx.restore();
@@ -391,7 +501,15 @@ const GENE_DEFS: { index: number; label: string; tips: [number, string][] }[] = 
     },
     {
         index: DNA_INDEX.DODGE_WEIGHT, label: 'Dodge',
-        tips:  [[0, 'Ignores bullets'], [0.3, 'Slight swerve'], [0.6, 'Actively evading'], [0.85, 'Bullet-dancer']],
+        tips:  [[0, 'No evasion'], [0.3, 'Slight swerve'], [0.6, 'Actively evading'], [0.85, 'Bullet-dancer']],
+    },
+    {
+        index: SIZE_GENE_INDEX, label: 'Size',
+        tips:  [[0, 'Tiny — hard to hit'], [0.3, 'Small'], [0.6, 'Average build'], [0.85, 'Large target']],
+    },
+    {
+        index: OPACITY_GENE_INDEX, label: 'Opacity',
+        tips:  [[0, 'Nearly invisible'], [0.3, 'Faint'], [0.6, 'Visible'], [0.85, 'Fully solid']],
     },
 ];
 
@@ -441,6 +559,35 @@ function HordeDnaPanel({ bestDna, height }: { bestDna: DNA | null; height: numbe
                     </div>
                 );
             })}
+            {bestDna && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>Movement Loop</span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        {Array.from({ length: LOOP_STEPS }, (_, i) => {
+                            const gene = bestDna[LOOP_GENE_START + i] ?? 0.5;
+                            const deg  = Math.round((loopOffsetRad(gene) * 180) / Math.PI);
+                            return (
+                                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                    <div style={{
+                                        width: 28, height: 28, borderRadius: '50%',
+                                        border: `1px solid ${HC}`, display: 'flex',
+                                        alignItems: 'center', justifyContent: 'center',
+                                        transform: `rotate(${deg}deg)`,
+                                    }}>
+                                        <span style={{ color: HC, fontSize: 14, lineHeight: 1 }}>↑</span>
+                                    </div>
+                                    <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>
+                                        {deg > 0 ? `+${deg}°` : `${deg}°`}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div style={{ fontSize: 11, color: HC, opacity: 0.75, lineHeight: 1.4 }}>
+                        Repeats every {(LOOP_STEPS * LOOP_STEP_DURATION).toFixed(1)}s — arrows show the turn offset applied each step, relative to the current steering direction.
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -462,20 +609,21 @@ const BTN: React.CSSProperties = {
 interface HordeCanvasProps {
     scale?:            number;
     externalInputRef?: RefObject<InputState>;
+    hideDnaPanel?:     boolean;
 }
 
-export function HordeCanvas({ scale = 1, externalInputRef }: HordeCanvasProps) {
+export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false }: HordeCanvasProps) {
     const canvasRef  = useRef<HTMLCanvasElement>(null);
     const localInput = useInput();
     const inputRef   = externalInputRef ?? localInput;
 
-    const { hordeSettings, eaSettings, shooterSettings } = useSettings();
+    const { hordeSettings, shooterSettings } = useSettings();
     const stateRef       = useRef<HordeGameState | null>(null);
-    const eaRef          = useRef<EASettings>(eaSettings);
+    const eaRef          = useRef<HordeEA>(hordeSettings);
     const playerStatsRef = useRef<PlayerStats>(shooterSettings.playerStats);
     const hordeSizeRef   = useRef(hordeSettings.waveSize);
 
-    useEffect(() => { eaRef.current          = eaSettings;                  }, [eaSettings]);
+    useEffect(() => { eaRef.current          = hordeSettings;               }, [hordeSettings]);
     useEffect(() => { playerStatsRef.current = shooterSettings.playerStats;  }, [shooterSettings]);
     useEffect(() => { hordeSizeRef.current   = hordeSettings.waveSize;       }, [hordeSettings]);
 
@@ -487,12 +635,12 @@ export function HordeCanvas({ scale = 1, externalInputRef }: HordeCanvasProps) {
     const startGame = () => {
         agentIdCounter = 0;
         bulletCounter  = 0;
-        shootCooldown  = 0;
+        shootTimer     = 0;
         // Random DNA so every run starts with real diversity — no starter-DNA bootstrap problem
         const pop: Population = {
             generation:  1,
             individuals: Array.from({ length: hordeSizeRef.current }, () => ({
-                dna:     Array.from({ length: DNA_LENGTH }, () => Math.random() * 0.6),
+                dna:     randomDna(),
                 fitness: 0,
             })),
             bestFitness: 0,
@@ -533,6 +681,7 @@ export function HordeCanvas({ scale = 1, externalInputRef }: HordeCanvasProps) {
                     setUiPhase('dead');
                     setUiScore(next.score);
                     setUiGen(next.generation);
+                    hordeRunStore.record({ score: next.score, generation: next.generation });
                 }
                 render(ctx, next);
             } else {
@@ -562,6 +711,9 @@ export function HordeCanvas({ scale = 1, externalInputRef }: HordeCanvasProps) {
 
     return (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexShrink: 0 }}>
+        {/* Mirrors the DNA panel's width on the other side so the canvas itself
+            stays centered instead of being pushed left by the panel. */}
+        {!hideDnaPanel && <div style={{ width: PANEL_W, flexShrink: 0 }} />}
         <div style={{ width: ARENA.WIDTH * scale, height: ARENA.HEIGHT * scale, position: 'relative', flexShrink: 0 }}>
             <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0 }}>
                 <canvas ref={canvasRef} width={ARENA.WIDTH} height={ARENA.HEIGHT} style={{ display: 'block' }} />
@@ -589,7 +741,7 @@ export function HordeCanvas({ scale = 1, externalInputRef }: HordeCanvasProps) {
                 )}
             </div>
         </div>
-        <HordeDnaPanel bestDna={bestDna} height={ARENA.HEIGHT * scale} />
+        {!hideDnaPanel && <HordeDnaPanel bestDna={bestDna} height={ARENA.HEIGHT * scale} />}
         </div>
     );
 }

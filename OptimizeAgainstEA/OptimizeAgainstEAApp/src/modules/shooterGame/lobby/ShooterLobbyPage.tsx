@@ -3,15 +3,16 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import PageContainer from '../../../components/layout/PageContainer';
 import { GameModeSelectorLayout } from '../../../components/layout/GameModeSelectorLayout';
 import { HintsProvider, HintToggle, HintLayer, useHints } from '../../../components/hints';
-import { ShooterPlayerSection, ShooterRoundSection } from '../settings/ShooterSettings';
+import { ShooterPlayerSection, ShooterRoundSection, HordeWaveSection } from '../settings/ShooterSettings';
 import { useSettings, resetShooterSettings, defaultShooterSettings } from '../../../context/SettingsContext';
-import { EASettingsPanel } from '../../../components/settings/EASettings';
+import { EASettingsPanel, HordeEASettingsPanel } from '../../../components/settings/EASettings';
 import { makeInitialGameState } from '../game/makeGameState';
 import { vec } from '../game/core/vec';
 import { DNA_INDEX, DNA_NAMES, GAME_CONFIG } from '../shooter.types';
 import { initPopulation } from '../game/ga/population';
 import { gameStore } from '../game/gameStore';
 import { analyticsStore } from '../game/analyticsStore';
+import { hordeRunStore } from '../horde/hordeRunStore';
 import { getRaidbossStatus, claimRaidbossSlot } from '../game/raidbossStore';
 import type { RaidbossDoc } from '../game/raidbossStore';
 
@@ -449,6 +450,170 @@ function RaidbossPreview() {
             style={{
                 borderRadius: '8px',
                 border:       '1px solid rgba(168,85,247,0.2)',
+                display:      'block',
+                width:        '100%',
+                height:       'auto',
+                maxWidth:     PREVIEW_W,
+            }}
+        />
+    );
+}
+
+// ---- Horde Preview Canvas ----
+
+const HORDE_PREVIEW_HC          = '#fb923c';
+const HORDE_PREVIEW_AGENT_COUNT = 7;
+const HORDE_PREVIEW_AGENT_R     = 12;
+
+interface HordePreviewAgent {
+    baseAngle:    number;
+    radiusJitter: number;
+    wobblePhase:  number;
+}
+
+interface HordePreviewBullet {
+    pos:      { x: number; y: number };
+    vel:      { x: number; y: number };
+    lifetime: number;
+}
+
+function HordePreview() {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d', { alpha: false });
+        if (!ctx) return;
+
+        const bgCache = document.createElement('canvas');
+        bgCache.width  = PREVIEW_W;
+        bgCache.height = PREVIEW_H;
+        const bgCtx = bgCache.getContext('2d')!;
+        bgCtx.fillStyle = '#0f0f1a';
+        bgCtx.fillRect(0, 0, PREVIEW_W, PREVIEW_H);
+        bgCtx.strokeStyle = 'rgba(255,255,255,0.04)';
+        bgCtx.lineWidth   = 1;
+        bgCtx.beginPath();
+        for (let x = 0; x <= PREVIEW_W; x += 40) { bgCtx.moveTo(x, 0); bgCtx.lineTo(x, PREVIEW_H); }
+        for (let y = 0; y <= PREVIEW_H; y += 40) { bgCtx.moveTo(0, y); bgCtx.lineTo(PREVIEW_W, y); }
+        bgCtx.stroke();
+        bgCtx.strokeStyle = 'rgba(251,146,60,0.18)';
+        bgCtx.lineWidth   = 2;
+        bgCtx.strokeRect(1, 1, PREVIEW_W - 2, PREVIEW_H - 2);
+
+        const drawArena = () => ctx.drawImage(bgCache, 0, 0);
+
+        const center      = { x: PREVIEW_W / 2, y: PREVIEW_H / 2 };
+        const ringRadius  = PREVIEW_W * 0.4;
+
+        const agents: HordePreviewAgent[] = Array.from({ length: HORDE_PREVIEW_AGENT_COUNT }, (_, i) => ({
+            baseAngle:    (i / HORDE_PREVIEW_AGENT_COUNT) * Math.PI * 2,
+            radiusJitter: (Math.random() - 0.5) * 20,
+            wobblePhase:  Math.random() * Math.PI * 2,
+        }));
+
+        let bullets: HordePreviewBullet[] = [];
+        let bulletTimer   = 0;
+        let playerRot     = 0;
+        let t             = 0;
+        let lastTimestamp = 0;
+
+        const drawPlayer = () => {
+            ctx.save();
+            ctx.translate(center.x, center.y);
+            ctx.rotate(playerRot);
+            ctx.beginPath();
+            ctx.arc(0, 0, 14, 0, Math.PI * 2);
+            ctx.fillStyle = '#4fc3f7';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(14, 0);
+            ctx.lineTo(26, 0);
+            ctx.strokeStyle = '#4fc3f7';
+            ctx.lineWidth   = 3;
+            ctx.lineCap     = 'round';
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0, 0, 18, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(79, 195, 247, 0.3)';
+            ctx.lineWidth   = 3;
+            ctx.stroke();
+            ctx.restore();
+        };
+
+        const drawAgents = () => {
+            for (const a of agents) {
+                const angle  = a.baseAngle + t * 0.08;
+                const radius = ringRadius + a.radiusJitter + Math.sin(t * 1.4 + a.wobblePhase) * 6;
+                const x = center.x + Math.cos(angle) * radius;
+                const y = center.y + Math.sin(angle) * radius;
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(angle + Math.PI);
+                ctx.beginPath(); ctx.arc(0, 0, HORDE_PREVIEW_AGENT_R + 4, 0, Math.PI * 2);
+                ctx.strokeStyle = HORDE_PREVIEW_HC; ctx.lineWidth = 2; ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, 0, HORDE_PREVIEW_AGENT_R, 0, Math.PI * 2);
+                ctx.fillStyle = HORDE_PREVIEW_HC; ctx.fill();
+                ctx.restore();
+            }
+        };
+
+        const drawBullets = () => {
+            ctx.fillStyle = '#80d8ff';
+            ctx.beginPath();
+            for (const b of bullets) {
+                ctx.moveTo(b.pos.x + 4, b.pos.y);
+                ctx.arc(b.pos.x, b.pos.y, 4, 0, Math.PI * 2);
+            }
+            ctx.fill();
+        };
+
+        const loop = (timestamp: number) => {
+            if (timestamp - lastTimestamp < 31) {
+                animRef = requestAnimationFrame(loop);
+                return;
+            }
+            const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.1);
+            lastTimestamp = timestamp;
+            t += dt;
+
+            playerRot += dt * 1.1;
+
+            bulletTimer -= dt;
+            if (bulletTimer <= 0) {
+                bulletTimer = 0.3;
+                bullets.push({
+                    pos:      { ...center },
+                    vel:      { x: Math.cos(playerRot) * 260, y: Math.sin(playerRot) * 260 },
+                    lifetime: 1,
+                });
+            }
+
+            bullets = bullets
+                .map(b => ({ ...b, pos: { x: b.pos.x + b.vel.x * dt, y: b.pos.y + b.vel.y * dt }, lifetime: b.lifetime - dt }))
+                .filter(b => b.lifetime > 0 && b.pos.x >= 0 && b.pos.x <= PREVIEW_W && b.pos.y >= 0 && b.pos.y <= PREVIEW_H);
+
+            drawArena();
+            drawAgents();
+            drawBullets();
+            drawPlayer();
+
+            animRef = requestAnimationFrame(loop);
+        };
+
+        let animRef = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(animRef);
+    }, []);
+
+    return (
+        <canvas
+            ref={canvasRef}
+            width={PREVIEW_W}
+            height={PREVIEW_H}
+            style={{
+                borderRadius: '8px',
+                border:       '1px solid rgba(251,146,60,0.2)',
                 display:      'block',
                 width:        '100%',
                 height:       'auto',
@@ -1482,11 +1647,177 @@ const rbStyles: Record<string, React.CSSProperties> = {
 
 // ---- Horde Lobby ----
 
+const HORDE_TABS = ['Overview', 'Algorithm', 'Player'] as const;
+type HordeTab = typeof HORDE_TABS[number];
+
+// Horde-only difficulty presets — deliberately independent of the Solo Play PRESETS
+// above, since HordeSettings no longer shares state with the global EASettings.
+const HORDE_PRESETS = [
+    {
+        id:       'easy',
+        label:    'Easy',
+        color:    '#4ade80',
+        desc:     'Small waves, gentle mutation, and a faster trigger finger.',
+        waveSize:  12,
+        mutation:  0.05,
+        strength:  0.10,
+        shootCd:   0.09,
+        crossover: 'uniform',
+    },
+    {
+        id:       'medium',
+        label:    'Medium',
+        color:    '#facc15',
+        desc:     'Balanced wave size, mutation pressure, and fire rate.',
+        waveSize:  20,
+        mutation:  0.15,
+        strength:  0.20,
+        shootCd:   0.12,
+        crossover: 'uniform',
+    },
+    {
+        id:       'hard',
+        label:    'Hard',
+        color:    '#f87171',
+        desc:     'Large waves, aggressive mutation, and a slower trigger — brutal.',
+        waveSize:  30,
+        mutation:  0.25,
+        strength:  0.30,
+        shootCd:   0.18,
+        crossover: 'uniform',
+    },
+] as const;
+
+type HordePresetId = typeof HORDE_PRESETS[number]['id'] | 'custom';
+
+function HordeOverview() {
+    const isMobile = useMobile();
+    const [lastRun, setLastRun] = useState(hordeRunStore.lastRun);
+    const { hordeSettings, setHordeSettings } = useSettings();
+
+    useEffect(() => hordeRunStore.subscribe(() => setLastRun(hordeRunStore.lastRun)), []);
+
+    const [selectedPreset, setSelectedPreset] = useState<HordePresetId>(() => {
+        const match = HORDE_PRESETS.find(p =>
+            p.waveSize === hordeSettings.waveSize &&
+            Math.abs(p.mutation - hordeSettings.mutationRate) < 0.001 &&
+            Math.abs(p.strength - hordeSettings.mutationStrength) < 0.001 &&
+            Math.abs(p.shootCd  - hordeSettings.shootCooldown) < 0.001 &&
+            p.crossover === hordeSettings.crossoverType
+        );
+        return match?.id ?? 'custom';
+    });
+
+    const applyPreset = (p: typeof HORDE_PRESETS[number]) => {
+        setSelectedPreset(p.id);
+        setHordeSettings({
+            ...hordeSettings,
+            waveSize:         p.waveSize,
+            mutationRate:     p.mutation,
+            mutationStrength: p.strength,
+            shootCooldown:    p.shootCd,
+            crossoverType:    p.crossover,
+        });
+    };
+
+    // Wenn Settings manuell geändert werden → zurück zu Custom
+    useEffect(() => {
+        if (selectedPreset === 'custom') return;
+        const active = HORDE_PRESETS.find(p => p.id === selectedPreset);
+        if (!active) return;
+        const matches = active.waveSize === hordeSettings.waveSize &&
+                         Math.abs(active.mutation - hordeSettings.mutationRate) < 0.001 &&
+                         Math.abs(active.strength - hordeSettings.mutationStrength) < 0.001 &&
+                         Math.abs(active.shootCd  - hordeSettings.shootCooldown) < 0.001 &&
+                         active.crossover === hordeSettings.crossoverType;
+        if (!matches) setSelectedPreset('custom');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hordeSettings.waveSize, hordeSettings.mutationRate, hordeSettings.mutationStrength, hordeSettings.shootCooldown, hordeSettings.crossoverType]);
+
+    const activePreset = HORDE_PRESETS.find(p => p.id === selectedPreset) ?? null;
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={isMobile ? { display: 'flex', flexDirection: 'column', gap: 16 } : ovStyles.layout}>
+                <div style={ovStyles.slot}>
+                    {lastRun ? (
+                        <div style={ovStyles.activeSlot}>
+                            <div style={ovStyles.header}>
+                                <div style={ovStyles.roundLabel}>Last Run</div>
+                                <div style={ovStyles.roundValue}>{lastRun.score}</div>
+                            </div>
+                            <div style={ovStyles.divider} />
+                            <div style={ovStyles.statsCompact}>
+                                <div style={ovStyles.statsCompactRow}>
+                                    <span style={ovStyles.statsCompactLabel}>Kills</span>
+                                    <span style={ovStyles.statsCompactValue}>{lastRun.score}</span>
+                                </div>
+                                <div style={ovStyles.statsCompactRow}>
+                                    <span style={ovStyles.statsCompactLabel}>Generations Reached</span>
+                                    <span style={ovStyles.statsCompactValue}>{lastRun.generation}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={ovStyles.emptySlot}>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                                <span style={ovStyles.slotIcon}>💀</span>
+                                <span style={ovStyles.slotTitle}>No runs yet</span>
+                                <span style={ovStyles.slotSub}>
+                                    Start a wave and see<br />how long you survive.
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                <div style={ovStyles.placeholder}>
+                    <span style={ovStyles.placeholderHeading}>Difficulty</span>
+                    <div style={ovStyles.presetBtns}>
+                        {HORDE_PRESETS.map(p => (
+                            <button
+                                key={p.id}
+                                onClick={() => applyPreset(p)}
+                                style={{
+                                    ...ovStyles.presetBtn,
+                                    borderColor: selectedPreset === p.id ? p.color : 'var(--border)',
+                                    color:       selectedPreset === p.id ? p.color : 'var(--text-dim)',
+                                    background:  selectedPreset === p.id ? `${p.color}18` : 'transparent',
+                                }}
+                            >
+                                {p.label}
+                            </button>
+                        ))}
+                        <button
+                            onClick={() => setSelectedPreset('custom')}
+                            style={{
+                                ...ovStyles.presetBtn,
+                                borderColor: selectedPreset === 'custom' ? 'rgba(255,255,255,0.4)' : 'var(--border)',
+                                color:       selectedPreset === 'custom' ? 'rgba(255,255,255,0.75)' : 'var(--text-dim)',
+                                background:  selectedPreset === 'custom' ? 'rgba(255,255,255,0.06)' : 'transparent',
+                            }}
+                        >
+                            Custom
+                        </button>
+                    </div>
+                    <p style={ovStyles.presetDesc}>
+                        {activePreset ? activePreset.desc : 'Custom configuration — wave size adjusted manually.'}
+                    </p>
+                    <div style={ovStyles.divider} />
+                    <span style={ovStyles.placeholderHeading}>Wave Settings</span>
+                    <HordeWaveSection />
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function HordeLobby({ onBack }: { onBack: () => void }) {
     const navigate = useNavigate();
     const isMobile = useMobile();
     const zoom     = useZoom();
     const HO       = '#fb923c';
+    const [tab, setTab] = useState<HordeTab>('Overview');
+    const { setShooterSettings } = useSettings();
 
     const handlePlay = async () => {
         await enterGameFullscreen();
@@ -1503,14 +1834,40 @@ function HordeLobby({ onBack }: { onBack: () => void }) {
         </button>
     );
 
+    const tabBar = (
+        <div style={{ ...tabStyles.bar, overflowX: 'auto', flexWrap: 'nowrap' as const, flexShrink: 0 }}>
+            {HORDE_TABS.map(t => (
+                <button key={t} onClick={() => setTab(t)}
+                    style={{ ...(tab === t ? tabStyles.tabActive : tabStyles.tabInactive), flexShrink: 0 }}>
+                    {t}
+                </button>
+            ))}
+        </div>
+    );
+
+    const tabContent = (
+        <div style={{ ...tabStyles.panel, overflowY: isMobile ? 'visible' : 'auto' }}>
+            {tab === 'Overview' && <HordeOverview />}
+            {tab === 'Algorithm' && <HordeEASettingsPanel />}
+            {tab === 'Player' && (
+                <>
+                    <div style={tabStyles.box}>
+                        <ShooterPlayerSection />
+                    </div>
+                    <button style={tabStyles.resetBtn} onClick={() => setShooterSettings(resetShooterSettings())}>Reset</button>
+                </>
+            )}
+        </div>
+    );
+
     if (isMobile) {
         return (
             <div style={mobilePageStyle}>
                 <h1 style={{ ...lobbyStyles.title, fontSize: 20, color: HO, margin: 0 }}>Horde Mode</h1>
-                <p style={{ ...lobbyStyles.description, margin: 0 }}>
-                    Survive endless waves of agents rushing toward you.
-                    Each wave the EA evolves — how long can you hold out?
-                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                    {tabBar}
+                    {tabContent}
+                </div>
                 <div style={mobileBtnsStyle}>
                     <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Mode</button>
                     <div style={{ flex: 1 }}>{playBtn}</div>
@@ -1526,18 +1883,17 @@ function HordeLobby({ onBack }: { onBack: () => void }) {
                     <div style={{ ...lobbyStyles.brandLogo, color: HO, background: 'rgba(251,146,60,0.1)', borderColor: 'rgba(251,146,60,0.25)' }}>SG</div>
                     <span style={lobbyStyles.brandName}>Shooter Game</span>
                 </div>
-                <ShooterPreview />
+                <HordePreview />
                 <div style={lobbyStyles.previewLabel}>Live Preview</div>
             </div>
 
             <div style={lobbyStyles.rightTop}>
                 <div style={lobbyStyles.header}>
                     <h1 style={{ ...lobbyStyles.title, color: HO }}>Horde Mode</h1>
-                    <p style={lobbyStyles.description}>
-                        Survive endless waves of agents rushing toward you.
-                        One shot kills, but if one touches you it&apos;s game over.
-                        The EA evolves between waves — see how long you can last.
-                    </p>
+                </div>
+                <div style={tabStyles.shell}>
+                    {tabBar}
+                    {tabContent}
                 </div>
             </div>
 

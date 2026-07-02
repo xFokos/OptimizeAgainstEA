@@ -48,6 +48,7 @@ export type HintId =
   | 'vsEa.playerWon'
   | 'vsEa.eaWon'
   | 'shooter.dnaChangeDuringRound'
+  | 'horde.mobileNotOptimized'
   | 'functions.intro';
 
 export interface HintDef {
@@ -242,6 +243,17 @@ export const HINTS: Record<HintId, HintDef> = {
     once: true,
     sticky: true,
   },
+  // ── Horde mode: fired once when a mobile-landscape player enters the game ─
+  'horde.mobileNotOptimized': {
+    title: 'Heads up',
+    body:
+      'Horde mode isn\'t fully optimized for mobile yet, so things may feel ' +
+      'a bit rough around the edges. We\'re working on smoothing it out!',
+    style: 'toast',
+    once: true,
+    sticky: true,
+  },
+
   // ── Functions drawer: fired once the first time the player opens it ────────
   'functions.intro': {
     title: 'Math functions play differently',

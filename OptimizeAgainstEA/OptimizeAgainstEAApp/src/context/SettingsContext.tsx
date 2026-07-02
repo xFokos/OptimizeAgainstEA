@@ -44,16 +44,26 @@ export const defaultShooterSettings: ShooterSettings = {
 };
 
 // ---- Horde Settings ----
+// Kept separate from EASettings on purpose — Horde has its own difficulty
+// presets and shouldn't share/overwrite the Solo Play EA tuning, or vice versa.
 export interface HordeSettings {
     starterDna:        number[];
     waveSize:          number;
     wavePauseDuration: number;
+    mutationRate:       number;                      // 0–0.5
+    mutationStrength:   number;                      // 0–0.5
+    crossoverType:      'uniform' | 'single-point';
+    shootCooldown:      number;                      // player fire rate in Horde, independent of Solo Play
 }
 
 export const defaultHordeSettings: HordeSettings = {
     starterDna:        [...STARTER_DNA],
     waveSize:          20,
     wavePauseDuration: 3,
+    mutationRate:       0.15,
+    mutationStrength:   0.20,
+    shootCooldown:      0.12,
+    crossoverType:      'uniform',
 };
 
 // ---- Context Type ----
