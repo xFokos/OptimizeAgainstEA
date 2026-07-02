@@ -204,6 +204,19 @@
 	backdrop-filter: blur(2px);
 	z-index: 310;
 	animation: hintFadeIn 0.2s ease;
+	/* Center the blocking bubble in the viewport so it isn't stuck in the
+	   corner on large screens. */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+/* When shown inside the backdrop, drop the fixed bottom-right pinning and let
+   the flex backdrop center it instead. */
+.compi-backdrop .compi {
+	position: static;
+	right: auto;
+	bottom: auto;
 }
 
 .compi {
