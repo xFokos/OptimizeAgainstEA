@@ -12,10 +12,11 @@ import { MazeEAReplayOverlay } from './MazeEAReplayOverlay';
 import { MazeEASettingsPanel } from './MazeEASettingsPanel';
 
 interface MazeExperimentModeProps {
-  /** Hand-built maze from the creator, or null to use a procedural one. */
+  /** The maze to run on (from the creator, the setup screen, or a code);
+   * null falls back to a procedural maze with a seed input. */
   maze: SerializedMaze | null;
   onBack: () => void;
-  /** Drop the creator maze and fall back to procedural generation. */
+  /** Drop the current maze and return to the maze chooser. */
   onClearMaze: () => void;
 }
 
@@ -267,7 +268,12 @@ export function MazeExperimentMode({ maze, onBack, onClearMaze }: MazeExperiment
       </header>
 
       <div className="maze-layout">
-        <div className="maze-map-col">
+        {/* The stylesheet's width cap assumes a square maze; correct it by the
+            aspect ratio so tall creator mazes still fit the viewport height. */}
+        <div
+          className="maze-map-col"
+          style={{ maxWidth: `min(100%, calc((100dvh - 160px) * ${problem.cols / problem.rows}))` }}
+        >
           <MazeCanvas
             cols={problem.cols}
             rows={problem.rows}
@@ -341,11 +347,11 @@ export function MazeExperimentMode({ maze, onBack, onClearMaze }: MazeExperiment
             {maze ? (
               <>
                 <p className="maze-note">
-                  🧱 Custom maze from the creator ({maze.cols}×{maze.rows}),
-                  shortest path <b>{problem.metadata.shortestPath}</b> steps.
+                  🧱 Maze {maze.cols}×{maze.rows}, shortest path{' '}
+                  <b>{problem.metadata.shortestPath}</b> steps.
                 </p>
                 <button className="btn btn--ghost btn--sm" onClick={onClearMaze}>
-                  🎲 Use a random maze instead
+                  🔁 Choose a different maze
                 </button>
               </>
             ) : (

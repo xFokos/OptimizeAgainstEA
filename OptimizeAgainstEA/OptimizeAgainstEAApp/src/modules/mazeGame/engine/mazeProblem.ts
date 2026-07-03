@@ -9,9 +9,10 @@ import { computeGeodesic } from './geodesic';
  * goal — empirically ~3.5× gives reliable solving without bloating the genome.
  */
 const LENGTH_SLACK = 3.5;
-/** Clamp the auto-sized genome length to a sane range. */
+/** Clamp the auto-sized genome length to a sane range. Exported so the maze
+ * creator can warn when a maze's shortest path exceeds what a genome can hold. */
 const MIN_PATH_LENGTH = 30;
-const MAX_PATH_LENGTH = 600;
+export const MAX_PATH_LENGTH = 600;
 
 /**
  * MazeProblem carries an extra `diameterNorm` (the BFS diameter used to

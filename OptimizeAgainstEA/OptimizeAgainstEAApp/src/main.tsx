@@ -5,6 +5,7 @@ import App from "./App";
 import "./index.css";
 import "./styles/primitives/buttons.css";
 import "./styles/primitives/sliders.css";
+import "./styles/primitives/switch.css";
 import "./styles/primitives/overlays.css";
 import "./styles/primitives/panels.css";
 import "./styles/primitives/badges.css";

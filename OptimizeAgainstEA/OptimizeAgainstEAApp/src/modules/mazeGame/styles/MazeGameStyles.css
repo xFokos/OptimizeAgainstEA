@@ -53,8 +53,10 @@
   max-width: 1100px;
   margin-inline: auto;
 }
+/* Creator variant: room for the four tool buttons on a single row. */
+.maze-layout--wide-side { grid-template-columns: minmax(0, 1fr) 400px; }
 @media (max-width: 880px) {
-  .maze-layout { grid-template-columns: 1fr; }
+  .maze-layout, .maze-layout--wide-side { grid-template-columns: 1fr; }
 }
 
 .maze-map-col {
@@ -113,6 +115,65 @@
 @media (max-width: 768px) {
   .maze-input { font-size: 16px; }
 }
+
+/* ── Experiment setup screen (choose / generate / load a maze) ── */
+.maze-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  width: 100%;
+  max-width: 520px;
+  margin-inline: auto;
+}
+
+.maze-saved__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.maze-saved__item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.maze-saved__use {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+.maze-saved__use:hover { border-color: var(--accent); }
+.maze-saved__use--active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-surface));
+}
+.maze-saved__name {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.maze-saved__meta { font-size: 0.7rem; color: var(--text-muted); }
+.maze-saved__rename { flex: 1; }
+.maze-saved__confirm { color: var(--danger); }
 
 /* ── Maze canvas surface ── */
 .maze-canvas {

@@ -96,29 +96,25 @@ function braidMaze(cols: number, rows: number, walls: Uint8Array, braid: number,
 }
 
 /**
- * Builds a Grid from a hand-painted cell map (the maze creator's model): each
- * cell is either floor or a solid wall block. A floor cell opens a passage to
- * every in-bounds neighbour that is ALSO floor; wall cells stay fully closed
- * and isolated. This turns the touch-friendly "paint cells" editor into the
- * edge-bitmask Grid the EA/geodesic already understand.
+ * Builds a Grid from edge walls (the maze creator's model): every passage is
+ * open unless an explicit wall sits on the edge between two cells. The outer
+ * border is always closed. `isHWall(x, y)` is the wall between (x,y) and
+ * (x,y+1); `isVWall(x, y)` the wall between (x,y) and (x+1,y).
  */
-export function gridFromWallCells(
+export function gridFromEdgeWalls(
   cols: number,
   rows: number,
-  isWall: (x: number, y: number) => boolean,
+  isHWall: (x: number, y: number) => boolean,
+  isVWall: (x: number, y: number) => boolean,
 ): Grid {
   const walls = new Uint8Array(cols * rows);
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
-      if (isWall(x, y)) continue; // solid block — no passages
       let bits = 0;
-      for (let d = 0; d < 4; d++) {
-        const nx = x + MOVE_DELTAS[d][0];
-        const ny = y + MOVE_DELTAS[d][1];
-        if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
-        if (isWall(nx, ny)) continue;
-        bits |= MOVE_WALL_BIT[d];
-      }
+      if (y > 0 && !isHWall(x, y - 1)) bits |= MOVE_WALL_BIT[0];    // N
+      if (x < cols - 1 && !isVWall(x, y)) bits |= MOVE_WALL_BIT[1]; // E
+      if (y < rows - 1 && !isHWall(x, y)) bits |= MOVE_WALL_BIT[2]; // S
+      if (x > 0 && !isVWall(x - 1, y)) bits |= MOVE_WALL_BIT[3];    // W
       walls[cellIndex(x, y, cols)] = bits;
     }
   }

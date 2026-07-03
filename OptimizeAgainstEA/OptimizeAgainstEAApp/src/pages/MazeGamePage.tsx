@@ -4,6 +4,7 @@ import { GameModeSelectorLayout } from '../components/layout/GameModeSelectorLay
 import type { GameMode } from '../components/layout/GameModeSelectorLayout';
 import { MazeCreateMode } from '../modules/mazeGame/components/create/MazeCreateMode';
 import { MazeExperimentMode } from '../modules/mazeGame/components/experiment/MazeExperimentMode';
+import { MazeSetupScreen } from '../modules/mazeGame/components/experiment/MazeSetupScreen';
 import type { SerializedMaze } from '../modules/mazeGame/types/maze';
 import '../modules/mazeGame/styles/MazeGameStyles.css';
 
@@ -14,7 +15,7 @@ const MODES: GameMode[] = [
     id: 'create',
     key: 'C',
     label: '🧱 Create',
-    sub: 'Design your own maze — paint walls, place the start and the goal.',
+    sub: 'Design your own maze — draw walls, place the start and the goal.',
   },
   {
     id: 'experiment',
@@ -27,16 +28,25 @@ const MODES: GameMode[] = [
 export default function MazeGamePage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<MazeMode>('select');
-  // Maze handed from the creator to the experiment. Sticky for the session so
-  // you can hop between modes; the experiment offers "use random" to drop it.
-  const [customMaze, setCustomMaze] = useState<SerializedMaze | null>(null);
+  // The creator's latest build — sticky for the session so you can hop back
+  // and keep editing.
+  const [draftMaze, setDraftMaze] = useState<SerializedMaze | null>(null);
+  // The maze the experiment runs on. Null while the setup screen (choose /
+  // generate / load) is deciding; entering from the selector always resets it
+  // so the player gets the choice, while the creator's handoff skips it.
+  const [expMaze, setExpMaze] = useState<SerializedMaze | null>(null);
+
+  const enterExperiment = () => {
+    setExpMaze(null);
+    setMode('experiment');
+  };
 
   // Keyboard shortcuts on the selector (the C / E chips on the cards).
   useEffect(() => {
     if (mode !== 'select') return;
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'KeyC') setMode('create');
-      if (e.code === 'KeyE') setMode('experiment');
+      if (e.code === 'KeyE') enterExperiment();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -45,19 +55,28 @@ export default function MazeGamePage() {
   if (mode === 'create') {
     return (
       <MazeCreateMode
-        initialMaze={customMaze}
+        initialMaze={draftMaze}
         onBack={() => setMode('select')}
-        onExperiment={(maze) => { setCustomMaze(maze); setMode('experiment'); }}
+        onExperiment={(maze) => {
+          setDraftMaze(maze);
+          setExpMaze(maze);
+          setMode('experiment');
+        }}
       />
     );
   }
 
   if (mode === 'experiment') {
-    return (
+    return expMaze ? (
       <MazeExperimentMode
-        maze={customMaze}
+        maze={expMaze}
         onBack={() => setMode('select')}
-        onClearMaze={() => setCustomMaze(null)}
+        onClearMaze={() => setExpMaze(null)}
+      />
+    ) : (
+      <MazeSetupScreen
+        onBack={() => setMode('select')}
+        onStart={setExpMaze}
       />
     );
   }
@@ -68,7 +87,7 @@ export default function MazeGamePage() {
       subtitle="Build a maze, then watch an evolutionary algorithm learn to thread it."
       logoText="ML"
       modes={MODES}
-      onSelect={(id) => setMode(id as MazeMode)}
+      onSelect={(id) => (id === 'experiment' ? enterExperiment() : setMode(id as MazeMode))}
       onBack={() => navigate('/Dashboard')}
       backLabel="← Back"
     />

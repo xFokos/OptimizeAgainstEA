@@ -1,0 +1,79 @@
+/* ============================================================
+   Switch primitive — an on/off toggle backed by a real checkbox.
+
+   Loaded globally (see main.tsx). Pair with the <Switch> component in
+   src/components/ui/Switch.tsx, or hand-roll the same markup:
+
+     <label class="switch">
+       <input type="checkbox" />
+       <span class="switch__track" aria-hidden="true"></span>
+       <span class="switch__label">Label text</span>
+     </label>
+
+   The checkbox stays in the DOM (visually hidden) so keyboard focus,
+   screen readers, and form semantics keep working.
+
+   Themeable: the on-colour comes from --switch-accent (default = accent).
+   ============================================================ */
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch__track {
+  flex: none;
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-bright);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+/* The thumb. 14px wide with 2px inset; checked slides it to the far side. */
+.switch__track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.15s, background 0.15s;
+}
+
+.switch input:checked + .switch__track {
+  background: var(--switch-accent, var(--accent));
+  border-color: var(--switch-accent, var(--accent));
+}
+.switch input:checked + .switch__track::after {
+  transform: translateX(14px);
+  background: #fff;
+}
+
+.switch input:focus-visible + .switch__track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.switch input:disabled + .switch__track { opacity: 0.4; }
+.switch:has(input:disabled) { cursor: not-allowed; }
+
+.switch__label {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}

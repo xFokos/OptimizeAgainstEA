@@ -20,6 +20,19 @@ export interface MazeMarker {
  * A moving dot (best walker, ghost individuals). Rendered with a CSS
  * transform transition so stepping cell-to-cell glides instead of teleporting.
  */
+/**
+ * Ghost wall segment shown under the cursor in the creator: where a wall would
+ * be added, or which existing wall would be erased. Its span matches the
+ * edge's clickable zone.
+ */
+export interface MazeWallPreview {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  kind: 'add' | 'remove';
+}
+
 export interface MazeAgent {
   id: string | number;
   cell: Cell;
@@ -44,6 +57,10 @@ interface MazeCanvasProps {
   markers?: MazeMarker[];
   /** Animated agent dots (drawn above walls so they always stay visible). */
   agents?: MazeAgent[];
+  /** Hover ghost for the creator: wall about to be added / erased. */
+  previewWall?: MazeWallPreview | null;
+  /** Faint interior grid lines (creator) so the clickable cell borders are visible. */
+  showGrid?: boolean;
 }
 
 const WALL_COLOR = 'rgba(255, 255, 255, 0.55)';
@@ -69,6 +86,7 @@ function trailPath(points: Cell[]): string {
  */
 export function MazeCanvas({
   cols, rows, walls, start, goal, trails = [], solidCells, markers = [], agents = [],
+  previewWall = null, showGrid = false,
 }: MazeCanvasProps) {
   // Build wall segments (closed edges only).
   const segs: { x1: number; y1: number; x2: number; y2: number }[] = [];
@@ -95,6 +113,18 @@ export function MazeCanvas({
         preserveAspectRatio="xMidYMid meet"
         style={{ display: 'block' }}
       >
+        {/* Faint interior grid (creator) — shows where walls can be placed. */}
+        {showGrid && (
+          <g stroke="rgba(255, 255, 255, 0.10)" strokeWidth={0.025}>
+            {Array.from({ length: cols - 1 }, (_, i) => (
+              <line key={`gv${i}`} x1={i + 1} y1={0} x2={i + 1} y2={rows} />
+            ))}
+            {Array.from({ length: rows - 1 }, (_, i) => (
+              <line key={`gh${i}`} x1={0} y1={i + 1} x2={cols} y2={i + 1} />
+            ))}
+          </g>
+        )}
+
         {/* Solid wall blocks (creator mode) */}
         {solidCells && (
           <g fill={SOLID_FILL}>
@@ -146,6 +176,19 @@ export function MazeCanvas({
             <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />
           ))}
         </g>
+
+        {/* Hover ghost wall (creator) */}
+        {previewWall && (
+          <line
+            x1={previewWall.x1} y1={previewWall.y1}
+            x2={previewWall.x2} y2={previewWall.y2}
+            stroke={previewWall.kind === 'add' ? 'rgba(122, 162, 255, 0.9)' : 'rgba(255, 107, 107, 0.9)'}
+            strokeWidth={WALL_W}
+            strokeLinecap="round"
+            strokeDasharray="0.16 0.14"
+            pointerEvents="none"
+          />
+        )}
 
         {/* Animated agents — a transform transition glides them between cells. */}
         <g>
