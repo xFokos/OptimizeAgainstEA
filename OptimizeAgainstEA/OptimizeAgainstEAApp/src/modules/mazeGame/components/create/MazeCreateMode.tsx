@@ -2,14 +2,15 @@ import { useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { Cell, SerializedMaze } from '../../types/maze';
 import { MOVE_WALL_BIT, cellIndex } from '../../types/maze';
-import { gridFromEdgeWalls } from '../../engine/mazeGen';
+import { generateMaze, gridFromEdgeWalls } from '../../engine/mazeGen';
 import { computeGeodesic } from '../../engine/geodesic';
-import { MAX_PATH_LENGTH } from '../../engine/mazeProblem';
+import { DEFAULT_BRAID, MAX_PATH_LENGTH } from '../../engine/mazeProblem';
 import { useSavedMazes } from '../../hooks/useSavedMazes';
 import type { MazeWallPreview } from '../shared/MazeCanvas';
 import { MazeCanvas } from '../shared/MazeCanvas';
 import { SliderRow } from '../../../../components/settings/eaControls';
 import { Switch } from '../../../../components/ui/Switch';
+import { HintToggle } from '../../../../components/hints';
 
 interface MazeCreateModeProps {
   /** A previously created maze to continue editing (or null for a blank grid). */
@@ -126,6 +127,9 @@ export function MazeCreateMode({ initialMaze, onBack, onExperiment }: MazeCreate
   const [naming, setNaming] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [savedFlash, setSavedFlash] = useState(false);
+  // "Generate random maze" wipes the drawing, so it folds open a confirmation
+  // first (skipped when the grid has no walls to lose).
+  const [confirmingRandom, setConfirmingRandom] = useState(false);
 
   // Edge walls → engine grid → live reachability check.
   const grid = useMemo(
@@ -311,6 +315,16 @@ export function MazeCreateMode({ initialMaze, onBack, onExperiment }: MazeCreate
     setRows(nextRows);
   };
 
+  // Replace the drawing with a freshly generated maze on the current grid
+  // size. Start/goal keep their places — a generated maze connects every cell,
+  // so they stay reachable wherever they are.
+  const generateRandom = () => {
+    const seed = Math.floor(Math.random() * 1_000_000_000);
+    const g = generateMaze(cols, rows, seed, DEFAULT_BRAID);
+    setWallEdges(edgeWallsFrom({ cols, rows, walls: g.walls, start, goal }));
+    setConfirmingRandom(false);
+  };
+
   const handleExperiment = () => {
     onExperiment({ cols, rows, walls: grid.walls, start, goal });
   };
@@ -333,6 +347,7 @@ export function MazeCreateMode({ initialMaze, onBack, onExperiment }: MazeCreate
             ? <>shortest path <b className="maze-topbar__meta-accent">{geo.shortestFromStart}</b> steps</>
             : <b className="maze-topbar__meta-warn">goal unreachable</b>}
         </span>
+        <HintToggle />
       </header>
 
       <div className="maze-layout maze-layout--wide-side">
@@ -416,6 +431,28 @@ export function MazeCreateMode({ initialMaze, onBack, onExperiment }: MazeCreate
                 🧹 Clear walls
               </button>
             </div>
+            {confirmingRandom ? (
+              <>
+                <p className="maze-note maze-note--warn">
+                  ⚠ A random maze will remove all your current walls.
+                </p>
+                <div className="maze-toolbar">
+                  <button className="btn btn--sm btn--primary" onClick={generateRandom}>
+                    Generate anyway
+                  </button>
+                  <button className="btn btn--sm btn--ghost" onClick={() => setConfirmingRandom(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button
+                className="btn btn--sm btn--ghost btn--block"
+                onClick={() => (wallEdges.size === 0 ? generateRandom() : setConfirmingRandom(true))}
+              >
+                🎲 Generate random maze
+              </button>
+            )}
           </div>
 
           <div className="panel panel--surface panel--md maze-panel">

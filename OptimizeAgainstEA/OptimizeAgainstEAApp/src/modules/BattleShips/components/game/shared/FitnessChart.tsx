@@ -6,6 +6,13 @@ export interface FitnessSeries {
   color: string;
 }
 
+/** A vertical annotation at data index `index` (e.g. "settings changed here"). */
+export interface FitnessMarker {
+  index: number;
+  label?: string;
+  color?: string;
+}
+
 interface FitnessChartProps {
   series: FitnessSeries[];
   yMax?: number;
@@ -15,6 +22,8 @@ interface FitnessChartProps {
   /** Index of the currently hovered probe (-1 = none) */
   hoveredIndex?: number;
   onHover?: (index: number) => void;
+  /** Vertical marker lines drawn at the given data indices. */
+  markers?: FitnessMarker[];
 }
 
 const W = 400;
@@ -30,6 +39,7 @@ export function FitnessChart({
                                yLabel = 'height',
                                hoveredIndex = -1,
                                onHover,
+                               markers = [],
                              }: FitnessChartProps) {
   const H       = compact ? H_COMPACT : H_FULL;
   const INNER_W = W - PAD.left - PAD.right;
@@ -126,6 +136,24 @@ export function FitnessChart({
         {/* Axis lines */}
         <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + INNER_H} stroke="rgba(255,255,255,0.15)" strokeWidth={0.5} />
         <line x1={PAD.left} y1={PAD.top + INNER_H} x2={PAD.left + INNER_W} y2={PAD.top + INNER_H} stroke="rgba(255,255,255,0.15)" strokeWidth={0.5} />
+
+        {/* Change markers — vertical lines where settings changed */}
+        {markers
+          .filter((m) => m.index >= 0 && m.index < maxLen)
+          .map((m, k) => {
+            const x = toX(m.index);
+            const color = m.color ?? 'rgba(240,196,74,0.7)';
+            return (
+              <g key={`marker-${k}-${m.index}`}>
+                <line x1={x} y1={PAD.top} x2={x} y2={PAD.top + INNER_H} stroke={color} strokeWidth={1} strokeDasharray="2 2">
+                  {m.label && <title>{`gen ${m.index + 1}: ${m.label}`}</title>}
+                </line>
+                <polygon points={`${x - 3},${PAD.top} ${x + 3},${PAD.top} ${x},${PAD.top + 4}`} fill={color}>
+                  {m.label && <title>{`gen ${m.index + 1}: ${m.label}`}</title>}
+                </polygon>
+              </g>
+            );
+          })}
 
         {/* Series lines */}
         {series.map((s) => (

@@ -13,11 +13,42 @@
   height: 100vh; /* fallback for older browsers */
   height: 100dvh;
   overflow-y: auto;
+  /* The experiment's settings dock slides off to the right when tucked away;
+     clip the x-axis so that never spawns a horizontal scrollbar. */
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
   padding: var(--sp-4) var(--sp-5);
   box-sizing: border-box;
+}
+
+/* ── Menu-style shell (selection screen) ──
+   Mirrors the main menu (.game-selector-shell): animated gradient background
+   with a full-bleed, visually separated top bar. The bar handles its own
+   spacing, so the shell drops the app's padding/gap. */
+.maze-app--menu {
+  gap: 0;
+  padding: 0;
+  background: linear-gradient(120deg, #0f2027, #203a43, #2c5364);
+  background-size: 300% 300%;
+  animation: bgMove 12s ease infinite; /* keyframe defined in index.css */
+}
+.maze-topbar--bar {
+  height: 56px;
+  flex-shrink: 0;
+  padding: 0 var(--sp-4);
+  background: rgba(0, 0, 0, 0.32);
+  border-bottom: 1px solid var(--border-bright);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  flex-wrap: nowrap;
+}
+/* The experiment runs inside the menu shell too (padding-less app + full-bleed
+   bar), so its content carries its own padding below the bar. No right padding:
+   the settings dock docks flush to the right edge. */
+.maze-app--menu .maze-layout--exp {
+  padding: var(--sp-4) 0 var(--sp-5) var(--sp-5);
 }
 
 /* ── Top bar ── */
@@ -34,6 +65,10 @@
   letter-spacing: 0.05em;
   color: var(--text-primary);
 }
+/* Selection bar has no meta text, so push its hint toggle to the right edge
+   (the role the meta's margin-left:auto plays in the other bars). */
+.maze-topbar--bar > .hint-toggle { margin-left: auto; }
+
 .maze-topbar__meta {
   margin-left: auto;
   font-family: var(--font-mono);
@@ -57,6 +92,169 @@
 .maze-layout--wide-side { grid-template-columns: minmax(0, 1fr) 400px; }
 @media (max-width: 880px) {
   .maze-layout, .maze-layout--wide-side { grid-template-columns: 1fr; }
+}
+
+/* Experiment variant: three columns — controls+chart · maze · settings dock.
+   Collapsing drops the third track so the maze grows. The template animates so
+   the dock slides out with it. */
+.maze-layout--exp {
+  grid-template-columns: minmax(210px, 250px) minmax(0, 1fr) 340px;
+  /* Span the full width (no centering) so the settings dock can sit flush
+     against the right screen edge. */
+  max-width: none;
+  margin-inline: 0;
+  transition: grid-template-columns 0.28s ease;
+}
+.maze-layout--exp-collapsed {
+  grid-template-columns: minmax(210px, 250px) minmax(0, 1fr) 0px;
+}
+@media (max-width: 1080px) {
+  .maze-layout--exp,
+  .maze-layout--exp-collapsed { grid-template-columns: 1fr; }
+}
+
+/* Left playback column. */
+.maze-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+
+/* Walk-animation transport: a row of icon buttons styled like the replay
+   controls (btn--ghost btn--sm), sharing the row width evenly. */
+.maze-walk-transport {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.maze-walk-transport .btn {
+  flex: 1;
+  padding-inline: 0;
+  justify-content: center;
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
+
+/* ── EA settings dock ──
+   Desktop: sits in the third grid column, sticks to the top and caps its height
+   to the viewport, so its body scrolls internally and never grows the page. The
+   » arrow tucks it away (column collapses, dock slides right) and the .maze-dock-tab
+   on the right edge brings it back. Mobile: an off-canvas drawer over a backdrop. */
+.maze-settings {
+  position: sticky;
+  top: var(--sp-4);
+  align-self: start;
+  max-height: calc(100dvh - 96px);
+  overflow: hidden;
+  transition: transform 0.28s ease, opacity 0.28s ease;
+  /* Docked flush to the right screen edge: flatten that side. */
+  border-right: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.maze-settings__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+/* Pinned intro note — sits above the scroll area so it stays put. */
+.maze-settings__note {
+  flex-shrink: 0;
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+.maze-settings__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding-right: var(--sp-1); /* breathing room for the scrollbar */
+}
+
+/* Tucked away: fade + slide the dock out past the (now zero-width) column. */
+.maze-layout--exp-collapsed .maze-settings {
+  transform: translateX(120%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Right-edge handle that both opens and closes the dock. Above the drawer and
+   its backdrop (mobile) so it stays clickable in either state. */
+.maze-dock-tab {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 65;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-3) 6px;
+  border: 1px solid var(--border-bright);
+  border-right: none;
+  border-radius: var(--r-sm) 0 0 var(--r-sm);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  writing-mode: vertical-rl;
+  transition: right 0.28s ease, color 0.15s;
+}
+.maze-dock-tab:hover { color: var(--text-primary); }
+
+/* Open: ride the handle on the panel's left edge so it travels out and back
+   with the dock. The dock is 340px wide and flush to the right edge. */
+.maze-layout--exp:not(.maze-layout--exp-collapsed) ~ .maze-dock-tab {
+  right: 340px;
+}
+
+.maze-settings__backdrop { display: none; }
+
+@media (max-width: 1080px) {
+  /* Off-canvas drawer: fixed to the right, slides in over a dimmed backdrop. */
+  .maze-settings {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100dvh;
+    max-height: none;
+    width: min(360px, 88vw);
+    z-index: 60;
+    margin: 0;
+    border-radius: 0;
+    border-left: 1px solid var(--border-bright);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    opacity: 1;
+  }
+  .maze-settings--open { transform: translateX(0); }
+  /* Closed on mobile ≡ the drawer's resting off-screen position (no fade). */
+  .maze-layout--exp-collapsed .maze-settings {
+    transform: translateX(100%);
+    opacity: 1;
+    pointer-events: none;
+  }
+  .maze-settings__backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+  /* When the drawer is open, ride the handle on its left edge instead of
+     hiding under it. */
+  .maze-layout--exp:not(.maze-layout--exp-collapsed) ~ .maze-dock-tab {
+    right: min(360px, 88vw);
+  }
 }
 
 .maze-map-col {
@@ -117,13 +315,22 @@
 }
 
 /* ── Experiment setup screen (choose / generate / load a maze) ── */
+/* Scrollable content area below the separated bar; centers the selection
+   island both axes. `safe center` keeps the top reachable when the island is
+   taller than the viewport (plain centering would clip it). */
 .maze-setup {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
-  flex-direction: column;
-  gap: var(--sp-4);
+  align-items: safe center;
+  justify-content: safe center;
+  padding: var(--sp-5);
+  box-sizing: border-box;
+}
+.maze-setup > .maze-panel {
   width: 100%;
   max-width: 520px;
-  margin-inline: auto;
 }
 
 .maze-saved__list {
@@ -211,19 +418,75 @@
 }
 .maze-genome-stats b { color: var(--accent); font-weight: 700; }
 
-.maze-genome {
+.maze-genome-panel { flex-shrink: 0; }
+
+/* Filmstrip: a fixed highlight box marks the current input at the centre; the
+   whole move string slides underneath it and fades out toward both edges. */
+.maze-genome-strip {
+  --gene-w: 2.1rem;
+  position: relative;
+  height: 2.6rem;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+}
+.maze-genome-strip__highlight {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--gene-w);
+  height: var(--gene-w);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  background: var(--accent-dim);
+  pointer-events: none;
+}
+.maze-genome-strip__track {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  transition: transform 0.14s ease;
+  /* transform (horizontal offset for the current gene) is set inline */
+}
+.maze-gene {
+  position: relative;
+  flex: 0 0 var(--gene-w);
+  width: var(--gene-w);
+  height: var(--gene-w);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--r-sm);
   font-family: var(--font-mono);
   font-size: 1rem;
-  line-height: 1.7;
-  letter-spacing: 0.08em;
-  word-break: break-all;
-  margin: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s, transform 0.12s;
 }
-.maze-gene           { padding: 0 1px; border-radius: 2px; color: var(--text-secondary); }
+.maze-gene:hover     { color: var(--text-primary); transform: scale(1.18); }
 .maze-gene--done     { color: var(--accent); }
-.maze-gene--bump     { color: var(--danger); opacity: 0.8; }
-.maze-gene--current  { background: var(--accent); color: var(--bg); font-weight: 700; }
+.maze-gene--bump     { color: var(--danger); }
+.maze-gene--current  { color: var(--text-primary); font-weight: 700; }
 .maze-gene--unused   { color: var(--text-muted); }
+
+/* Walk-outcome badge on the responsible gene: ✕ where the agent crashed into a
+   wall (break-on-wall), ✓ where it stepped onto the goal. */
+.maze-gene__mark {
+  position: absolute;
+  top: -0.05rem;
+  right: 0.05rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+.maze-gene__mark--crash { color: var(--danger); }
+.maze-gene__mark--goal  { color: #66bb6a; }
 
 /* ─────────────────────────────────────────────
    REPLAY OVERLAY (generation dissection)

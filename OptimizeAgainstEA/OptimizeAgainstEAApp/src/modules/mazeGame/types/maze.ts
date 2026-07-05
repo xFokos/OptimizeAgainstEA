@@ -66,7 +66,20 @@ export interface WalkResult {
   finalCell: number;
   /** Step index at which the agent first stood on the goal, or -1. */
   reachedGoalAt: number;
+  /** Move index at which the agent crashed into a wall and stopped, or -1.
+   * Only ever set when the problem's wall rule is 'break'. */
+  crashedAt: number;
 }
+
+/**
+ * How a blocked move (wall or grid edge) is handled — the three classic
+ * constraint-handling strategies:
+ *  - 'waste':  the move is lost; the agent stays put and continues.
+ *  - 'break':  the agent crashes and freezes there (death penalty).
+ *  - 'repair': the gene is rewritten to a random open direction and taken
+ *              (Lamarckian — the repaired genome is what breeds on).
+ */
+export type WallRule = 'waste' | 'break' | 'repair';
 
 export type FitnessFnId = 'manhattan' | 'geodesic' | 'length' | 'novelty';
 
@@ -95,6 +108,8 @@ export interface MazeProblem {
   /** Auto-sized genome length L (>= shortest path). */
   pathLength: number;
   fitnessFnId: FitnessFnId;
+  /** How a blocked move is handled during the walk (see WallRule). */
+  wallRule: WallRule;
   /** Lower = better. 0 = at the goal, optimally. */
   evaluate: (walk: WalkResult) => number;
   isWin: (walk: WalkResult) => boolean;

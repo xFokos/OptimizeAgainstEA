@@ -5,6 +5,7 @@ import { DEFAULT_BRAID } from '../../engine/mazeProblem';
 import { decodeMaze } from '../../engine/mazeCodec';
 import { useSavedMazes } from '../../hooks/useSavedMazes';
 import { SliderRow } from '../../../../components/settings/eaControls';
+import { HintToggle } from '../../../../components/hints';
 
 interface MazeSetupScreenProps {
   onBack: () => void;
@@ -70,11 +71,11 @@ export function MazeSetupScreen({ onBack, onStart }: MazeSetupScreenProps) {
   };
 
   return (
-    <div className="maze-app">
-      <header className="maze-topbar">
+    <div className="maze-app maze-app--menu">
+      <header className="maze-topbar maze-topbar--bar">
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
         <span className="maze-topbar__title">🧬 EA Experiment</span>
-        <span className="maze-topbar__meta">pick a maze to run the EA on</span>
+        <HintToggle />
       </header>
 
       <div className="maze-setup">

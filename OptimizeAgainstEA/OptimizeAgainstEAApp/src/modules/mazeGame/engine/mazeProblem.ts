@@ -1,4 +1,4 @@
-import type { Cell, FitnessFnId, Grid, MazeProblem, WalkResult } from '../types/maze';
+import type { Cell, FitnessFnId, Grid, MazeProblem, WalkResult, WallRule } from '../types/maze';
 import { generateMaze } from './mazeGen';
 import { computeGeodesic } from './geodesic';
 
@@ -97,6 +97,8 @@ export interface BuildMazeOptions {
   start?: Cell;
   /** Goal cell. Defaults to the bottom-right corner. */
   goal?: Cell;
+  /** How a blocked move is handled during walks. Defaults to 'waste'. */
+  wallRule?: WallRule;
 }
 
 /** Default braiding — keeps the maze solvable and exploration-rich. */
@@ -132,6 +134,7 @@ export function createMazeProblem(opts: BuildMazeOptions): MazeProblem {
     diameterNorm: geo.diameter,
     pathLength,
     fitnessFnId,
+    wallRule: opts.wallRule ?? 'waste',
     evaluate: (walk) => fn(walk, problem),
     isWin: (walk) => walk.reachedGoalAt >= 0,
     metadata: {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GameModeSelectorLayout } from '../components/layout/GameModeSelectorLayout';
 import type { GameMode } from '../components/layout/GameModeSelectorLayout';
@@ -6,6 +7,7 @@ import { MazeCreateMode } from '../modules/mazeGame/components/create/MazeCreate
 import { MazeExperimentMode } from '../modules/mazeGame/components/experiment/MazeExperimentMode';
 import { MazeSetupScreen } from '../modules/mazeGame/components/experiment/MazeSetupScreen';
 import type { SerializedMaze } from '../modules/mazeGame/types/maze';
+import { HintsProvider, HintLayer, HintToggle } from '../components/hints';
 import '../modules/mazeGame/styles/MazeGameStyles.css';
 
 type MazeMode = 'select' | 'create' | 'experiment';
@@ -52,8 +54,9 @@ export default function MazeGamePage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [mode]);
 
+  let content: ReactNode;
   if (mode === 'create') {
-    return (
+    content = (
       <MazeCreateMode
         initialMaze={draftMaze}
         onBack={() => setMode('select')}
@@ -64,14 +67,15 @@ export default function MazeGamePage() {
         }}
       />
     );
-  }
-
-  if (mode === 'experiment') {
-    return expMaze ? (
+  } else if (mode === 'experiment') {
+    content = expMaze ? (
       <MazeExperimentMode
         maze={expMaze}
         onBack={() => setMode('select')}
-        onClearMaze={() => setExpMaze(null)}
+        onEdit={(m) => {
+          setDraftMaze(m);
+          setMode('create');
+        }}
       />
     ) : (
       <MazeSetupScreen
@@ -79,17 +83,25 @@ export default function MazeGamePage() {
         onStart={setExpMaze}
       />
     );
+  } else {
+    content = (
+      <GameModeSelectorLayout
+        title="MAZE LAB"
+        subtitle="Build a maze, then watch an evolutionary algorithm learn to thread it."
+        logoText="ML"
+        modes={MODES}
+        onSelect={(id) => (id === 'experiment' ? enterExperiment() : setMode(id as MazeMode))}
+        onBack={() => navigate('/Dashboard')}
+        backLabel="← Back"
+        rightContent={<HintToggle />}
+      />
+    );
   }
 
   return (
-    <GameModeSelectorLayout
-      title="MAZE LAB"
-      subtitle="Build a maze, then watch an evolutionary algorithm learn to thread it."
-      logoText="ML"
-      modes={MODES}
-      onSelect={(id) => (id === 'experiment' ? enterExperiment() : setMode(id as MazeMode))}
-      onBack={() => navigate('/Dashboard')}
-      backLabel="← Back"
-    />
+    <HintsProvider>
+      {content}
+      <HintLayer />
+    </HintsProvider>
   );
 }

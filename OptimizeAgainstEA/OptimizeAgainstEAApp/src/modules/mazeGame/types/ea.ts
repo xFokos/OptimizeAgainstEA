@@ -1,4 +1,4 @@
-import type { FitnessFnId, Path, SerializedMaze, WalkResult } from './maze';
+import type { FitnessFnId, Path, SerializedMaze, WalkResult, WallRule } from './maze';
 
 /**
  * Discrete-genome EA types. Mirrors BattleShips' types/ea.ts in shape, but an
@@ -43,6 +43,8 @@ export interface EAConfig {
   mutationStrategy: MutationStrategy;
   /** Which fitness function the maze problem evaluates against. */
   fitnessFnId: FitnessFnId;
+  /** How a blocked move is handled: waste it, crash, or repair the gene. */
+  wallRule: WallRule;
 }
 
 export const DEFAULT_MAZE_EA_CONFIG: EAConfig = {
@@ -59,6 +61,7 @@ export const DEFAULT_MAZE_EA_CONFIG: EAConfig = {
   crossoverStrategy: 'singlePoint',
   mutationStrategy: 'point',
   fitnessFnId: 'geodesic',
+  wallRule: 'waste',
 };
 
 import type { ReplayFrame } from '../engine/ea/eaReplayLog';
@@ -68,6 +71,8 @@ export type WorkerInMessage =
   // generated procedurally from seed + cols/rows.
   | { type: 'START'; config: EAConfig; seed: number; cols: number; rows: number; maze?: SerializedMaze }
   | { type: 'STEP'; count: number }
+  // Apply new tuning to the running EA; takes effect on the next generation.
+  | { type: 'UPDATE_CONFIG'; config: EAConfig }
   | { type: 'STOP' };
 
 export type WorkerOutMessage =

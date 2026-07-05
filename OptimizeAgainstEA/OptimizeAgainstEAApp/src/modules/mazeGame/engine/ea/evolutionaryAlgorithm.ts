@@ -21,6 +21,12 @@ export type StepResult =
 export interface EAStepper {
   step: (n: number) => StepResult;
   currentGenIndex: () => number;
+  /**
+   * Swap in new tuning without discarding the population. If `nextProblem` is
+   * given (fitness function or break-on-wall changed), the whole population is
+   * re-walked and re-scored under it. The new config is used from the next step.
+   */
+  updateConfig: (nextConfig: EAConfig, nextProblem?: MazeProblem) => void;
 }
 
 function summarise(individuals: Individual[], index: number): Generation {
@@ -62,7 +68,7 @@ function breedNext(
       ? mutate(beforeMutation, genIndex, config, rng)
       : { path: beforeMutation, mutatedIndices: [] as number[] };
 
-    const child = evaluate(repair(mutated.path, problem, rng), problem);
+    const child = evaluate(repair(mutated.path, problem, rng), problem, rng);
     next.push(child);
 
     if (isReplayChild) {
@@ -84,15 +90,19 @@ function breedNext(
 }
 
 export function createMazeEAStepper(
-  problem: MazeProblem,
-  config: EAConfig,
+  initialProblem: MazeProblem,
+  initialConfig: EAConfig,
   seed?: number,
 ): EAStepper {
   const rng = makeLCG(seed);
 
+  // Mutable so tuning / the fitness function can change mid-run (see updateConfig).
+  let problem = initialProblem;
+  let config = initialConfig;
+
   // Novelty search scores the whole population against an archive, so it can't
   // be a pure per-individual evaluate(); apply a stateful scorer each gen.
-  const noveltyScorer: NoveltyScorer | null =
+  let noveltyScorer: NoveltyScorer | null =
     problem.fitnessFnId === 'novelty' ? createNoveltyScorer(problem.cols, problem.rows) : null;
 
   let population: Individual[] = Array.from(
@@ -102,6 +112,20 @@ export function createMazeEAStepper(
   noveltyScorer?.score(population);
   let genIndex = 0;
   let hasSolved = false;
+
+  const updateConfig = (nextConfig: EAConfig, nextProblem?: MazeProblem) => {
+    config = nextConfig;
+    if (nextProblem) {
+      problem = nextProblem;
+      // A changed objective / walk rule invalidates every cached fitness, so
+      // re-walk and re-score the current population under the new problem. The
+      // genomes are kept — only their phenotype and score are recomputed.
+      noveltyScorer =
+        problem.fitnessFnId === 'novelty' ? createNoveltyScorer(problem.cols, problem.rows) : null;
+      population = population.map((ind) => evaluate(ind.path, problem, rng));
+      noveltyScorer?.score(population);
+    }
+  };
 
   const step = (n: number): StepResult => {
     if (n === 0) {
@@ -144,5 +168,5 @@ export function createMazeEAStepper(
     return lastResult;
   };
 
-  return { step, currentGenIndex: () => genIndex };
+  return { step, currentGenIndex: () => genIndex, updateConfig };
 }

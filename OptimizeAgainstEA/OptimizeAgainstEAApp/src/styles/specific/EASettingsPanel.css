@@ -113,6 +113,33 @@
 .ea-select { width: 100%; padding: var(--sp-2) var(--sp-3); background: var(--bg-surface); border: 1px solid var(--border-bright); border-radius: var(--r-sm); color: var(--text-primary); font-family: var(--font-mono); font-size: 0.75rem; cursor: pointer; outline: none; transition: border-color 0.15s; }
 .ea-select:focus { border-color: var(--accent); }
 
+/* Segmented button row (SegmentedRow) — mirrors .ea-select's chrome. */
+.ea-segmented {
+	display: flex;
+	width: 100%;
+	background: var(--bg-surface);
+	border: 1px solid var(--border-bright);
+	border-radius: var(--r-sm);
+	overflow: hidden;
+}
+.ea-segmented__btn {
+	flex: 1;
+	padding: var(--sp-2);
+	border: none;
+	background: none;
+	color: var(--text-secondary);
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+}
+.ea-segmented__btn + .ea-segmented__btn { border-left: 1px solid var(--border-bright); }
+.ea-segmented__btn:hover { color: var(--text-primary); }
+.ea-segmented__btn--active {
+	background: var(--accent-dim);
+	color: var(--accent);
+}
+
 /* Prevent iOS Safari auto-zoom on focus (triggers below 16px font-size). */
 @media (max-width: 768px) {
 	.ea-select { font-size: 16px; }

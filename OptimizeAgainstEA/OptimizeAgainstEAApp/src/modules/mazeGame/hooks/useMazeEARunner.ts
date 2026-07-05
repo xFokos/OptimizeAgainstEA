@@ -135,6 +135,12 @@ export function useMazeEARunner() {
     workerRef.current.postMessage({ type: 'STEP', count } as WorkerInMessage);
   }, []);
 
+  // Apply new tuning to the running EA without restarting it (takes effect on
+  // the next generation). No-op if the worker hasn't been started.
+  const updateConfig = useCallback((config: EAConfig) => {
+    workerRef.current?.postMessage({ type: 'UPDATE_CONFIG', config } as WorkerInMessage);
+  }, []);
+
   const stop = useCallback(() => {
     workerRef.current?.postMessage({ type: 'STOP' } as WorkerInMessage);
     workerRef.current?.terminate();
@@ -148,5 +154,5 @@ export function useMazeEARunner() {
     setState(INITIAL_STATE);
   }, []);
 
-  return { ...state, init, start, step, stop, reset };
+  return { ...state, init, start, step, stop, reset, updateConfig };
 }

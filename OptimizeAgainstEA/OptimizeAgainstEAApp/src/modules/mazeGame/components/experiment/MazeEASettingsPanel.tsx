@@ -1,11 +1,15 @@
 import type {
   EAConfig, SelectionStrategy, CrossoverStrategy, MutationStrategy,
 } from '../../types/ea';
-import { SliderRow, SelectRow, Divider } from '../../../../components/settings/eaControls';
+import type { WallRule } from '../../types/maze';
+import { SliderRow, SelectRow, SegmentedRow, Divider } from '../../../../components/settings/eaControls';
 
-interface MazeEASettingsPanelProps {
+interface MazeEASettingsControlsProps {
   config: EAConfig;
   onConfigChange: (patch: Partial<EAConfig>) => void;
+}
+
+interface MazeEASettingsPanelProps extends MazeEASettingsControlsProps {
   onClose: () => void;
 }
 
@@ -14,32 +18,29 @@ const fmtPct = (v: number) => `${Math.round(v * 100)}%`;
 const fmtFixed = (decimals: number) => (v: number) => v.toFixed(decimals);
 
 /**
- * Editors for the maze EA's EAConfig, presented in the shared settings drawer
- * (styles/specific/EASettingsPanel.css) so it matches the other games. Note:
- * maze `mutationStrength` is a per-gene re-pick probability, not a
- * perturbation magnitude — labelled accordingly.
+ * The EAConfig editors themselves (no drawer chrome), so they can be rendered
+ * either inline in a panel or inside the drawer below. Note: maze
+ * `mutationStrength` is a per-gene re-pick probability, not a perturbation
+ * magnitude — labelled accordingly.
  */
-export function MazeEASettingsPanel({ config, onConfigChange, onClose }: MazeEASettingsPanelProps) {
+export function MazeEASettingsControls({ config, onConfigChange }: MazeEASettingsControlsProps) {
   const set = onConfigChange;
 
   return (
-    <div
-      className="ea-settings-backdrop"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="ea-settings-panel" onClick={(e) => e.stopPropagation()}>
+    <>
+      <Divider label="Behaviour" />
 
-        <div className="ea-settings-panel__header">
-          <span className="ea-settings-panel__title">EA Settings</span>
-          <button className="ea-settings-panel__close" onClick={onClose}>✕</button>
-        </div>
+      <SegmentedRow<WallRule>
+        label="Wall rule" value={config.wallRule}
+        options={[
+          { value: 'waste', label: 'Waste', title: 'A blocked move is lost — the agent stays put and continues.' },
+          { value: 'break', label: 'Break', title: 'Hitting a wall crashes the agent and stops the walk there.' },
+          { value: 'repair', label: 'Repair', title: 'A blocked gene is replaced by a random open move — the repaired genome is what breeds on.' },
+        ]}
+        onChange={(v) => set({ wallRule: v })}
+      />
 
-        <div className="ea-settings-panel__body">
-          <p className="maze-note">
-            Changing a setting restarts the run on the same maze.
-          </p>
-
-          <Divider label="Population" />
+      <Divider label="Population" />
 
           <SliderRow
             label="Population size" value={config.populationSize}
@@ -102,11 +103,33 @@ export function MazeEASettingsPanel({ config, onConfigChange, onClose }: MazeEAS
             min={0.01} max={0.5} step={0.01} format={fmtFixed(2)}
             onChange={(v) => set({ mutationStrength: v })}
           />
-          <SliderRow
-            label="Mutation decay / generation" value={config.mutationDecay}
-            min={0.9} max={1} step={0.005} format={fmtFixed(3)}
-            onChange={(v) => set({ mutationDecay: v })}
-          />
+      <SliderRow
+        label="Mutation decay / generation" value={config.mutationDecay}
+        min={0.9} max={1} step={0.005} format={fmtFixed(3)}
+        onChange={(v) => set({ mutationDecay: v })}
+      />
+    </>
+  );
+}
+
+/**
+ * The maze EA settings presented in the shared drawer (kept for callers that
+ * still want the modal form). The experiment page renders
+ * {@link MazeEASettingsControls} inline instead.
+ */
+export function MazeEASettingsPanel({ config, onConfigChange, onClose }: MazeEASettingsPanelProps) {
+  return (
+    <div
+      className="ea-settings-backdrop"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="ea-settings-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="ea-settings-panel__header">
+          <span className="ea-settings-panel__title">EA Settings</span>
+          <button className="ea-settings-panel__close" onClick={onClose}>✕</button>
+        </div>
+        <div className="ea-settings-panel__body">
+          <MazeEASettingsControls config={config} onConfigChange={onConfigChange} />
         </div>
       </div>
     </div>
