@@ -1,9 +1,15 @@
+import { useState } from 'react';
 import type { ReplayFrame, IndividualSnapshot } from '../../engine/ea/eaReplayLog';
 import type { Cell, MazeProblem, Path } from '../../types/maze';
+import { MOVE_DELTAS, MOVE_WALL_BIT, cellIndex } from '../../types/maze';
 import { useMazeEAReplay } from '../../hooks/useMazeEAReplay';
 import { walkPath } from '../../engine/ea/individual';
 import { MazePathMap } from './replay/MazePathMap';
-import { MazeIndividualList, type IndividualRole, type GenomeHighlight } from './replay/MazeIndividualList';
+import {
+  MazeIndividualList, PARENT_A_COLOR, PARENT_B_COLOR, MUTATED_COLOR,
+  type IndividualRole, type GenomeHighlight,
+} from './replay/MazeIndividualList';
+import type { MazeTrail } from '../shared/MazeCanvas';
 import '../../styles/MazeGameStyles.css';
 
 interface MazeEAReplayOverlayProps {
@@ -22,6 +28,18 @@ export function MazeEAReplayOverlay({ frames, problem, onClose }: MazeEAReplayOv
   const replay = useMazeEAReplay(frames);
   const { currentFrame, frameIndex, totalFrames, isFirst, isLast, next, prev, goTo } = replay;
 
+  // Path picked in the list to spotlight on the map. The selection remembers
+  // which frame it was made on so it evaporates when the phase changes.
+  const [selection, setSelection] = useState<{ frame: number; id: string | null }>({ frame: -1, id: null });
+  const selectedId = selection.frame === frameIndex ? selection.id : null;
+  const selectId = (id: string | null) => setSelection({ frame: frameIndex, id });
+
+  // Mutation frame: which side of the mutation is shown. Frame-keyed like the
+  // selection so stepping frames resets to 'after'.
+  const [mutation, setMutation] = useState<{ frame: number; view: MutationView }>({ frame: -1, view: 'after' });
+  const mutationView = mutation.frame === frameIndex ? mutation.view : 'after';
+  const setMutationView = (view: MutationView) => setMutation({ frame: frameIndex, view });
+
   if (!currentFrame) return null;
 
   return (
@@ -36,8 +54,8 @@ export function MazeEAReplayOverlay({ frames, problem, onClose }: MazeEAReplayOv
         <p className="maze-replay-description">{currentFrame.description}</p>
 
         <div className="maze-replay-body">
-          <div><PhaseMap frame={currentFrame} problem={problem} /></div>
-          <div><PhasePanel frame={currentFrame} /></div>
+          <div className="maze-replay-body__map"><PhaseMap frame={currentFrame} problem={problem} selectedId={selectedId} mutationView={mutationView} /></div>
+          <div className="maze-replay-body__panel"><PhasePanel frame={currentFrame} selectedId={selectedId} onSelect={selectId} mutationView={mutationView} onMutationView={setMutationView} /></div>
         </div>
 
         <div className="maze-replay-controls">
@@ -65,15 +83,135 @@ function dimAllExcept(ids: string[], all: { id: string }[]): Set<string> {
   return new Set(all.filter((i) => !keep.has(i.id)).map((i) => i.id));
 }
 
+// ── Crossover colouring ─────────────────────────────────────────────────────
+
+type BreedingFrame = Extract<ReplayFrame, { phase: 'breeding' }>;
+type MutationView = 'before' | 'after';
+
+function edgeKey(p: Cell, q: Cell): string {
+  return p.y < q.y || (p.y === q.y && p.x <= q.x)
+    ? `${p.x},${p.y}|${q.x},${q.y}`
+    : `${q.x},${q.y}|${p.x},${p.y}`;
+}
+
+/** Undirected cell-to-cell transitions a trail actually travelled. */
+function edgeSet(trail: Cell[]): Set<string> {
+  const out = new Set<string>();
+  for (let i = 1; i < trail.length; i++) {
+    if (trail[i].x !== trail[i - 1].x || trail[i].y !== trail[i - 1].y) {
+      out.add(edgeKey(trail[i - 1], trail[i]));
+    }
+  }
+  return out;
+}
+
+/** Which parent each of the child's genes came from. */
+function childGeneSources(frame: BreedingFrame, steps: number): ('A' | 'B')[] {
+  return Array.from({ length: steps }, (_, i): 'A' | 'B' => {
+    if (!frame.didCrossover) return 'A';
+    if (frame.crossoverStrategy === 'singlePoint') return i < (frame.cut ?? 0) ? 'A' : 'B';
+    return frame.geneMask?.[i] ? 'A' : 'B';
+  });
+}
+
+/** Darker shade of a #rrggbb colour (stubs read as "failed" versions of the path). */
+function darken(hex: string, factor = 0.6): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 0xff) * factor);
+  const g = Math.round(((n >> 8) & 0xff) * factor);
+  const b = Math.round((n & 0xff) * factor);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+/**
+ * Half-length stubs for genes that ran into a wall: the walker stayed put, so
+ * the trail shows nothing — the stub points from the cell centre toward the
+ * wall the move crashed into, in a darker shade of the gene's parent colour.
+ * Zero-length steps that are NOT wall hits (frozen at the goal, or after a
+ * 'break'-rule crash) get no stub.
+ */
+function blockedMoveStubs(
+  path: Path, trail: Cell[], problem: MazeProblem,
+  colorFor: (gene: number) => string, opacity: number, width: number,
+): MazeTrail[] {
+  const stubs: MazeTrail[] = [];
+  for (let i = 0; i + 1 < trail.length; i++) {
+    const p = trail[i];
+    const q = trail[i + 1];
+    if (p.x !== q.x || p.y !== q.y) continue; // the move was taken
+    if (p.x === problem.goal.x && p.y === problem.goal.y) break; // goal absorbs
+    const d = path[i];
+    const [dx, dy] = MOVE_DELTAS[d];
+    const open = (problem.grid.walls[cellIndex(p.x, p.y, problem.cols)] & MOVE_WALL_BIT[d]) !== 0;
+    const inBounds = p.x + dx >= 0 && p.x + dx < problem.cols && p.y + dy >= 0 && p.y + dy < problem.rows;
+    if (!open || !inBounds) {
+      stubs.push({
+        points: [p, { x: p.x + dx / 2, y: p.y + dy / 2 }],
+        color: darken(colorFor(i)), opacity, width,
+      });
+      if (problem.wallRule === 'break') break; // crashed — the rest was never attempted
+    }
+  }
+  return stubs;
+}
+
+/**
+ * The child's walked path, one trail per move, coloured by the parent the gene
+ * came from. A segment both parents also travelled is drawn half in A's
+ * colour, half in B's.
+ */
+function childSegmentTrails(
+  frame: BreedingFrame, aTrail: Cell[], bTrail: Cell[], opacity: number, width: number,
+): MazeTrail[] {
+  const trail = frame.child.trail;
+  const sources = childGeneSources(frame, Math.max(trail.length - 1, 0));
+  const inA = edgeSet(aTrail);
+  const inB = edgeSet(bTrail);
+  const segs: MazeTrail[] = [];
+  for (let i = 0; i + 1 < trail.length; i++) {
+    const p = trail[i];
+    const q = trail[i + 1];
+    if (p.x === q.x && p.y === q.y) continue; // blocked move — nothing to draw
+    const key = edgeKey(p, q);
+    // Without crossover the child is a clone of A — no shared-credit split.
+    if (frame.didCrossover && inA.has(key) && inB.has(key)) {
+      // Both parents travelled this segment: two parallel half-width strokes,
+      // each running the full step, offset sideways so they sit edge to edge.
+      // Offset is derived from the canonical edge orientation so A stays on
+      // the same side regardless of travel direction.
+      const [cp, cq] = p.y < q.y || (p.y === q.y && p.x <= q.x) ? [p, q] : [q, p];
+      const len = Math.hypot(cq.x - cp.x, cq.y - cp.y);
+      const ox = (-(cq.y - cp.y) / len) * (width / 4);
+      const oy = ((cq.x - cp.x) / len) * (width / 4);
+      segs.push({
+        points: [{ x: p.x + ox, y: p.y + oy }, { x: q.x + ox, y: q.y + oy }],
+        color: PARENT_A_COLOR, opacity, width: width / 2,
+      });
+      segs.push({
+        points: [{ x: p.x - ox, y: p.y - oy }, { x: q.x - ox, y: q.y - oy }],
+        color: PARENT_B_COLOR, opacity, width: width / 2,
+      });
+    } else {
+      segs.push({ points: [p, q], color: sources[i] === 'A' ? PARENT_A_COLOR : PARENT_B_COLOR, opacity, width });
+    }
+  }
+  return segs;
+}
+
 // ── per-phase map ───────────────────────────────────────────────────────────
 
-function PhaseMap({ frame, problem }: { frame: ReplayFrame; problem: MazeProblem }) {
+function PhaseMap({ frame, problem, selectedId, mutationView }: {
+  frame: ReplayFrame;
+  problem: MazeProblem;
+  selectedId: string | null;
+  mutationView: MutationView;
+}) {
   const individuals = 'individuals' in frame ? frame.individuals : [];
 
   switch (frame.phase) {
     case 'sorted':
     case 'newGen':
-      return <MazePathMap individuals={individuals} problem={problem} />;
+      return <MazePathMap individuals={individuals} problem={problem} selectedId={selectedId} />;
 
     case 'selection': {
       if (frame.strategy === 'tournament') {
@@ -116,41 +254,103 @@ function PhaseMap({ frame, problem }: { frame: ReplayFrame; problem: MazeProblem
           highlightIds={new Set(frame.eliteIds)}
           highlightColor="#f0c44a"
           dimIds={dimAllExcept(frame.eliteIds, individuals)}
+          selectedId={selectedId}
         />
       );
 
     case 'breeding': {
-      const spliceCell =
-        frame.crossoverStrategy === 'singlePoint' && frame.didCrossover && frame.cut !== undefined
-          ? frame.child.trail[frame.cut]
-          : undefined;
+      const aSnap = individuals.find((i) => i.id === frame.parentAId);
+      const bSnap = individuals.find((i) => i.id === frame.parentBId);
+      const aTrail = aSnap?.trail ?? [];
+      const bTrail = bSnap?.trail ?? [];
+      const trail = frame.child.trail;
+      const sources = childGeneSources(frame, Math.max(trail.length - 1, 0));
+
+      const picked = (id: string) => selectedId === id;
+      const anyPicked = selectedId !== null;
+
+      // Each path plus its blocked-move stubs, so the picked one moves to the
+      // top as a unit.
+      const parentGroup = (snap: IndividualSnapshot | undefined, color: string, id: string): MazeTrail[] => {
+        if (!snap) return [];
+        const opacity = !anyPicked ? 0.6 : picked(id) ? 1 : 0.12;
+        const width = picked(id) ? 0.2 : 0.14;
+        return [
+          { points: snap.trail, color, opacity, width },
+          ...blockedMoveStubs(snap.path, snap.trail, problem, () => color, opacity, width),
+        ];
+      };
+      const a = parentGroup(aSnap, PARENT_A_COLOR, frame.parentAId);
+      const b = parentGroup(bSnap, PARENT_B_COLOR, frame.parentBId);
+
+      const childOpacity = !anyPicked ? 0.95 : picked(frame.child.id) ? 1 : 0.12;
+      const childWidth = picked(frame.child.id) ? 0.2 : 0.15;
+      const child = [
+        ...childSegmentTrails(frame, aTrail, bTrail, childOpacity, childWidth),
+        ...blockedMoveStubs(
+          frame.child.path, trail, problem,
+          (i) => sources[i] === 'A' ? PARENT_A_COLOR : PARENT_B_COLOR,
+          childOpacity, childWidth,
+        ),
+      ];
+
+      // Draw the picked path last so it sits on top.
+      const extraTrails = picked(frame.parentAId) ? [...b, ...child, ...a]
+        : picked(frame.parentBId) ? [...a, ...child, ...b]
+        : [...a, ...b, ...child];
+
+      // Dot every cell where the child's gene source flips parents. Flips after
+      // the child stops moving (goal absorbed / crashed / stuck) would all pile
+      // onto the frozen cell, so cut off after the last actual move and drop
+      // duplicate cells.
+      const spliceCells: Cell[] = [];
+      if (frame.didCrossover) {
+        let lastMove = -1;
+        for (let i = 0; i + 1 < trail.length; i++) {
+          if (trail[i].x !== trail[i + 1].x || trail[i].y !== trail[i + 1].y) lastMove = i;
+        }
+        const seen = new Set<string>();
+        for (let i = 1; i < sources.length && i <= lastMove + 1; i++) {
+          if (sources[i] !== sources[i - 1]) {
+            const cellKey = `${trail[i].x},${trail[i].y}`;
+            if (!seen.has(cellKey)) {
+              seen.add(cellKey);
+              spliceCells.push(trail[i]);
+            }
+          }
+        }
+      }
+
       return (
         <MazePathMap
-          individuals={individuals}
+          individuals={[]}
           problem={problem}
-          highlightIds={new Set([frame.parentAId])}
-          highlightColor="#4af0a0"
-          markerIds={new Set([frame.parentBId])}
-          markerColor="#4a90f0"
-          dimIds={dimAllExcept([frame.parentAId, frame.parentBId], individuals)}
-          childTrail={frame.child.trail}
-          spliceCell={spliceCell}
+          extraTrails={extraTrails}
+          spliceCells={spliceCells}
         />
       );
     }
 
     case 'mutating': {
-      const childTrail = trailOf(frame.afterPath, problem);
-      const mutatedCells = frame.mutatedIndices
-        .map((i) => childTrail[i])
-        .filter((c): c is Cell => c !== undefined);
+      const path = mutationView === 'before' ? frame.beforePath : frame.afterPath;
+      const trail = trailOf(path, problem);
+      const mutated = new Set(frame.mutatedIndices);
+      const colorFor = (i: number) => (mutated.has(i) ? MUTATED_COLOR : '#ffffff');
+
+      const segs: MazeTrail[] = [];
+      for (let i = 0; i + 1 < trail.length; i++) {
+        const p = trail[i];
+        const q = trail[i + 1];
+        if (p.x === q.x && p.y === q.y) continue;
+        segs.push({ points: [p, q], color: colorFor(i), opacity: 0.95, width: 0.15 });
+      }
+      const stubs = blockedMoveStubs(path, trail, problem, colorFor, 0.95, 0.15);
+
       return (
         <MazePathMap
-          individuals={individuals}
+          individuals={[]}
           problem={problem}
-          dimIds={new Set(individuals.map((i) => i.id))}
-          childTrail={childTrail}
-          mutatedCells={mutatedCells}
+          extraTrails={[...segs, ...stubs]}
         />
       );
     }
@@ -162,6 +362,7 @@ function PhaseMap({ frame, problem }: { frame: ReplayFrame; problem: MazeProblem
           problem={problem}
           solutionIds={new Set(frame.solutionIds)}
           dimIds={dimAllExcept(frame.solutionIds, individuals)}
+          selectedId={selectedId}
         />
       );
 
@@ -172,15 +373,21 @@ function PhaseMap({ frame, problem }: { frame: ReplayFrame; problem: MazeProblem
 
 // ── per-phase panel ─────────────────────────────────────────────────────────
 
-function PhasePanel({ frame }: { frame: ReplayFrame }) {
+function PhasePanel({ frame, selectedId, onSelect, mutationView, onMutationView }: {
+  frame: ReplayFrame;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  mutationView: MutationView;
+  onMutationView: (view: MutationView) => void;
+}) {
   const individuals = 'individuals' in frame ? frame.individuals : [];
 
   switch (frame.phase) {
     case 'sorted':
-      return <MazeIndividualList individuals={individuals} title="Population (ranked by fitness ↑)" />;
+      return <MazeIndividualList individuals={individuals} title="Population (ranked by fitness ↑)" selectedId={selectedId} onSelect={onSelect} />;
 
     case 'newGen':
-      return <MazeIndividualList individuals={individuals} title="New generation" />;
+      return <MazeIndividualList individuals={individuals} title="New generation" selectedId={selectedId} onSelect={onSelect} />;
 
     case 'selection': {
       if (frame.strategy === 'tournament') {
@@ -212,39 +419,74 @@ function PhasePanel({ frame }: { frame: ReplayFrame }) {
       );
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <MazeIndividualList individuals={individuals} roles={roles} title="Current generation" />
-          <MazeIndividualList individuals={frame.nextGen} title="Next generation (so far)" />
+          <MazeIndividualList individuals={individuals} roles={roles} title="Current generation" selectedId={selectedId} onSelect={onSelect} />
+          <MazeIndividualList individuals={frame.nextGen} title="Next generation (so far)" selectedId={selectedId} onSelect={onSelect} />
         </div>
       );
     }
 
     case 'breeding': {
+      const a = individuals.find((i) => i.id === frame.parentAId);
+      const b = individuals.find((i) => i.id === frame.parentBId);
+      const sameParent = a !== undefined && b !== undefined && a.id === b.id;
+
+      // Parents + child above the list — the only clickable rows here.
+      const trio: IndividualSnapshot[] = [
+        ...(a ? [a] : []),
+        ...(b && !sameParent ? [b] : []),
+        frame.child,
+      ];
+      // Gene indices where the child's source parent flips — shown as red dots
+      // in every trio row, mirroring the dots on the map.
+      const sources = childGeneSources(frame, frame.child.path.length);
+      const splits: number[] = [];
+      if (frame.didCrossover) {
+        for (let i = 1; i < sources.length; i++) {
+          if (sources[i] !== sources[i - 1]) splits.push(i);
+        }
+      }
+
+      const trioRoles = new Map<string, IndividualRole>();
+      const trioHighlights = new Map<string, GenomeHighlight>();
+      if (a) { trioRoles.set(a.id, 'parentA'); trioHighlights.set(a.id, { tint: PARENT_A_COLOR, splits }); }
+      if (b && !sameParent) { trioRoles.set(b.id, 'parentB'); trioHighlights.set(b.id, { tint: PARENT_B_COLOR, splits }); }
+      trioRoles.set(frame.child.id, 'child');
+      trioHighlights.set(frame.child.id, !frame.didCrossover
+        ? { tint: PARENT_A_COLOR }
+        : frame.crossoverStrategy === 'singlePoint'
+          ? { spliceFrom: frame.cut, splits }
+          : { mask: frame.geneMask, splits });
+
       const roles = new Map<string, IndividualRole>();
       individuals.forEach((i) => {
         if (i.id === frame.parentAId) roles.set(i.id, 'parentA');
         else if (i.id === frame.parentBId) roles.set(i.id, 'parentB');
         else roles.set(i.id, 'dim');
       });
-      const childHighlight = new Map<string, GenomeHighlight>([
-        [frame.child.id, frame.crossoverStrategy === 'singlePoint' ? { spliceFrom: frame.cut } : {}],
-      ]);
+
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <MazeIndividualList individuals={individuals} roles={roles} title="Current generation" />
           <MazeIndividualList
-            individuals={[...frame.nextGen, frame.child]}
-            roles={new Map([[frame.child.id, 'child']])}
-            highlights={childHighlight}
-            title="Next generation (so far)"
+            individuals={trio}
+            roles={trioRoles}
+            highlights={trioHighlights}
+            title="Crossover — click a row to trace its path"
+            selectedId={selectedId}
+            onSelect={onSelect}
+            maxGenes={120}
           />
+          <MazeIndividualList individuals={individuals} roles={roles} title="Current generation" />
+          <MazeIndividualList individuals={frame.nextGen} title="Next generation (so far)" />
         </div>
       );
     }
 
     case 'mutating': {
-      // Synthesize a one-row snapshot for the mutated child so we can show its arrows.
+      // Synthesize a one-row snapshot for the shown variant so we can render its arrows.
       const childRow: IndividualSnapshot = {
-        id: frame.childId, path: frame.afterPath, trail: [], finalCell: 0, fitness: 0, isSolution: false,
+        id: frame.childId,
+        path: mutationView === 'before' ? frame.beforePath : frame.afterPath,
+        trail: [], finalCell: 0, fitness: 0, isSolution: false,
       };
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -255,12 +497,22 @@ function PhasePanel({ frame }: { frame: ReplayFrame }) {
                 {frame.didMutate ? `${frame.mutatedIndices.length} gene(s) re-picked` : 'no change'}
               </span>
             </div>
+            <div className="maze-replay-card__row">
+              <button
+                className={`btn btn--ghost btn--sm${mutationView === 'before' ? ' btn--active' : ''}`}
+                onClick={() => onMutationView('before')}
+              >Before</button>
+              <button
+                className={`btn btn--ghost btn--sm${mutationView === 'after' ? ' btn--active' : ''}`}
+                onClick={() => onMutationView('after')}
+              >After</button>
+            </div>
           </div>
           <MazeIndividualList
             individuals={[childRow]}
             roles={new Map([[frame.childId, 'child']])}
             highlights={new Map([[frame.childId, { mutated: frame.mutatedIndices }]])}
-            title="Child genome after mutation"
+            title={mutationView === 'before' ? 'Child genome before mutation' : 'Child genome after mutation'}
             maxGenes={120}
           />
           <MazeIndividualList individuals={frame.nextGen} title="Next generation (so far)" />
@@ -291,7 +543,7 @@ function PhasePanel({ frame }: { frame: ReplayFrame }) {
               />
             </div>
           </div>
-          <MazeIndividualList individuals={individuals} roles={roles} title="Population" />
+          <MazeIndividualList individuals={individuals} roles={roles} title="Population" selectedId={selectedId} onSelect={onSelect} />
         </div>
       );
     }

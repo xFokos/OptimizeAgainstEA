@@ -7,10 +7,16 @@ export type IndividualRole =
   | 'normal' | 'elite' | 'parentA' | 'parentB' | 'child' | 'solution' | 'dim'
   | 'winner' | 'candidate' | 'eligible';
 
-/** Per-row genome highlighting: a spliced suffix and/or mutated gene indices. */
+/** Per-row genome highlighting: parent-origin colouring and/or mutated gene indices. */
 export interface GenomeHighlight {
-  /** Genes at index >= this came from Parent B (single-point splice). */
+  /** Single-point splice: genes before this index are Parent A's (colour A), the rest Parent B's (colour B). */
   spliceFrom?: number;
+  /** Uniform crossover: per-gene origin, true → Parent A (colour A), false → Parent B (colour B). */
+  mask?: boolean[];
+  /** Flat colour for the whole genome (e.g. a parent row tinted in its own colour). */
+  tint?: string;
+  /** Crossover split points: a red dot is drawn before each of these gene indices. */
+  splits?: number[];
   /** Genes re-picked by mutation. */
   mutated?: number[];
 }
@@ -24,6 +30,10 @@ interface MazeIndividualListProps {
   maxRows?: number;
   /** Max genes rendered per genome before truncating with an ellipsis. */
   maxGenes?: number;
+  /** Row picked by the user — rendered emphasised. */
+  selectedId?: string | null;
+  /** When set, rows become clickable; clicking the selected row again passes null. */
+  onSelect?: (id: string | null) => void;
 }
 
 const ROLE_STYLES: Record<IndividualRole, { bg: string; label?: string; textColor?: string }> = {
@@ -39,27 +49,49 @@ const ROLE_STYLES: Record<IndividualRole, { bg: string; label?: string; textColo
   eligible:  { bg: 'rgba(74,144,240,0.15)',  label: 'ELIGIBLE',  textColor: '#4a90f0' },
 };
 
-const SPLICE_COLOR = '#4a90f0';
-const MUTATED_COLOR = '#f0a04a';
+export const PARENT_A_COLOR = '#4af0a0';
+export const PARENT_B_COLOR = '#4a90f0';
+export const MUTATED_COLOR = '#f0a04a';
+const SPLIT_COLOR = '#f04a4a';
+
+/** Crossover split marker — matches the red dots on the map's child path. */
+function SplitDot() {
+  return (
+    <span style={{
+      display: 'inline-block', width: 5, height: 5, borderRadius: '50%',
+      background: SPLIT_COLOR, margin: '0 2px', verticalAlign: 'middle',
+    }} />
+  );
+}
+
+function geneColor(i: number, highlight?: GenomeHighlight): string {
+  if (highlight?.mutated?.includes(i)) return MUTATED_COLOR;
+  if (highlight?.mask) return highlight.mask[i] ? PARENT_A_COLOR : PARENT_B_COLOR;
+  if (highlight?.spliceFrom !== undefined) return i < highlight.spliceFrom ? PARENT_A_COLOR : PARENT_B_COLOR;
+  if (highlight?.tint) return highlight.tint;
+  return 'inherit';
+}
 
 function GenomeArrows({ path, highlight, maxGenes }: { path: Path; highlight?: GenomeHighlight; maxGenes: number }) {
   const mutated = new Set(highlight?.mutated ?? []);
+  const splits = new Set(highlight?.splits ?? []);
   const shown = path.slice(0, maxGenes);
   return (
-    <span style={{ fontFamily: 'monospace', fontSize: '0.72rem', lineHeight: 1.3, wordBreak: 'break-all' }}>
+    <span className="maze-genome" style={{ fontFamily: 'monospace', fontSize: '0.72rem', lineHeight: 1.3 }}>
       {shown.map((move, i) => {
         const isMut = mutated.has(i);
-        const isSplice = highlight?.spliceFrom !== undefined && i >= highlight.spliceFrom;
-        const color = isMut ? MUTATED_COLOR : isSplice ? SPLICE_COLOR : 'inherit';
+        const color = geneColor(i, highlight);
         return (
-          <span
-            key={i}
-            style={{
-              color,
-              fontWeight: isMut ? 700 : 400,
-              background: isMut ? 'rgba(240,160,74,0.18)' : 'transparent',
-            }}
-          >{MOVE_ARROWS[move]}</span>
+          <span key={i}>
+            {splits.has(i) && <SplitDot />}
+            <span
+              style={{
+                color,
+                fontWeight: isMut ? 700 : 400,
+                background: isMut ? 'rgba(240,160,74,0.18)' : 'transparent',
+              }}
+            >{MOVE_ARROWS[move]}</span>
+          </span>
         );
       })}
       {path.length > maxGenes && <span style={{ opacity: 0.5 }}>…</span>}
@@ -74,6 +106,7 @@ function GenomeArrows({ path, highlight, maxGenes }: { path: Path; highlight?: G
  */
 export function MazeIndividualList({
   individuals, roles, annotations, highlights, title, maxRows = 10, maxGenes = 48,
+  selectedId, onSelect,
 }: MazeIndividualListProps) {
   const shown = individuals.slice(0, maxRows);
   const hidden = individuals.length - shown.length;
@@ -87,19 +120,26 @@ export function MazeIndividualList({
       {shown.map((ind, idx) => {
         const role = roles?.get(ind.id) ?? 'normal';
         const style = ROLE_STYLES[role];
-        const isDim = role === 'dim';
+        const isSelected = ind.id === selectedId;
+        const isDim = role === 'dim' && !isSelected;
         const color = sampleGradientRgb(ind.fitness);
 
         return (
-          <div key={ind.id} style={{
-            display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
-            padding: '3px 6px', borderRadius: 3,
-            background: style.bg,
-            opacity: isDim ? 0.3 : 1,
-            border: role !== 'normal' && role !== 'dim'
-              ? `1px solid ${style.textColor}30`
-              : '1px solid transparent',
-          }}>
+          <div
+            key={ind.id}
+            className={onSelect ? 'maze-replay-row maze-replay-row--clickable' : 'maze-replay-row'}
+            onClick={onSelect ? () => onSelect(isSelected ? null : ind.id) : undefined}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+              padding: '3px 6px', borderRadius: 3,
+              background: isSelected ? 'rgba(255,255,255,0.10)' : style.bg,
+              opacity: isDim ? 0.3 : 1,
+              border: isSelected
+                ? '1px solid rgba(255,255,255,0.8)'
+                : role !== 'normal' && role !== 'dim'
+                  ? `1px solid ${style.textColor}30`
+                  : '1px solid transparent',
+            }}>
             <span style={{ fontFamily: 'monospace', fontSize: '0.62rem', color: 'rgba(232,234,240,0.5)', minWidth: 22 }}>
               #{idx + 1}
             </span>

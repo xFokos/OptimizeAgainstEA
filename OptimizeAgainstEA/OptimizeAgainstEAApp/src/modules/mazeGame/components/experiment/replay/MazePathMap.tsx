@@ -14,10 +14,9 @@ export const PATH_DRAW_DURATION_MS = 900;
 const ROLE = {
   parentA: '#4af0a0',
   parentB: '#4a90f0',
-  child: '#ffffff',
-  splice: '#f0c44a',
-  mutated: '#f0a04a',
+  splice: '#f04a4a',
   solution: '#4af0a0',
+  selected: '#ffffff',
 } as const;
 
 interface MazePathMapProps {
@@ -30,13 +29,14 @@ interface MazePathMapProps {
   markerIds?: Set<string>;
   markerColor?: string;
   solutionIds?: Set<string>;
+  /** Individual picked in the list — drawn on top, full-strength, everything else recedes. */
+  selectedId?: string | null;
   /** Per-individual opacity override (roulette weighting). */
   customOpacities?: Map<string, number>;
-  /** Extra path drawn on top, e.g. the bred child. */
-  childTrail?: Cell[];
-  /** Single cells to ring/dot — splice point, mutated cells. */
-  spliceCell?: Cell;
-  mutatedCells?: Cell[];
+  /** Cells dotted red — crossover splice points. */
+  spliceCells?: Cell[];
+  /** Pre-built trails drawn above everything (breeding/mutation: parents + child segments). */
+  extraTrails?: MazeTrail[];
 }
 
 /**
@@ -54,10 +54,10 @@ export function MazePathMap({
   markerIds,
   markerColor = ROLE.parentB,
   solutionIds,
+  selectedId,
   customOpacities,
-  childTrail,
-  spliceCell,
-  mutatedCells,
+  spliceCells,
+  extraTrails,
 }: MazePathMapProps) {
   // Fully sealed cells (creator wall blocks) render as filled squares.
   const solidCells = useMemo(() => {
@@ -71,8 +71,13 @@ export function MazePathMap({
   // Build trails, ordering so emphasised paths render last (on top).
   const base: MazeTrail[] = [];
   const top: MazeTrail[] = [];
+  const picked: MazeTrail[] = [];
 
   for (const ind of individuals) {
+    if (ind.id === selectedId) {
+      picked.push({ points: ind.trail, color: ROLE.selected, opacity: 1, width: 0.22 });
+      continue;
+    }
     const isHi = highlightIds?.has(ind.id);
     const isMark = markerIds?.has(ind.id);
     const isSol = solutionIds?.has(ind.id);
@@ -82,26 +87,21 @@ export function MazePathMap({
       top.push({
         points: ind.trail,
         color: isSol ? ROLE.solution : isHi ? highlightColor : markerColor,
-        opacity: 0.95,
+        opacity: selectedId ? 0.3 : 0.95,
         width: 0.18,
       });
     } else {
       base.push({
         points: ind.trail,
         color: sampleGradientRgb(ind.fitness),
-        opacity: customOpacities?.get(ind.id) ?? (isDim ? 0.05 : 0.12),
+        opacity: selectedId ? 0.05 : customOpacities?.get(ind.id) ?? (isDim ? 0.05 : 0.12),
         width: 0.08,
       });
     }
   }
 
-  if (childTrail) {
-    top.push({ points: childTrail, color: ROLE.child, opacity: 0.95, width: 0.14 });
-  }
-
   const markers: MazeMarker[] = [];
-  if (spliceCell) markers.push({ cell: spliceCell, color: ROLE.splice, ring: true, radius: 0.3 });
-  for (const c of mutatedCells ?? []) markers.push({ cell: c, color: ROLE.mutated, radius: 0.16 });
+  for (const c of spliceCells ?? []) markers.push({ cell: c, color: ROLE.splice, radius: 0.09 });
 
   return (
     <MazeCanvas
@@ -111,7 +111,7 @@ export function MazePathMap({
       start={problem.start}
       goal={problem.goal}
       solidCells={solidCells}
-      trails={[...base, ...top]}
+      trails={[...base, ...top, ...(extraTrails ?? []), ...picked]}
       markers={markers}
     />
   );
