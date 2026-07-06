@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useScaledCanvas } from '../hooks/useScaledCanvas';
 import { useOrientationLock } from '../hooks/useOrientationLock';
+import { useViewport } from '../hooks/useViewport';
 import { ARENA } from '../modules/shooterGame/shooter.types';
 import { GameLayout } from '../components/layout/GameLayout';
 import { ShooterLeftBar } from '../components/layout/ShooterLeftBar';
@@ -11,17 +12,6 @@ import { MobileJoystickZone } from '../modules/shooterGame/components/MobileJoys
 import { MobileAimZone } from '../modules/shooterGame/components/MobileAimZone';
 import { useInput } from '../modules/shooterGame/hooks/useInput';
 import PageContainer from '../components/layout/PageContainer';
-
-function useViewport() {
-    const get = () => ({ W: window.innerWidth, H: window.innerHeight });
-    const [vp, setVp] = useState(get);
-    useEffect(() => {
-        const h = () => setVp(get());
-        window.addEventListener('resize', h);
-        return () => window.removeEventListener('resize', h);
-    }, []);
-    return vp;
-}
 
 const supportsFullscreen =
     typeof document !== 'undefined' && 'requestFullscreen' in document.documentElement;

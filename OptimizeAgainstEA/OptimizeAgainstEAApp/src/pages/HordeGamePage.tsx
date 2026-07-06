@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useScaledCanvas } from '../hooks/useScaledCanvas';
 import { useOrientationLock } from '../hooks/useOrientationLock';
+import { useViewport } from '../hooks/useViewport';
 import { ARENA } from '../modules/shooterGame/shooter.types';
 import { HordeCanvas } from '../modules/shooterGame/components/HordeCanvas';
 import { MobileJoystickZone } from '../modules/shooterGame/components/MobileJoystickZone';
@@ -53,15 +54,9 @@ function HordeGameContent() {
     const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
     const { showHint } = useHints();
 
-    const [vp, setVp] = useState(() => ({ W: window.innerWidth, H: window.innerHeight }));
-    useEffect(() => {
-        const h = () => setVp({ W: window.innerWidth, H: window.innerHeight });
-        window.addEventListener('resize', h);
-        return () => window.removeEventListener('resize', h);
-    }, []);
-
-    const isMobileDevice    = Math.min(vp.W, vp.H) < 550;
-    const isPortrait        = vp.H > vp.W;
+    const { W, H } = useViewport();
+    const isMobileDevice    = Math.min(W, H) < 550;
+    const isPortrait        = H > W;
     const isMobileLandscape = isMobileDevice && !isPortrait;
 
     useEffect(() => {

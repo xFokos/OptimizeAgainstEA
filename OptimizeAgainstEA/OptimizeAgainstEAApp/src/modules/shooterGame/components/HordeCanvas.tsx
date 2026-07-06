@@ -4,8 +4,11 @@ import {
     ARENA, GAME_CONFIG, DNA_INDEX, DNA_LENGTH,
     type InputState, type Bullet, type Population, type Individual, type DNA,
 } from '../shooter.types';
-import type { HordeGameState, HordeAgent, HordePhase } from '../horde/hordeTypes';
+import type { HordeGameState, HordeAgent, HordePhase, HordeMap, HordeSpawnSide, HordeObstacle } from '../horde/hordeTypes';
 import { hordeRunStore }  from '../horde/hordeRunStore';
+import { resolveHordeMap } from '../horde/hordeMaps';
+import { circleIntersectsObstacle, pushOutOfObstacles } from '../horde/hordeCollision';
+import { computeFlowField, sampleFlowField } from '../horde/hordePathfinding';
 import { useInput }       from '../hooks/useInput';
 import { useSettings }    from '../../../context/SettingsContext';
 import type { HordeSettings } from '../../../context/SettingsContext';
@@ -44,6 +47,31 @@ function loopOffsetRad(gene: number): number {
 // out-survives the disadvantage of needing to get closer to actually touch the player.
 const SIZE_GENE_INDEX    = LOOP_GENE_START + LOOP_STEPS;
 const OPACITY_GENE_INDEX = SIZE_GENE_INDEX + 1;
+
+// Spawn-side genes: one weight per compass side (top/right/bottom/left), read the
+// same way on every map — no special-casing by how many sides a map allows, since
+// even a map that technically permits all four can still be genuinely lopsided
+// (an obstacle crowding one edge without literally blocking it). The weights are
+// zeroed for whichever sides the current map disallows and renormalized over the
+// rest, then sampled *stochastically* (not "always pick the top side") — so this
+// behaves like every other gene: mutation and diversity injection (see
+// DIVERSITY_INJECTION_RATE) keep it from ever hard-locking to one edge, even on
+// the perfectly symmetric Open map where there's no genuine advantage to find.
+const SPAWN_WEIGHT_START = OPACITY_GENE_INDEX + 1; // 4 consecutive genes
+const SPAWN_SIDE_ORDER: HordeSpawnSide[] = ['top', 'right', 'bottom', 'left'];
+
+function pickSpawnSide(dna: DNA, allowedSides: HordeSpawnSide[]): HordeSpawnSide {
+    // Floor avoids an all-zero weight set (e.g. after unlucky mutation) collapsing the sum to 0.
+    const weights = allowedSides.map(side => Math.max(0.001, dna[SPAWN_WEIGHT_START + SPAWN_SIDE_ORDER.indexOf(side)] ?? 0.5));
+    const total   = weights.reduce((a, b) => a + b, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < allowedSides.length; i++) {
+        r -= weights[i];
+        if (r <= 0) return allowedSides[i];
+    }
+    return allowedSides[allowedSides.length - 1];
+}
+
 const MIN_AGENT_R  = 8;
 const MAX_AGENT_R  = 22;
 const MIN_OPACITY  = 0.15;
@@ -102,6 +130,7 @@ function randomDna(): DNA {
         ...Array.from({ length: LOOP_STEPS }, () => Math.random()),
         Math.random(), // size
         Math.random(), // opacity
+        ...Array.from({ length: 4 }, () => Math.random()), // spawn-side weights: top, right, bottom, left
     ];
 }
 
@@ -109,27 +138,38 @@ function randomDna(): DNA {
 
 let agentIdCounter = 0;
 
-function edgePos(i: number, total: number, radius: number): { x: number; y: number } {
-    const perimeter = 2 * (ARENA.WIDTH + ARENA.HEIGHT);
-    const segment   = perimeter / total;
-    const raw       = (i * segment + (Math.random() - 0.5) * segment * 0.5 + perimeter) % perimeter;
+// Picks a spawn point on whichever side this agent's DNA favors (see pickSpawnSide),
+// restricted to whatever HordeMap.spawnSides currently allows.
+function edgePos(radius: number, sides: HordeSpawnSide[], obstacles: HordeObstacle[], dna: DNA): { x: number; y: number } {
     const pad = radius + 12;
-    let t = raw;
-    if (t < ARENA.WIDTH)  return { x: t,                y: pad };
-    t -= ARENA.WIDTH;
-    if (t < ARENA.HEIGHT) return { x: ARENA.WIDTH - pad, y: t };
-    t -= ARENA.HEIGHT;
-    if (t < ARENA.WIDTH)  return { x: ARENA.WIDTH - t,  y: ARENA.HEIGHT - pad };
-    t -= ARENA.WIDTH;
-    return { x: pad, y: ARENA.HEIGHT - t };
+    const pointOnSide = (side: HordeSpawnSide, along: number): { x: number; y: number } => {
+        switch (side) {
+            case 'top':    return { x: along * ARENA.WIDTH, y: pad };
+            case 'bottom': return { x: along * ARENA.WIDTH, y: ARENA.HEIGHT - pad };
+            case 'left':   return { x: pad,                 y: along * ARENA.HEIGHT };
+            default:       return { x: ARENA.WIDTH - pad,   y: along * ARENA.HEIGHT };
+        }
+    };
+
+    const side = pickSpawnSide(dna, sides);
+    let along  = Math.random();
+
+    // Obstacles are placed away from the edges on current maps, so this rarely
+    // triggers — it's a safety net against spawning inside a wall.
+    for (let attempt = 0; attempt < 5; attempt++) {
+        const p = pointOnSide(side, along);
+        if (!obstacles.some(o => circleIntersectsObstacle(p.x, p.y, radius, o))) return p;
+        along = Math.random();
+    }
+    return pointOnSide(side, along);
 }
 
-function spawnAgent(dna: DNA, popIndex: number, spawnI: number, total: number, isElite = false): HordeAgent {
+function spawnAgent(dna: DNA, popIndex: number, map: HordeMap, isElite = false): HordeAgent {
     return {
         id:          agentIdCounter++,
         popIndex,
         dna,
-        position:    edgePos(spawnI, total, agentRadius(dna)),
+        position:    edgePos(agentRadius(dna), map.spawnSides, map.obstacles, dna),
         velocity:    { x: 0, y: 0 },
         rotation:    0,
         alive:       true,
@@ -142,16 +182,16 @@ function spawnAgent(dna: DNA, popIndex: number, spawnI: number, total: number, i
     };
 }
 
-function makeInitialState(pop: Population): HordeGameState {
+function makeInitialState(pop: Population, map: HordeMap): HordeGameState {
     const n = pop.individuals.length;
     return {
         phase:  'playing',
         score:  0,
         generation: n,
-        agents: pop.individuals.map((ind, i) => spawnAgent([...ind.dna], i, i, n)),
+        agents: pop.individuals.map((ind, i) => spawnAgent([...ind.dna], i, map)),
         player: {
             id:       'player',
-            position: { x: ARENA.WIDTH / 2, y: ARENA.HEIGHT / 2 },
+            position: { x: map.playerSpawn.x, y: map.playerSpawn.y },
             velocity: { x: 0, y: 0 },
             rotation: 0,
             radius:   GAME_CONFIG.PLAYER_RADIUS,
@@ -160,6 +200,7 @@ function makeInitialState(pop: Population): HordeGameState {
         bullets:    [],
         population: pop,
         maxOnField: n,
+        map,
     };
 }
 
@@ -193,6 +234,11 @@ function updateHorde(
     const pr = GAME_CONFIG.PLAYER_RADIUS;
     player.position.x = Math.max(pr, Math.min(ARENA.WIDTH  - pr, player.position.x + player.velocity.x * dt));
     player.position.y = Math.max(pr, Math.min(ARENA.HEIGHT - pr, player.position.y + player.velocity.y * dt));
+    {
+        const pushed = pushOutOfObstacles(player.position.x, player.position.y, pr, state.map.obstacles);
+        player.position.x = Math.max(pr, Math.min(ARENA.WIDTH  - pr, pushed.x));
+        player.position.y = Math.max(pr, Math.min(ARENA.HEIGHT - pr, pushed.y));
+    }
 
     // --- Player shoots ---
     const bullets: Bullet[] = [...state.bullets];
@@ -214,8 +260,11 @@ function updateHorde(
 
     // --- Agent movement ---
     // AGGRESSION = 0 → pure random wander (planlos)
-    // AGGRESSION = 1 → always beelines toward player
+    // AGGRESSION = 1 → always beelines toward player, ignoring the routed path (see below)
     // MOVEMENT_SPEED = 0 → barely moves; = 1 → full speed
+    // One flow field per frame (BFS from the player's cell — see hordePathfinding.ts), shared
+    // by every agent so pathfinding stays O(1) per agent instead of a search each.
+    const flow = computeFlowField(state.map.obstacles, player.position.x, player.position.y);
     const agents = state.agents.map(a => {
         if (!a.alive) return a;
         const agent = { ...a, position: { ...a.position }, velocity: { ...a.velocity } };
@@ -236,9 +285,21 @@ function updateHorde(
         const wandY   = Math.sin(agent.wanderAngle);
         const agg     = agent.dna[DNA_INDEX.AGGRESSION];
 
+        // Chase target: blend the routed (obstacle-aware) direction with the raw direct line,
+        // weighted by the agent's own aggression — high aggression overrides the safe path and
+        // rushes straight at the player (can still wall itself off on a complex layout, which is
+        // the point), while a more cautious chaser leans on the routed path instead. Wherever
+        // there's clear line of sight the routed direction is already ~equal to the direct line,
+        // so this only ever diverges from today's behavior when an obstacle is actually in the way.
+        const routed  = sampleFlowField(flow, agent.position.x, agent.position.y);
+        const routedX = routed ? routed.x : toX;
+        const routedY = routed ? routed.y : toY;
+        const chaseX  = agg * toX + (1 - agg) * routedX;
+        const chaseY  = agg * toY + (1 - agg) * routedY;
+
         // Blend: low agg → wander, high agg → chase
-        let dirX = agg * toX + (1 - agg) * wandX;
-        let dirY = agg * toY + (1 - agg) * wandY;
+        let dirX = agg * chaseX + (1 - agg) * wandX;
+        let dirY = agg * chaseY + (1 - agg) * wandY;
 
         // Bullet dodge (scales with DODGE_WEIGHT)
         for (const b of bullets) {
@@ -287,13 +348,20 @@ function updateHorde(
         agent.position.y = Math.max(r, Math.min(ARENA.HEIGHT - r, agent.position.y + agent.velocity.y * dt));
         agent.rotation   = Math.atan2(normY, normX);
 
-        // Stuck detection: hugging a wall with near-zero *actual* movement.
+        // Obstacles push the agent out just like a wall — treated the same way below
+        // for the stuck-timer (hugging cover counts exactly like hugging the arena edge).
+        const pushedObstacle = pushOutOfObstacles(agent.position.x, agent.position.y, r, state.map.obstacles);
+        agent.position.x = Math.max(r, Math.min(ARENA.WIDTH  - r, pushedObstacle.x));
+        agent.position.y = Math.max(r, Math.min(ARENA.HEIGHT - r, pushedObstacle.y));
+
+        // Stuck detection: hugging a wall/obstacle with near-zero *actual* movement.
         // Must use real displacement, not agent.velocity — velocity keeps climbing
         // even when the wall clamp above is fully cancelling the agent's position change,
         // which let fast/aggressive agents get wedged in corners without ever being detected.
         const actualSpd = Math.hypot(agent.position.x - prevX, agent.position.y - prevY) / dt;
         const onEdge = agent.position.x <= r + 2 || agent.position.x >= ARENA.WIDTH  - r - 2 ||
-                       agent.position.y <= r + 2 || agent.position.y >= ARENA.HEIGHT - r - 2;
+                       agent.position.y <= r + 2 || agent.position.y >= ARENA.HEIGHT - r - 2 ||
+                       pushedObstacle.touching;
         agent.stuckTimer = onEdge && actualSpd < 20
             ? agent.stuckTimer + dt
             : Math.max(0, agent.stuckTimer - dt * 3);
@@ -312,6 +380,7 @@ function updateHorde(
         b.lifetime   -= dt;
         if (b.lifetime <= 0 || b.position.x < 0 || b.position.x > ARENA.WIDTH ||
                                 b.position.y < 0 || b.position.y > ARENA.HEIGHT) continue;
+        if (state.map.obstacles.some(o => o.blocksBullets && circleIntersectsObstacle(b.position.x, b.position.y, b.radius, o))) continue;
         let hit = false;
         for (const agent of agents) {
             if (!agent.alive || hitIds.has(agent.id)) continue;
@@ -382,7 +451,7 @@ function updateHorde(
             const updatedInds = [...population.individuals];
             updatedInds[a.popIndex] = { dna: newDna, fitness: newFitness };
             population = { ...population, individuals: updatedInds };
-            replacements.push(spawnAgent(newDna, a.popIndex, a.popIndex, state.maxOnField, isElite));
+            replacements.push(spawnAgent(newDna, a.popIndex, state.map, isElite));
             nextGeneration++;
         }
     }
@@ -427,6 +496,17 @@ function render(ctx: CanvasRenderingContext2D, state: HordeGameState) {
     ctx.strokeStyle = 'rgba(251,146,60,0.18)';
     ctx.lineWidth   = 2;
     ctx.strokeRect(1, 1, ARENA.WIDTH - 2, ARENA.HEIGHT - 2);
+
+    // Obstacles — solid border for cover that blocks bullets, dashed for movement-only blockers
+    for (const o of state.map.obstacles) {
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fillRect(o.x, o.y, o.w, o.h);
+        ctx.strokeStyle = o.blocksBullets ? 'rgba(251,146,60,0.55)' : 'rgba(255,255,255,0.25)';
+        ctx.lineWidth   = 2;
+        ctx.setLineDash(o.blocksBullets ? [] : [6, 4]);
+        ctx.strokeRect(o.x + 1, o.y + 1, o.w - 2, o.h - 2);
+        ctx.setLineDash([]);
+    }
 
     // Bullets
     ctx.fillStyle = '#80d8ff';
@@ -622,10 +702,14 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
     const eaRef          = useRef<HordeEA>(hordeSettings);
     const playerStatsRef = useRef<PlayerStats>(shooterSettings.playerStats);
     const hordeSizeRef   = useRef(hordeSettings.waveSize);
+    const mapRef         = useRef<HordeMap>(resolveHordeMap(hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn));
 
     useEffect(() => { eaRef.current          = hordeSettings;               }, [hordeSettings]);
     useEffect(() => { playerStatsRef.current = shooterSettings.playerStats;  }, [shooterSettings]);
     useEffect(() => { hordeSizeRef.current   = hordeSettings.waveSize;       }, [hordeSettings]);
+    useEffect(() => {
+        mapRef.current = resolveHordeMap(hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn);
+    }, [hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn]);
 
     const [uiPhase,  setUiPhase]  = useState<HordePhase | 'start'>('start');
     const [uiGen,    setUiGen]    = useState(0);
@@ -646,7 +730,7 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
             bestFitness: 0,
             avgFitness:  0,
         };
-        stateRef.current = makeInitialState(pop);
+        stateRef.current = makeInitialState(pop, mapRef.current);
         setUiPhase('playing');
         setUiGen(pop.individuals.length);
         setUiScore(0);

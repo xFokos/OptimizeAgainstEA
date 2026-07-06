@@ -19,6 +19,25 @@ export interface HordeAgent {
     isElite:     boolean;    // reincarnated with unchanged DNA — its fitness gets smoothed across lives
 }
 
+export interface HordeObstacle {
+    x:             number;
+    y:             number;
+    w:             number;
+    h:             number;
+    blocksBullets: boolean; // true = cover (stops bullets too); false = movement-only barrier
+}
+
+export type HordeSpawnSide = 'top' | 'right' | 'bottom' | 'left';
+
+export interface HordeMap {
+    id:          string;
+    label:       string;
+    description: string;
+    obstacles:   HordeObstacle[];
+    spawnSides:  HordeSpawnSide[]; // which perimeter sides agents may spawn from on this map
+    playerSpawn: Vector2D;         // where the player starts — built-in maps default to arena center
+}
+
 export interface HordeGameState {
     phase:      HordePhase;
     score:      number;      // total kills
@@ -28,4 +47,5 @@ export interface HordeGameState {
     bullets:    Bullet[];
     population: Population;  // same size as maxOnField; each slot = one field position
     maxOnField: number;
+    map:        HordeMap;
 }

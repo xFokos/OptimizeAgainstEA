@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import { STARTER_DNA, DNA_LENGTH, GAME_CONFIG, type PlayerStats } from '../modules/shooterGame/shooter.types';
+import { ARENA, STARTER_DNA, DNA_LENGTH, GAME_CONFIG, type PlayerStats } from '../modules/shooterGame/shooter.types';
+import type { HordeObstacle, HordeSpawnSide } from '../modules/shooterGame/horde/hordeTypes';
 
 // ---- Allgemeine EA Settings (spielübergreifend) ----
 export interface EASettings {
@@ -54,6 +55,10 @@ export interface HordeSettings {
     mutationStrength:   number;                      // 0–0.5
     crossoverType:      'uniform' | 'single-point';
     shootCooldown:      number;                      // player fire rate in Horde, independent of Solo Play
+    mapId:              string;                      // HordeMap id (see modules/shooterGame/horde/hordeMaps.ts)
+    customObstacles:    HordeObstacle[];              // user-built layout, edited via HordeMapEditorPage
+    customSpawnSides:   HordeSpawnSide[];
+    customPlayerSpawn:  { x: number; y: number };
 }
 
 export const defaultHordeSettings: HordeSettings = {
@@ -64,6 +69,10 @@ export const defaultHordeSettings: HordeSettings = {
     mutationStrength:   0.20,
     shootCooldown:      0.12,
     crossoverType:      'uniform',
+    mapId:              'open',
+    customObstacles:    [],
+    customSpawnSides:   ['top', 'right', 'bottom', 'left'],
+    customPlayerSpawn:  { x: ARENA.WIDTH / 2, y: ARENA.HEIGHT / 2 },
 };
 
 // ---- Context Type ----

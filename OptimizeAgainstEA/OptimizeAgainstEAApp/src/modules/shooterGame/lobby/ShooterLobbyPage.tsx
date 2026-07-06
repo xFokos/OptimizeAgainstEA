@@ -3,16 +3,19 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import PageContainer from '../../../components/layout/PageContainer';
 import { GameModeSelectorLayout } from '../../../components/layout/GameModeSelectorLayout';
 import { HintsProvider, HintToggle, HintLayer, useHints } from '../../../components/hints';
+import { HelpButton } from '../../../components/help';
 import { ShooterPlayerSection, ShooterRoundSection, HordeWaveSection } from '../settings/ShooterSettings';
 import { useSettings, resetShooterSettings, defaultShooterSettings } from '../../../context/SettingsContext';
 import { EASettingsPanel, HordeEASettingsPanel } from '../../../components/settings/EASettings';
 import { makeInitialGameState } from '../game/makeGameState';
 import { vec } from '../game/core/vec';
-import { DNA_INDEX, DNA_NAMES, GAME_CONFIG } from '../shooter.types';
+import { ARENA, DNA_INDEX, DNA_NAMES, GAME_CONFIG } from '../shooter.types';
 import { initPopulation } from '../game/ga/population';
 import { gameStore } from '../game/gameStore';
 import { analyticsStore } from '../game/analyticsStore';
 import { hordeRunStore } from '../horde/hordeRunStore';
+import { HORDE_MAPS, CUSTOM_MAP_ID, resolveHordeMap } from '../horde/hordeMaps';
+import type { HordeMap } from '../horde/hordeTypes';
 import { getRaidbossStatus, claimRaidbossSlot } from '../game/raidbossStore';
 import type { RaidbossDoc } from '../game/raidbossStore';
 
@@ -605,6 +608,90 @@ function HordePreview() {
         let animRef = requestAnimationFrame(loop);
         return () => cancelAnimationFrame(animRef);
     }, []);
+
+    return (
+        <canvas
+            ref={canvasRef}
+            width={PREVIEW_W}
+            height={PREVIEW_H}
+            style={{
+                borderRadius: '8px',
+                border:       '1px solid rgba(251,146,60,0.2)',
+                display:      'block',
+                width:        '100%',
+                height:       'auto',
+                maxWidth:     PREVIEW_W,
+            }}
+        />
+    );
+}
+
+// ---- Horde Map Preview (static — swaps in for HordePreview while the Map tab is open) ----
+
+function HordeMapPreview({ map }: { map: HordeMap }) {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const scale = PREVIEW_W / ARENA.WIDTH; // ARENA is square, same factor on both axes
+
+        ctx.fillStyle = '#0f0f1a';
+        ctx.fillRect(0, 0, PREVIEW_W, PREVIEW_H);
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+        ctx.lineWidth   = 1;
+        ctx.beginPath();
+        for (let x = 0; x <= PREVIEW_W; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, PREVIEW_H); }
+        for (let y = 0; y <= PREVIEW_H; y += 40) { ctx.moveTo(0, y); ctx.lineTo(PREVIEW_W, y); }
+        ctx.stroke();
+
+        // Orange glow along whichever edges agents can spawn from on this map
+        const GLOW = 60;
+        for (const side of map.spawnSides) {
+            let grad: CanvasGradient;
+            let gx = 0, gy = 0, gw = PREVIEW_W, gh = PREVIEW_H;
+            if (side === 'top')    { grad = ctx.createLinearGradient(0, 0, 0, GLOW); gh = GLOW; }
+            else if (side === 'bottom') { grad = ctx.createLinearGradient(0, PREVIEW_H, 0, PREVIEW_H - GLOW); gy = PREVIEW_H - GLOW; gh = GLOW; }
+            else if (side === 'left')   { grad = ctx.createLinearGradient(0, 0, GLOW, 0); gw = GLOW; }
+            else                        { grad = ctx.createLinearGradient(PREVIEW_W, 0, PREVIEW_W - GLOW, 0); gx = PREVIEW_W - GLOW; gw = GLOW; }
+            grad.addColorStop(0, 'rgba(251,146,60,0.5)');
+            grad.addColorStop(1, 'rgba(251,146,60,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(gx, gy, gw, gh);
+        }
+
+        ctx.strokeStyle = 'rgba(251,146,60,0.18)';
+        ctx.lineWidth   = 2;
+        ctx.strokeRect(1, 1, PREVIEW_W - 2, PREVIEW_H - 2);
+
+        // Obstacles — solid border = blocks bullets, dashed = movement-only (mirrors in-game render)
+        for (const o of map.obstacles) {
+            const x = o.x * scale, y = o.y * scale, w = o.w * scale, h = o.h * scale;
+            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+            ctx.fillRect(x, y, w, h);
+            ctx.strokeStyle = o.blocksBullets ? 'rgba(251,146,60,0.6)' : 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash(o.blocksBullets ? [] : [5, 3]);
+            ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+            ctx.setLineDash([]);
+        }
+
+        // Player start marker
+        const spawnX = map.playerSpawn.x * scale, spawnY = map.playerSpawn.y * scale;
+        ctx.beginPath();
+        ctx.arc(spawnX, spawnY, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#4fc3f7';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(79,195,247,0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(spawnX, spawnY, 13, 0, Math.PI * 2);
+        ctx.stroke();
+    }, [map]);
 
     return (
         <canvas
@@ -1273,7 +1360,7 @@ const perfStyles: Record<string, React.CSSProperties> = {
 
 // ---- Normal Lobby ----
 
-function NormalLobby({ onBack }: { onBack: () => void }) {
+function NormalLobby() {
     const navigate = useNavigate();
     const [tab, setTab] = useState<LobbyTab>('Overview');
     const [hasActiveGame, setHasActiveGame] = useState(!!gameStore.state);
@@ -1332,7 +1419,7 @@ function NormalLobby({ onBack }: { onBack: () => void }) {
                     {tabContent}
                 </div>
                 <div style={mobileBtnsStyle}>
-                    <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Mode</button>
+                    <HelpButton topic="shooter.solo" />
                     <button className="btn btn--primary" style={{ flex: 1 }} onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
                         {hasActiveGame ? 'Continue →' : 'Play →'}
                     </button>
@@ -1344,12 +1431,17 @@ function NormalLobby({ onBack }: { onBack: () => void }) {
     return (
         <div style={{ ...lobbyStyles.page, zoom }}>
             <div style={lobbyStyles.leftTop}>
-                <div style={lobbyStyles.brand}>
-                    <div style={lobbyStyles.brandLogo}>SG</div>
-                    <span style={lobbyStyles.brandName}>Shooter Game</span>
+                <div style={lobbyStyles.leftTopPreview}>
+                    <div style={lobbyStyles.brand}>
+                        <div style={lobbyStyles.brandLogo}>SG</div>
+                        <span style={lobbyStyles.brandName}>Shooter Game</span>
+                    </div>
+                    <ShooterPreview />
+                    <div style={lobbyStyles.previewLabel}>Live Preview</div>
                 </div>
-                <ShooterPreview />
-                <div style={lobbyStyles.previewLabel}>Live Preview</div>
+                <div style={lobbyStyles.leftTopHelpSlot}>
+                    <HelpButton topic="shooter.solo" className="btn btn--outline btn--block help-button" />
+                </div>
             </div>
 
             <div style={lobbyStyles.rightTop}>
@@ -1362,9 +1454,6 @@ function NormalLobby({ onBack }: { onBack: () => void }) {
                 </div>
             </div>
 
-            <div style={lobbyStyles.leftBottom}>
-                <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Mode</button>
-            </div>
             <div style={lobbyStyles.rightBottom}>
                 <button className="btn btn--primary" onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
                     {hasActiveGame ? 'Continue →' : 'Play →'}
@@ -1378,7 +1467,7 @@ function NormalLobby({ onBack }: { onBack: () => void }) {
 
 const RB = '#a855f7';
 
-function RaidbossLobby({ onBack }: { onBack: () => void }) {
+function RaidbossLobby() {
     const navigate = useNavigate();
     const isMobile = useMobile();
     const zoom = useZoom();
@@ -1485,7 +1574,7 @@ function RaidbossLobby({ onBack }: { onBack: () => void }) {
                 </p>
                 {statusContent}
                 <div style={mobileBtnsStyle}>
-                    <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Mode</button>
+                    <HelpButton topic="shooter.raidboss" />
                     <div style={{ flex: 1 }}>{playBtn}</div>
                 </div>
             </div>
@@ -1495,12 +1584,17 @@ function RaidbossLobby({ onBack }: { onBack: () => void }) {
     return (
         <div style={{ ...lobbyStyles.page, zoom }}>
             <div style={lobbyStyles.leftTop}>
-                <div style={lobbyStyles.brand}>
-                    <div style={{ ...lobbyStyles.brandLogo, color: RB, background: 'rgba(168,85,247,0.1)', borderColor: 'rgba(168,85,247,0.25)' }}>SG</div>
-                    <span style={lobbyStyles.brandName}>Shooter Game</span>
+                <div style={lobbyStyles.leftTopPreview}>
+                    <div style={lobbyStyles.brand}>
+                        <div style={{ ...lobbyStyles.brandLogo, color: RB, background: 'rgba(168,85,247,0.1)', borderColor: 'rgba(168,85,247,0.25)' }}>SG</div>
+                        <span style={lobbyStyles.brandName}>Shooter Game</span>
+                    </div>
+                    <RaidbossPreview />
+                    <div style={lobbyStyles.previewLabel}>Boss Preview</div>
                 </div>
-                <RaidbossPreview />
-                <div style={lobbyStyles.previewLabel}>Boss Preview</div>
+                <div style={lobbyStyles.leftTopHelpSlot}>
+                    <HelpButton topic="shooter.raidboss" className="btn btn--outline btn--block help-button" />
+                </div>
             </div>
 
             <div style={lobbyStyles.rightTop}>
@@ -1514,9 +1608,6 @@ function RaidbossLobby({ onBack }: { onBack: () => void }) {
                 {statusContent}
             </div>
 
-            <div style={lobbyStyles.leftBottom}>
-                <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Mode</button>
-            </div>
             <div style={lobbyStyles.rightBottom}>
                 {playBtn}
             </div>
@@ -1647,7 +1738,7 @@ const rbStyles: Record<string, React.CSSProperties> = {
 
 // ---- Horde Lobby ----
 
-const HORDE_TABS = ['Overview', 'Algorithm', 'Player'] as const;
+const HORDE_TABS = ['Overview', 'Algorithm', 'Player', 'Map'] as const;
 type HordeTab = typeof HORDE_TABS[number];
 
 // Horde-only difficulty presets — deliberately independent of the Solo Play PRESETS
@@ -1811,13 +1902,67 @@ function HordeOverview() {
     );
 }
 
-function HordeLobby({ onBack }: { onBack: () => void }) {
+function HordeMapSection() {
+    const navigate = useNavigate();
+    const { hordeSettings, setHordeSettings } = useSettings();
+    const customCount = hordeSettings.customObstacles.length;
+
+    const btnStyle = (active: boolean): React.CSSProperties => ({
+        ...ovStyles.presetBtn,
+        flex:        'none',
+        textAlign:   'left',
+        padding:     '10px 14px',
+        borderColor: active ? '#fb923c' : 'var(--border)',
+        color:       active ? '#fb923c' : 'var(--text-dim)',
+        background:  active ? 'rgba(251,146,60,0.09)' : 'transparent',
+    });
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <span style={ovStyles.placeholderHeading}>Map</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {HORDE_MAPS.map(m => (
+                    <button
+                        key={m.id}
+                        onClick={() => setHordeSettings({ ...hordeSettings, mapId: m.id })}
+                        style={btnStyle(hordeSettings.mapId === m.id)}
+                    >
+                        <div style={{ fontSize: 12, fontWeight: 700 }}>{m.label}</div>
+                        <div style={{ fontSize: 11, opacity: 0.7, fontWeight: 400, marginTop: 2 }}>
+                            {m.description}
+                        </div>
+                    </button>
+                ))}
+                <button
+                    onClick={() => {
+                        setHordeSettings({ ...hordeSettings, mapId: CUSTOM_MAP_ID });
+                        navigate('/HordeMapEditor');
+                    }}
+                    style={btnStyle(hordeSettings.mapId === CUSTOM_MAP_ID)}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700 }}>Custom</span>
+                        <span style={{ fontSize: 10, opacity: 0.6 }}>Edit →</span>
+                    </div>
+                    <div style={{ fontSize: 11, opacity: 0.7, fontWeight: 400, marginTop: 2 }}>
+                        {customCount === 0
+                            ? 'Build your own layout in the map editor.'
+                            : `${customCount} obstacle${customCount === 1 ? '' : 's'} placed — click to keep editing.`}
+                    </div>
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
     const navigate = useNavigate();
     const isMobile = useMobile();
     const zoom     = useZoom();
     const HO       = '#fb923c';
-    const [tab, setTab] = useState<HordeTab>('Overview');
-    const { setShooterSettings } = useSettings();
+    const [tab, setTab] = useState<HordeTab>(initialTab ?? 'Overview');
+    const { hordeSettings, setShooterSettings } = useSettings();
+    const selectedMap = resolveHordeMap(hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn);
 
     const handlePlay = async () => {
         await enterGameFullscreen();
@@ -1849,6 +1994,7 @@ function HordeLobby({ onBack }: { onBack: () => void }) {
         <div style={{ ...tabStyles.panel, overflowY: isMobile ? 'visible' : 'auto' }}>
             {tab === 'Overview' && <HordeOverview />}
             {tab === 'Algorithm' && <HordeEASettingsPanel />}
+            {tab === 'Map' && <HordeMapSection />}
             {tab === 'Player' && (
                 <>
                     <div style={tabStyles.box}>
@@ -1869,7 +2015,7 @@ function HordeLobby({ onBack }: { onBack: () => void }) {
                     {tabContent}
                 </div>
                 <div style={mobileBtnsStyle}>
-                    <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Mode</button>
+                    <HelpButton topic="shooter.horde" />
                     <div style={{ flex: 1 }}>{playBtn}</div>
                 </div>
             </div>
@@ -1879,12 +2025,17 @@ function HordeLobby({ onBack }: { onBack: () => void }) {
     return (
         <div style={{ ...lobbyStyles.page, zoom }}>
             <div style={lobbyStyles.leftTop}>
-                <div style={lobbyStyles.brand}>
-                    <div style={{ ...lobbyStyles.brandLogo, color: HO, background: 'rgba(251,146,60,0.1)', borderColor: 'rgba(251,146,60,0.25)' }}>SG</div>
-                    <span style={lobbyStyles.brandName}>Shooter Game</span>
+                <div style={lobbyStyles.leftTopPreview}>
+                    <div style={lobbyStyles.brand}>
+                        <div style={{ ...lobbyStyles.brandLogo, color: HO, background: 'rgba(251,146,60,0.1)', borderColor: 'rgba(251,146,60,0.25)' }}>SG</div>
+                        <span style={lobbyStyles.brandName}>Shooter Game</span>
+                    </div>
+                    {tab === 'Map' ? <HordeMapPreview map={selectedMap} /> : <HordePreview />}
+                    <div style={lobbyStyles.previewLabel}>{tab === 'Map' ? 'Map Preview' : 'Live Preview'}</div>
                 </div>
-                <HordePreview />
-                <div style={lobbyStyles.previewLabel}>Live Preview</div>
+                <div style={lobbyStyles.leftTopHelpSlot}>
+                    <HelpButton topic="shooter.horde" className="btn btn--outline btn--block help-button" />
+                </div>
             </div>
 
             <div style={lobbyStyles.rightTop}>
@@ -1897,9 +2048,6 @@ function HordeLobby({ onBack }: { onBack: () => void }) {
                 </div>
             </div>
 
-            <div style={lobbyStyles.leftBottom}>
-                <button className="btn btn--outline btn--c-danger" onClick={onBack}>← Mode</button>
-            </div>
             <div style={lobbyStyles.rightBottom}>
                 {playBtn}
             </div>
@@ -1941,9 +2089,22 @@ const lobbyStyles: Record<string, React.CSSProperties> = {
     leftTop: {
         display:       'flex',
         flexDirection: 'column',
-        gap:           '12px',
         minHeight:     0,
-        overflow:      'hidden',
+        overflow:      'visible', // must not clip — Compi pokes outside the help button's box below
+        gridRow:       '1 / 3', // spans both rows so the help button sits right under the canvas, independent of the right column's height
+    },
+    leftTopPreview: {
+        display:       'flex',
+        flexDirection: 'column',
+        gap:           '12px',
+        flexShrink:    0,
+    },
+    leftTopHelpSlot: {
+        flex:           1,
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        minHeight:      0,
     },
     rightTop: {
         display:       'flex',
@@ -1952,12 +2113,6 @@ const lobbyStyles: Record<string, React.CSSProperties> = {
         minWidth:      0,
         minHeight:     0,
         overflow:      'hidden',
-    },
-    leftBottom: {
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        padding:        '24px 0 0',
     },
     rightBottom: {
         display:        'flex',
@@ -2095,7 +2250,8 @@ const topBarStyles: Record<string, React.CSSProperties> = {
 
 function ShooterLobbyContent() {
     const location = useLocation();
-    const initialMode = (location.state as { mode?: LobbyMode } | null)?.mode ?? null;
+    const locationState = location.state as { mode?: LobbyMode; hordeTab?: HordeTab } | null;
+    const initialMode = locationState?.mode ?? null;
     const [mode, setMode] = useState<LobbyMode | null>(initialMode);
     const navigate = useNavigate();
     const isMobile = useMobile();
@@ -2120,9 +2276,9 @@ function ShooterLobbyContent() {
             <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
                 <TopBar onBack={() => setMode(null)} />
                 <div style={{ flex: 1, minHeight: 0, overflow: isMobile ? 'auto' : 'hidden' }}>
-                    {mode === 'normal'   && <NormalLobby   onBack={() => setMode(null)} />}
-                    {mode === 'raidboss' && <RaidbossLobby onBack={() => setMode(null)} />}
-                    {mode === 'horde'    && <HordeLobby    onBack={() => setMode(null)} />}
+                    {mode === 'normal'   && <NormalLobby />}
+                    {mode === 'raidboss' && <RaidbossLobby />}
+                    {mode === 'horde'    && <HordeLobby initialTab={locationState?.hordeTab} />}
                 </div>
             </div>
         </PageContainer>
