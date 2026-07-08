@@ -6,7 +6,7 @@ export function EASettingsPanel() {
     const { eaSettings: s, setEaSettings } = useSettings();
 
     return (
-        <section style={styles.section}>
+        <section className="panel panel--md">
             <h3 style={styles.sectionTitle}>EA Settings</h3>
 
             <div style={styles.row}>
@@ -133,7 +133,7 @@ export function HordeEASettingsPanel() {
     });
 
     return (
-        <section style={styles.section}>
+        <section className="panel panel--md">
             <h3 style={styles.sectionTitle}>Horde EA Settings</h3>
 
             <div style={styles.row}>
@@ -189,12 +189,7 @@ export function HordeEASettingsPanel() {
 }
 
 const styles: Record<string, CSSProperties> = {
-    section: {
-        padding:      '16px',
-        background:   'var(--surface)',
-        borderRadius: 'var(--r-md)',
-        border:       '1px solid var(--border)',
-    },
+    // Surface chrome comes from the "panel panel--md" className on <section>.
     sectionTitle: {
         fontSize:      '12px',
         color:         'var(--text-muted)',
@@ -209,8 +204,8 @@ const styles: Record<string, CSSProperties> = {
         marginBottom: '10px',
     },
     label: {
-        width:      '160px',
-        fontSize:   '13px',
+        width:      '170px',
+        fontSize:   '14px',
         flexShrink: 0,
         color:      'var(--text-dim)',
     },
@@ -219,8 +214,8 @@ const styles: Record<string, CSSProperties> = {
         cursor: 'pointer',
     },
     value: {
-        width:     '36px',
-        fontSize:  '13px',
+        width:     '40px',
+        fontSize:  '14px',
         textAlign: 'right',
         color:     'var(--accent)',
     },
@@ -230,23 +225,23 @@ const styles: Record<string, CSSProperties> = {
         flex:    1,
     },
     toggleActive: {
-        padding:      '4px 12px',
+        padding:      '5px 14px',
         background:   'var(--accent-dim)',
         border:       '1px solid var(--accent)',
         borderRadius: 'var(--r-sm)',
         color:        'var(--accent)',
         cursor:       'pointer',
-        fontSize:     '12px',
+        fontSize:     '13px',
         fontFamily:   'var(--font)',
     },
     toggleInactive: {
-        padding:      '4px 12px',
+        padding:      '5px 14px',
         background:   'transparent',
         border:       '1px solid var(--border)',
         borderRadius: 'var(--r-sm)',
         color:        'var(--text-muted)',
         cursor:       'pointer',
-        fontSize:     '12px',
+        fontSize:     '13px',
         fontFamily:   'var(--font)',
     },
     resetBtn: {
@@ -258,6 +253,6 @@ const styles: Record<string, CSSProperties> = {
         color:        'var(--text-muted)',
         cursor:       'pointer',
         fontFamily:   'var(--font)',
-        fontSize:     '12px',
+        fontSize:     '13px',
     },
 };

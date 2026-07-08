@@ -136,7 +136,7 @@ const styles: Record<string, React.CSSProperties> = {
     dnaNum: {
         fontSize:   13,
         fontWeight: 600,
-        fontFamily: 'monospace',
+        fontFamily: 'var(--font-mono)',
         color:      ACCENT,
     },
     geneRow: {

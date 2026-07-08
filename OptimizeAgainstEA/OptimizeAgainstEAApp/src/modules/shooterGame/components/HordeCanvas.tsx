@@ -6,6 +6,7 @@ import {
 } from '../shooter.types';
 import type { HordeGameState, HordeAgent, HordePhase, HordeMap, HordeSpawnSide, HordeObstacle } from '../horde/hordeTypes';
 import { hordeRunStore }  from '../horde/hordeRunStore';
+import { hordeGameStore } from '../horde/hordeGameStore';
 import { resolveHordeMap } from '../horde/hordeMaps';
 import { circleIntersectsObstacle, pushOutOfObstacles } from '../horde/hordeCollision';
 import { computeFlowField, sampleFlowField } from '../horde/hordePathfinding';
@@ -750,7 +751,13 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
     const inputRef   = externalInputRef ?? localInput;
 
     const { hordeSettings, shooterSettings } = useSettings();
-    const stateRef       = useRef<HordeGameState | null>(null);
+    // Resume a saved run if there is one. A 'choosing' phase can't resume as-is —
+    // the pending mod-choice prompt itself isn't persisted — so it downgrades to
+    // 'playing' (the run continues, that one mod offer is simply skipped).
+    const resumed: HordeGameState | null = hordeGameStore.state
+        ? (hordeGameStore.state.phase === 'choosing' ? { ...hordeGameStore.state, phase: 'playing' } : hordeGameStore.state)
+        : null;
+    const stateRef       = useRef<HordeGameState | null>(resumed);
     const eaRef          = useRef<HordeEA>(hordeSettings);
     const playerStatsRef = useRef<PlayerStats>(shooterSettings.playerStats);
     const hordeSizeRef   = useRef(hordeSettings.waveSize);
@@ -765,10 +772,14 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
         mapRef.current = resolveHordeMap(hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn);
     }, [hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn]);
 
-    const [uiPhase,  setUiPhase]  = useState<HordePhase | 'start'>('start');
-    const [uiGen,    setUiGen]    = useState(0);
-    const [uiScore,  setUiScore]  = useState(0);
-    const [bestDna,  setBestDna]  = useState<DNA | null>(null);
+    const [uiPhase,  setUiPhase]  = useState<HordePhase | 'start'>(resumed?.phase ?? 'start');
+    const [uiGen,    setUiGen]    = useState(resumed?.generation ?? 0);
+    const [uiScore,  setUiScore]  = useState(resumed?.score ?? 0);
+    const [bestDna,  setBestDna]  = useState<DNA | null>(() => {
+        if (!resumed) return null;
+        const best = resumed.population.individuals.reduce((a, b) => b.fitness > a.fitness ? b : a);
+        return [...best.dna];
+    });
     const [pendingModChoices, setPendingModChoices] = useState<ModDefinition[] | null>(null);
 
     const startGame = () => {
@@ -788,6 +799,8 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
             avgFitness:  0,
         };
         stateRef.current = makeInitialState(pop, mapRef.current);
+        hordeGameStore.state = stateRef.current;
+        hordeGameStore.notify();
         setUiPhase('playing');
         setUiGen(pop.individuals.length);
         setUiScore(0);
@@ -798,6 +811,7 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
         runModsStore.toggleMod(mod.id);
         setPendingModChoices(null);
         if (stateRef.current) stateRef.current = { ...stateRef.current, phase: 'playing' };
+        hordeGameStore.state = stateRef.current;
         setUiPhase('playing');
     };
 
@@ -831,6 +845,10 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
                     setUiScore(next.score);
                     setUiGen(next.generation);
                     hordeRunStore.record({ score: next.score, generation: next.generation });
+                    // The run is over — nothing left to resume. "Last Run" above
+                    // already has the score/generation via hordeRunStore.
+                    hordeGameStore.state = null;
+                    hordeGameStore.notify();
                 } else if (modChoiceEnabledRef.current && Math.floor(next.score / KILLS_PER_UPGRADE) > Math.floor(s.score / KILLS_PER_UPGRADE)) {
                     // Kill-Meilenstein erreicht (Vampire-Survivors-Stil): Auswahl anbieten,
                     // falls noch nicht unlockte Mods übrig sind — sonst einfach weiterspielen.
@@ -843,6 +861,7 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
                     }
                 }
                 stateRef.current = next;
+                if (next.phase !== 'dead') hordeGameStore.state = next;
                 render(ctx, next);
             } else {
                 render(ctx, s);

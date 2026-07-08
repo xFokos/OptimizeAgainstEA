@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import PageContainer from '../../../components/layout/PageContainer';
 import { GameModeSelectorLayout } from '../../../components/layout/GameModeSelectorLayout';
@@ -14,6 +14,9 @@ import { ARENA, DNA_INDEX, DNA_NAMES, DNA_GENE_INFO, GAME_CONFIG } from '../shoo
 import { gameStore } from '../game/gameStore';
 import { analyticsStore } from '../game/analyticsStore';
 import { hordeRunStore } from '../horde/hordeRunStore';
+import { hordeGameStore } from '../horde/hordeGameStore';
+import { runModsStore } from '../mods/runModsStore';
+import { MOD_POOL } from '../mods/modTypes';
 import { HORDE_MAPS, CUSTOM_MAP_ID, resolveHordeMap } from '../horde/hordeMaps';
 import type { HordeMap } from '../horde/hordeTypes';
 import { getRaidbossStatus, claimRaidbossSlot } from '../game/raidbossStore';
@@ -914,7 +917,7 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset, onNavigateTab }: 
         <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 16 }}>
             <div style={ovStyles.slot}>
             {hasGame ? (
-                    <div style={ovStyles.activeSlot}>
+                    <div className="panel panel--md" style={ovStyles.activeSlot}>
                         <div style={ovStyles.header}>
                             <div style={ovStyles.roundLabel}>Round</div>
                             <div style={ovStyles.roundValue}>{round}</div>
@@ -978,7 +981,7 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset, onNavigateTab }: 
                 Both stretch to the same width automatically; the Status box on the
                 left stretches to match this column's combined height. */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ ...ovStyles.placeholder, flex: 'none' }}>
+                <div className="panel panel--md" style={{ ...ovStyles.placeholder, flex: 'none' }}>
                     <span style={ovStyles.placeholderHeading}>Difficulty</span>
                     <div style={ovStyles.presetBtns}>
                         {PRESETS.map(p => (
@@ -1025,7 +1028,7 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset, onNavigateTab }: 
                 </div>
 
                 {/* DNA-Sektion — read-only here; edited from the Algorithm tab */}
-                <div style={tabStyles.box}>
+                <div className="panel panel--md">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                         <p style={{ ...tabStyles.sectionLabel, margin: 0 }}>
                             {showActiveDna ? 'Current DNA' : 'Starter DNA'}
@@ -1062,15 +1065,13 @@ const ovStyles: Record<string, React.CSSProperties> = {
         flexDirection: 'column',
         overflow:      'hidden',
     },
+    // Surface chrome (background/border/radius/padding) comes from the shared
+    // "panel panel--md" className — this only carries the flex layout.
     placeholder: {
         flex:          1,
         display:       'flex',
         flexDirection: 'column',
         gap:           12,
-        padding:       '18px',
-        background:    'var(--surface)',
-        border:        '1px solid var(--border)',
-        borderRadius:  'var(--r-md)',
         overflow:      'hidden',
     },
     placeholderHeading: {
@@ -1089,18 +1090,18 @@ const ovStyles: Record<string, React.CSSProperties> = {
     },
     presetBtn: {
         flex:          1,
-        padding:       '6px 0',
+        padding:       '9px 0',
         border:        '1px solid',
         borderRadius:  'var(--r-sm)',
         cursor:        'pointer',
         fontFamily:    'var(--font-mono)',
-        fontSize:      11,
+        fontSize:      13,
         fontWeight:    700,
-        letterSpacing: '0.04em',
+        letterSpacing: '0.03em',
         transition:    'all 0.15s ease',
     },
     presetDesc: {
-        fontSize:   11,
+        fontSize:   13,
         color:      'var(--text-muted)',
         lineHeight: 1.5,
         margin:     0,
@@ -1115,15 +1116,12 @@ const ovStyles: Record<string, React.CSSProperties> = {
         padding:       '32px 28px 24px',
         textAlign:     'center',
     },
+    // Surface chrome comes from "panel panel--md" — see placeholder above.
     activeSlot: {
         flex:          1,
         display:       'flex',
         flexDirection: 'column',
         gap:           12,
-        padding:       '18px',
-        background:    'var(--surface)',
-        border:        '1px solid var(--border)',
-        borderRadius:  'var(--r-md)',
     },
     slotIcon: {
         fontSize:  40,
@@ -1131,15 +1129,15 @@ const ovStyles: Record<string, React.CSSProperties> = {
     },
     slotTitle: {
         fontFamily:    'var(--font-mono)',
-        fontSize:      13,
+        fontSize:      14,
         fontWeight:    700,
         color:         'rgba(255,255,255,0.35)',
         letterSpacing: '0.04em',
     },
     slotSub: {
-        fontSize:   11,
-        color:      'rgba(255,255,255,0.18)',
-        lineHeight: 1.7,
+        fontSize:   13,
+        color:      'rgba(255,255,255,0.22)',
+        lineHeight: 1.6,
     },
 
     header: {
@@ -1211,20 +1209,20 @@ const ovStyles: Record<string, React.CSSProperties> = {
     },
     geneName: {
         fontFamily:    'var(--font-mono)',
-        fontSize:      11,
+        fontSize:      13,
         color:         'var(--text-dim)',
-        letterSpacing: '0.04em',
+        letterSpacing: '0.03em',
     },
     geneValue: {
         fontFamily: 'var(--font-mono)',
-        fontSize:   12,
+        fontSize:   14,
         fontWeight: 700,
         color:      'var(--accent)',
         flexShrink: 0,
     },
     geneDelta: {
         fontFamily: 'var(--font-mono)',
-        fontSize:   11,
+        fontSize:   12,
         fontWeight: 700,
         marginLeft: 6,
     },
@@ -1258,12 +1256,12 @@ const ovStyles: Record<string, React.CSSProperties> = {
     },
     statsCompactLabel: {
         fontFamily: 'var(--font-mono)',
-        fontSize:   11,
+        fontSize:   12,
         color:      'var(--text-muted)',
     },
     statsCompactValue: {
         fontFamily: 'var(--font-mono)',
-        fontSize:   12,
+        fontSize:   13,
         fontWeight: 700,
         color:      'rgba(255,255,255,0.8)',
     },
@@ -1295,62 +1293,56 @@ const tabStyles: Record<string, React.CSSProperties> = {
     },
     bar: {
         display:      'flex',
-        gap:          4,
-        marginBottom: 12,
+        gap:          6,
+        marginBottom: 16,
     },
     tabActive: {
-        padding:       '5px 14px',
+        padding:       '8px 16px',
         background:    'var(--accent-dim)',
         border:        '1px solid var(--accent)',
         borderRadius:  'var(--r-sm)',
         color:         'var(--accent)',
         cursor:        'pointer',
-        fontSize:      '12px',
+        fontSize:      '13px',
         fontFamily:    'var(--font-mono)',
         fontWeight:    600,
-        letterSpacing: '0.04em',
+        letterSpacing: '0.03em',
     },
     tabInactive: {
-        padding:       '5px 14px',
+        padding:       '8px 16px',
         background:    'transparent',
         border:        '1px solid var(--border)',
         borderRadius:  'var(--r-sm)',
         color:         'var(--text-dim)',
         cursor:        'pointer',
-        fontSize:      '12px',
+        fontSize:      '13px',
         fontFamily:    'var(--font-mono)',
         fontWeight:    600,
-        letterSpacing: '0.04em',
+        letterSpacing: '0.03em',
     },
     panel: {
         flex:      1,
         minHeight: 0,
         overflowY: 'auto',
     },
-    box: {
-        padding:      '16px',
-        background:   'var(--surface)',
-        borderRadius: 'var(--r-md)',
-        border:       '1px solid var(--border)',
-    },
     sectionLabel: {
-        fontSize:      '11px',
+        fontSize:      '12px',
         color:         'var(--text-muted)',
         letterSpacing: '0.1em',
         textTransform: 'uppercase' as const,
-        margin:        '0 0 10px 0',
+        margin:        '0 0 12px 0',
         fontFamily:    'var(--font-mono)',
     },
     resetBtn: {
         marginTop:    '12px',
-        padding:      '6px 16px',
+        padding:      '8px 18px',
         background:   'transparent',
         border:       '1px solid var(--border)',
         borderRadius: 'var(--r-sm)',
         color:        'var(--text-muted)',
         cursor:       'pointer',
         fontFamily:   'var(--font)',
-        fontSize:     '12px',
+        fontSize:     '13px',
     },
 
 };
@@ -1361,7 +1353,7 @@ function PerformanceTab() {
     const { eaSettings: s, setEaSettings } = useSettings();
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={tabStyles.box}>
+            <div className="panel panel--md">
                 <p style={tabStyles.sectionLabel}>Recording</p>
                 <div style={perfStyles.row}>
                     <label style={perfStyles.label}>Round record limit</label>
@@ -1388,13 +1380,13 @@ const perfStyles: Record<string, React.CSSProperties> = {
     },
     label: {
         width:      160,
-        fontSize:   13,
+        fontSize:   14,
         flexShrink: 0,
         color:      'var(--text-dim)',
     },
     value: {
         width:     36,
-        fontSize:  13,
+        fontSize:  14,
         textAlign: 'right' as const,
         color:     'var(--accent)',
     },
@@ -1467,9 +1459,17 @@ function NormalLobby() {
             )}
             {tab === 'Algorithm' && (
                 <>
-                    <div style={{ ...tabStyles.box, marginBottom: 12 }}>
+                    <div className="panel panel--md" style={{ marginBottom: 12 }}>
                         <p style={tabStyles.sectionLabel}>Starter DNA</p>
-                        <ShooterDnaSection onBeforeChange={warnIfMidRound} />
+                        <ShooterDnaSection
+                            dna={shooterSettings.starterDna}
+                            onChange={(i, v) => {
+                                const newDna = [...shooterSettings.starterDna];
+                                newDna[i] = v;
+                                setShooterSettings({ ...shooterSettings, starterDna: newDna });
+                            }}
+                            onBeforeChange={warnIfMidRound}
+                        />
                     </div>
                     <EASettingsPanel />
                 </>
@@ -1477,14 +1477,14 @@ function NormalLobby() {
             {tab === 'Performance' && <PerformanceTab />}
             {tab === 'Player' && (
                 <>
-                    <div style={{ ...tabStyles.box, marginBottom: 12 }}>
+                    <div className="panel panel--md" style={{ marginBottom: 12 }}>
                         <p style={tabStyles.sectionLabel}>Round Settings</p>
                         <ShooterRoundSection
                             locked={selectedPreset !== 'custom'}
                             onBeforeChange={warnIfMidRound}
                         />
                     </div>
-                    <div style={tabStyles.box}>
+                    <div className="panel panel--md">
                         <ShooterPlayerSection />
                     </div>
                     <button style={tabStyles.resetBtn} onClick={() => setShooterSettings(resetShooterSettings())}>Reset</button>
@@ -1503,7 +1503,7 @@ function NormalLobby() {
                 </div>
                 <div style={mobileBtnsStyle}>
                     <HelpButton topic="shooter.solo" />
-                    <button className="btn btn--primary" style={{ flex: 1 }} onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
+                    <button className="btn btn--primary btn--lg" style={{ flex: 1 }} onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
                         {hasActiveGame ? 'Continue →' : 'Play →'}
                     </button>
                 </div>
@@ -1538,7 +1538,7 @@ function NormalLobby() {
             </div>
 
             <div style={lobbyStyles.rightBottom}>
-                <button className="btn btn--primary" onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
+                <button className="btn btn--primary btn--lg" onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
                     {hasActiveGame ? 'Continue →' : 'Play →'}
                 </button>
             </div>
@@ -1638,7 +1638,7 @@ function RaidbossLobby() {
 
     const playBtn = (
         <button
-            className="btn btn--outline"
+            className="btn btn--outline btn--lg"
             style={{ '--btn-color': RB } as React.CSSProperties}
             onClick={handlePlay}
             disabled={loading}
@@ -1711,7 +1711,7 @@ const rbStyles: Record<string, React.CSSProperties> = {
     },
     emptyIcon:  { fontSize: 28 },
     emptyTitle: { fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 700, color: 'rgba(192,158,255,0.9)' },
-    emptySub:   { fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 },
+    emptySub:   { fontSize: 14, color: 'rgba(255,255,255,0.4)', lineHeight: 1.55 },
 
     statusPanel: {
         display:       'flex',
@@ -1732,14 +1732,14 @@ const rbStyles: Record<string, React.CSSProperties> = {
     },
     genValue: {
         fontFamily: 'var(--font-mono)',
-        fontSize:   32,
+        fontSize:   48,
         fontWeight: 700,
         color:      RB,
         lineHeight: 1,
-        textShadow: '0 0 20px rgba(168,85,247,0.4)',
+        textShadow: '0 0 24px rgba(168,85,247,0.4)',
     },
     genTotal: {
-        fontSize: 12,
+        fontSize: 13,
         color:    'rgba(255,255,255,0.35)',
     },
 
@@ -1762,7 +1762,7 @@ const rbStyles: Record<string, React.CSSProperties> = {
     },
     progressCount: {
         fontFamily: 'var(--font-mono)',
-        fontSize:   13,
+        fontSize:   14,
         fontWeight: 700,
         color:      'rgba(192,158,255,0.85)',
     },
@@ -1813,7 +1813,7 @@ const rbStyles: Record<string, React.CSSProperties> = {
     },
     nextUpValue: {
         fontFamily: 'var(--font-mono)',
-        fontSize:   13,
+        fontSize:   14,
         fontWeight: 700,
         color:      'rgba(192,158,255,0.9)',
     },
@@ -1864,12 +1864,15 @@ const HORDE_PRESETS = [
 
 type HordePresetId = typeof HORDE_PRESETS[number]['id'] | 'custom';
 
-function HordeOverview() {
+function HordeOverview({ onNavigateTab }: { onNavigateTab: (tab: HordeTab) => void }) {
     const isMobile = useMobile();
-    const [lastRun, setLastRun] = useState(hordeRunStore.lastRun);
+    const [lastRun, setLastRun]     = useState(hordeRunStore.lastRun);
+    const [activeRun, setActiveRun] = useState(hordeGameStore.state);
+    const activeModIds = useSyncExternalStore(cb => runModsStore.subscribe(cb), () => runModsStore.activeModIds);
     const { hordeSettings, setHordeSettings } = useSettings();
 
     useEffect(() => hordeRunStore.subscribe(() => setLastRun(hordeRunStore.lastRun)), []);
+    useEffect(() => hordeGameStore.subscribe(() => setActiveRun(hordeGameStore.state)), []);
 
     const [selectedPreset, setSelectedPreset] = useState<HordePresetId>(() => {
         const match = HORDE_PRESETS.find(p =>
@@ -1910,41 +1913,98 @@ function HordeOverview() {
 
     const activePreset = HORDE_PRESETS.find(p => p.id === selectedPreset) ?? null;
 
+    const activeMods = activeRun ? MOD_POOL.filter(m => activeModIds.includes(m.id)) : [];
+    const bestIndividual = activeRun
+        ? activeRun.population.individuals.reduce((a, b) => (b.fitness > a.fitness ? b : a))
+        : null;
+    const showActiveDna = !!bestIndividual;
+    const displayDna     = bestIndividual ? bestIndividual.dna : hordeSettings.starterDna;
+
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={isMobile ? { display: 'flex', flexDirection: 'column', gap: 16 } : ovStyles.layout}>
-                <div style={ovStyles.slot}>
-                    {lastRun ? (
-                        <div style={ovStyles.activeSlot}>
-                            <div style={ovStyles.header}>
-                                <div style={ovStyles.roundLabel}>Last Run</div>
-                                <div style={ovStyles.roundValue}>{lastRun.score}</div>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 16 }}>
+            <div style={ovStyles.slot}>
+                {activeRun ? (
+                    <div className="panel panel--md" style={ovStyles.activeSlot}>
+                        <div style={ovStyles.header}>
+                            <div style={ovStyles.roundLabel}>Run In Progress</div>
+                            <div style={ovStyles.roundValue}>{activeRun.score}</div>
+                        </div>
+                        <div style={ovStyles.divider} />
+                        <div style={ovStyles.statsCompact}>
+                            <div style={ovStyles.statsCompactRow}>
+                                <span style={ovStyles.statsCompactLabel}>Kills</span>
+                                <span style={ovStyles.statsCompactValue}>{activeRun.score}</span>
                             </div>
-                            <div style={ovStyles.divider} />
-                            <div style={ovStyles.statsCompact}>
-                                <div style={ovStyles.statsCompactRow}>
-                                    <span style={ovStyles.statsCompactLabel}>Kills</span>
-                                    <span style={ovStyles.statsCompactValue}>{lastRun.score}</span>
-                                </div>
-                                <div style={ovStyles.statsCompactRow}>
-                                    <span style={ovStyles.statsCompactLabel}>Generations Reached</span>
-                                    <span style={ovStyles.statsCompactValue}>{lastRun.generation}</span>
-                                </div>
+                            <div style={ovStyles.statsCompactRow}>
+                                <span style={ovStyles.statsCompactLabel}>Generation</span>
+                                <span style={ovStyles.statsCompactValue}>{activeRun.generation}</span>
                             </div>
                         </div>
-                    ) : (
-                        <div style={ovStyles.emptySlot}>
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                                <span style={ovStyles.slotIcon}>💀</span>
-                                <span style={ovStyles.slotTitle}>No runs yet</span>
-                                <span style={ovStyles.slotSub}>
-                                    Start a wave and see<br />how long you survive.
-                                </span>
+                        {activeMods.length > 0 && (
+                            <>
+                                <div style={ovStyles.divider} />
+                                <div>
+                                    <span style={ovStyles.statsCompactLabel}>Active Items</span>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                                        {activeMods.map(mod => (
+                                            <span
+                                                key={mod.id}
+                                                title={`${mod.name} — ${mod.description}`}
+                                                style={{
+                                                    display:      'inline-flex',
+                                                    alignItems:   'center',
+                                                    gap:          4,
+                                                    padding:      '4px 9px',
+                                                    borderRadius: 999,
+                                                    background:   'rgba(251,146,60,0.1)',
+                                                    border:       '1px solid rgba(251,146,60,0.25)',
+                                                    fontSize:     12,
+                                                    color:        'rgba(255,255,255,0.75)',
+                                                }}
+                                            >
+                                                {mod.icon} {mod.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                ) : lastRun ? (
+                    <div className="panel panel--md" style={ovStyles.activeSlot}>
+                        <div style={ovStyles.header}>
+                            <div style={ovStyles.roundLabel}>Last Run</div>
+                            <div style={ovStyles.roundValue}>{lastRun.score}</div>
+                        </div>
+                        <div style={ovStyles.divider} />
+                        <div style={ovStyles.statsCompact}>
+                            <div style={ovStyles.statsCompactRow}>
+                                <span style={ovStyles.statsCompactLabel}>Kills</span>
+                                <span style={ovStyles.statsCompactValue}>{lastRun.score}</span>
+                            </div>
+                            <div style={ovStyles.statsCompactRow}>
+                                <span style={ovStyles.statsCompactLabel}>Generations Reached</span>
+                                <span style={ovStyles.statsCompactValue}>{lastRun.generation}</span>
                             </div>
                         </div>
-                    )}
-                </div>
-                <div style={ovStyles.placeholder}>
+                    </div>
+                ) : (
+                    <div style={ovStyles.emptySlot}>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                            <span style={ovStyles.slotIcon}>💀</span>
+                            <span style={ovStyles.slotTitle}>No runs yet</span>
+                            <span style={ovStyles.slotSub}>
+                                Start a wave and see<br />how long you survive.
+                            </span>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Right column: Difficulty stacked above the (read-only) DNA display —
+                same pattern as Solo's Overview. */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div className="panel panel--md" style={{ ...ovStyles.placeholder, flex: 'none' }}>
                     <span style={ovStyles.placeholderHeading}>Difficulty</span>
                     <div style={ovStyles.presetBtns}>
                         {HORDE_PRESETS.map(p => (
@@ -1980,6 +2040,30 @@ function HordeOverview() {
                     <span style={ovStyles.placeholderHeading}>Wave Settings</span>
                     <HordeWaveSection />
                 </div>
+
+                {/* DNA-Sektion — read-only here; edited from the Algorithm tab.
+                    Shows the current run's best-performing individual while a
+                    run is active, otherwise falls back to the starter DNA. */}
+                <div className="panel panel--md">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <p style={{ ...tabStyles.sectionLabel, margin: 0 }}>
+                            {showActiveDna ? 'Current DNA (Best Agent)' : 'Starter DNA'}
+                        </p>
+                        <button className="btn btn--ghost btn--sm" onClick={() => onNavigateTab('Algorithm')}>
+                            Edit →
+                        </button>
+                    </div>
+                    <div style={{ ...ovStyles.geneList, gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)' }}>
+                        {DNA_NAMES.map((name, i) => (
+                            <DnaGeneRow
+                                key={i}
+                                name={name}
+                                value={displayDna[i] ?? 0}
+                                delta={0}
+                            />
+                        ))}
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -2010,8 +2094,8 @@ function HordeMapSection() {
                         onClick={() => setHordeSettings({ ...hordeSettings, mapId: m.id })}
                         style={btnStyle(hordeSettings.mapId === m.id)}
                     >
-                        <div style={{ fontSize: 12, fontWeight: 700 }}>{m.label}</div>
-                        <div style={{ fontSize: 11, opacity: 0.7, fontWeight: 400, marginTop: 2 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{m.label}</div>
+                        <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 400, marginTop: 2 }}>
                             {m.description}
                         </div>
                     </button>
@@ -2024,10 +2108,10 @@ function HordeMapSection() {
                     style={btnStyle(hordeSettings.mapId === CUSTOM_MAP_ID)}
                 >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                        <span style={{ fontSize: 12, fontWeight: 700 }}>Custom</span>
-                        <span style={{ fontSize: 10, opacity: 0.6 }}>Edit →</span>
+                        <span style={{ fontSize: 13, fontWeight: 700 }}>Custom</span>
+                        <span style={{ fontSize: 11, opacity: 0.6 }}>Edit →</span>
                     </div>
-                    <div style={{ fontSize: 11, opacity: 0.7, fontWeight: 400, marginTop: 2 }}>
+                    <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 400, marginTop: 2 }}>
                         {customCount === 0
                             ? 'Build your own layout in the map editor.'
                             : `${customCount} obstacle${customCount === 1 ? '' : 's'} placed — click to keep editing.`}
@@ -2044,8 +2128,15 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
     const zoom     = useZoom();
     const HO       = '#fb923c';
     const [tab, setTab] = useState<HordeTab>(initialTab ?? 'Overview');
-    const { hordeSettings, setShooterSettings } = useSettings();
+    const { hordeSettings, setHordeSettings, setShooterSettings } = useSettings();
     const selectedMap = resolveHordeMap(hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn);
+
+    const [activeRun, setActiveRun] = useState(hordeGameStore.state);
+    useEffect(() => hordeGameStore.subscribe(() => setActiveRun(hordeGameStore.state)), []);
+    const hasActiveRun = !!activeRun;
+    // While a run is in progress, show the map it actually started with — the
+    // player may have changed the map setting since without restarting.
+    const previewMap = activeRun?.map ?? selectedMap;
 
     const handlePlay = async () => {
         await enterGameFullscreen();
@@ -2054,11 +2145,11 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
 
     const playBtn = (
         <button
-            className="btn btn--outline"
+            className="btn btn--outline btn--lg"
             style={{ '--btn-color': HO } as React.CSSProperties}
             onClick={handlePlay}
         >
-            Play Horde →
+            {hasActiveRun ? 'Continue Horde →' : 'Play Horde →'}
         </button>
     );
 
@@ -2075,12 +2166,27 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
 
     const tabContent = (
         <div style={{ ...tabStyles.panel, overflowY: isMobile ? 'visible' : 'auto' }}>
-            {tab === 'Overview' && <HordeOverview />}
-            {tab === 'Algorithm' && <HordeEASettingsPanel />}
+            {tab === 'Overview' && <HordeOverview onNavigateTab={setTab} />}
+            {tab === 'Algorithm' && (
+                <>
+                    <div className="panel panel--md" style={{ marginBottom: 12 }}>
+                        <p style={tabStyles.sectionLabel}>Starter DNA</p>
+                        <ShooterDnaSection
+                            dna={hordeSettings.starterDna}
+                            onChange={(i, v) => {
+                                const newDna = [...hordeSettings.starterDna];
+                                newDna[i] = v;
+                                setHordeSettings({ ...hordeSettings, starterDna: newDna });
+                            }}
+                        />
+                    </div>
+                    <HordeEASettingsPanel />
+                </>
+            )}
             {tab === 'Map' && <HordeMapSection />}
             {tab === 'Player' && (
                 <>
-                    <div style={tabStyles.box}>
+                    <div className="panel panel--md">
                         <ShooterPlayerSection />
                     </div>
                     <button style={tabStyles.resetBtn} onClick={() => setShooterSettings(resetShooterSettings())}>Reset</button>
@@ -2113,8 +2219,10 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
                         <div style={{ ...lobbyStyles.brandLogo, color: HO, background: 'rgba(251,146,60,0.1)', borderColor: 'rgba(251,146,60,0.25)' }}>SG</div>
                         <span style={lobbyStyles.brandName}>Shooter Game</span>
                     </div>
-                    {tab === 'Map' ? <HordeMapPreview map={selectedMap} /> : <HordePreview />}
-                    <div style={lobbyStyles.previewLabel}>{tab === 'Map' ? 'Map Preview' : 'Live Preview'}</div>
+                    {tab === 'Map' ? <HordeMapPreview map={previewMap} /> : <HordePreview />}
+                    <div style={lobbyStyles.previewLabel}>
+                        {tab === 'Map' ? 'Map Preview' : 'Live Preview'} · {previewMap.label}
+                    </div>
                 </div>
                 <div style={lobbyStyles.leftTopHelpSlot}>
                     <HelpButton topic="shooter.horde" className="btn btn--outline btn--block help-button" />
@@ -2224,7 +2332,7 @@ const lobbyStyles: Record<string, React.CSSProperties> = {
         fontWeight:     700,
         letterSpacing:  '0.05em',
         color:          '#4fc3f7',
-        fontFamily:     'monospace',
+        fontFamily:     'var(--font-mono)',
     },
     brandName: {
         fontSize:      '11px',
@@ -2233,7 +2341,7 @@ const lobbyStyles: Record<string, React.CSSProperties> = {
         letterSpacing: '0.1em',
         color:         'rgba(255,255,255,0.28)',
         textAlign:     'center' as const,
-        fontFamily:    'monospace',
+        fontFamily:    'var(--font-mono)',
     },
     previewLabel: {
         fontSize:      '11px',
@@ -2241,7 +2349,7 @@ const lobbyStyles: Record<string, React.CSSProperties> = {
         textAlign:     'center',
         letterSpacing: '0.1em',
         textTransform: 'uppercase',
-        fontFamily:    'monospace',
+        fontFamily:    'var(--font-mono)',
     },
     header: {
         display:       'flex',
@@ -2249,17 +2357,17 @@ const lobbyStyles: Record<string, React.CSSProperties> = {
         gap:           '8px',
     },
     title: {
-        fontFamily: 'monospace',
-        fontSize:   '24px',
-        fontWeight: 500,
+        fontFamily: 'var(--font-mono)',
+        fontSize:   '26px',
+        fontWeight: 600,
         color:      'rgba(255,255,255,0.9)',
         margin:     0,
     },
     description: {
-        fontFamily:  'monospace',
-        fontSize:    '13px',
+        fontFamily:  'var(--font)',
+        fontSize:    '14px',
         color:       'rgba(255,255,255,0.5)',
-        lineHeight:  1.5,
+        lineHeight:  1.55,
         margin:      0,
     },
 };

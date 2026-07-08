@@ -15,6 +15,7 @@
      <button class="btn btn--gold">…</button>     optimum / highlight call-to-action
      <button class="btn btn--danger">…</button>   destructive
      <button class="btn btn--sm">…</button>       smaller padding
+     <button class="btn btn--lg">…</button>       larger padding — primary page CTAs
      <button class="btn btn--active">…</button>   toggled-on (recolours to accent)
      <button class="btn btn--selected">…</button> selection ring over any variant
      <button class="btn btn--block">…</button>    stretch to container width
@@ -133,6 +134,7 @@
 }
 
 .btn--sm { padding: var(--sp-2) var(--sp-3); font-size: 0.75rem; }
+.btn--lg { padding: var(--sp-4) var(--sp-6); font-size: 1rem; }
 .btn--danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
 
 .btn--active {

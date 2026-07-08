@@ -1,7 +1,12 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import compiImg from '../../assets/CompiDerpy.webp';
+
+// Mouse hover has to linger this long before the bubble appears, so it
+// doesn't flash open every time the cursor merely passes over a label.
+// Keyboard focus (a deliberate action) skips the delay — see onFocus below.
+const HOVER_DELAY_MS = 1200;
 
 interface CompiTooltipProps {
     /** Explanation text shown in the bubble. */
@@ -28,8 +33,16 @@ export function CompiTooltip({ text, children, placement = 'top' }: CompiTooltip
     const [open, setOpen] = useState(false);
     const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
     const anchorRef = useRef<HTMLSpanElement>(null);
+    const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const show = () => {
+    const clearTimer = () => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+    };
+
+    const showNow = () => {
         const rect = anchorRef.current?.getBoundingClientRect();
         if (!rect) return;
         setCoords({
@@ -38,7 +51,23 @@ export function CompiTooltip({ text, children, placement = 'top' }: CompiTooltip
         });
         setOpen(true);
     };
-    const hide = () => setOpen(false);
+
+    // Hover has to linger — schedule instead of showing immediately.
+    const handleMouseEnter = () => {
+        clearTimer();
+        timerRef.current = setTimeout(showNow, HOVER_DELAY_MS);
+    };
+    // Keyboard focus is a deliberate action, so it shows right away.
+    const handleFocus = () => {
+        clearTimer();
+        showNow();
+    };
+    const hide = () => {
+        clearTimer();
+        setOpen(false);
+    };
+
+    useEffect(() => clearTimer, []);
 
     return (
         <>
@@ -46,9 +75,9 @@ export function CompiTooltip({ text, children, placement = 'top' }: CompiTooltip
                 ref={anchorRef}
                 className="compi-tip"
                 tabIndex={0}
-                onMouseEnter={show}
+                onMouseEnter={handleMouseEnter}
                 onMouseLeave={hide}
-                onFocus={show}
+                onFocus={handleFocus}
                 onBlur={hide}
             >
                 {children}

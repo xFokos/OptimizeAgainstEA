@@ -70,14 +70,19 @@ function SwitchRow({ label, checked, onChange, tooltip }: SwitchRowProps) {
 }
 
 // ── Section: Starter DNA ─────────────────────────────────────────────────────
+// Controlled component (dna + onChange in) — Solo and Horde each keep their own
+// starterDna in separate settings slices, so this doesn't reach into context itself.
 
-export function ShooterDnaSection({ onBeforeChange }: { onBeforeChange?: () => void } = {}) {
-    const { shooterSettings: s, setShooterSettings } = useSettings();
+interface ShooterDnaSectionProps {
+    dna:             number[];
+    onChange:        (index: number, value: number) => void;
+    onBeforeChange?: () => void;
+}
+
+export function ShooterDnaSection({ dna, onChange, onBeforeChange }: ShooterDnaSectionProps) {
     const updateDna = (index: number, value: number) => {
         onBeforeChange?.();
-        const newDna = [...s.starterDna];
-        newDna[index] = value;
-        setShooterSettings({ ...s, starterDna: newDna });
+        onChange(index, value);
     };
     return (
         <div style={dnaStyles.grid}>
@@ -87,11 +92,11 @@ export function ShooterDnaSection({ onBeforeChange }: { onBeforeChange?: () => v
                         <CompiTooltip text={DNA_GENE_INFO[name].tooltip}>
                             <span style={dnaStyles.itemLabel}>{DNA_GENE_INFO[name].label}</span>
                         </CompiTooltip>
-                        <span style={dnaStyles.itemValue}>{s.starterDna[i].toFixed(2)}</span>
+                        <span style={dnaStyles.itemValue}>{dna[i].toFixed(2)}</span>
                     </div>
                     <input
                         type="range" min={0} max={1} step={0.01}
-                        value={s.starterDna[i]}
+                        value={dna[i]}
                         onChange={e => updateDna(i, parseFloat(e.target.value))}
                         className="slider"
                         style={{ width: '100%', cursor: 'pointer' }}
@@ -119,7 +124,7 @@ const dnaStyles: Record<string, React.CSSProperties> = {
         alignItems:     'baseline',
     },
     itemLabel: {
-        fontSize:   11,
+        fontSize:   12,
         color:      'var(--text-dim)',
         fontFamily: 'var(--font-mono)',
         whiteSpace: 'nowrap' as const,
@@ -127,7 +132,7 @@ const dnaStyles: Record<string, React.CSSProperties> = {
         textOverflow: 'ellipsis',
     },
     itemValue: {
-        fontSize:   11,
+        fontSize:   12,
         color:      'var(--accent)',
         fontFamily: 'var(--font-mono)',
         flexShrink: 0,
@@ -248,7 +253,7 @@ const modStyles: Record<string, CSSProperties> = {
         lineHeight: 1,
     },
     slotName: {
-        fontSize:      '8px',
+        fontSize:      '9.5px',
         color:         'var(--text-dim)',
         textAlign:     'center',
         lineHeight:    1.2,
@@ -332,18 +337,25 @@ export function HordeWaveSection() {
 // ── Legacy full panel (still used outside the lobby) ────────────────────────
 
 export function ShooterSettingsPanel() {
-    const { setShooterSettings } = useSettings();
+    const { shooterSettings: s, setShooterSettings } = useSettings();
     return (
         <div>
-            <section style={styles.section}>
+            <section className="panel panel--md" style={styles.section}>
                 <h3 style={styles.sectionTitle}>Starter DNA</h3>
-                <ShooterDnaSection />
+                <ShooterDnaSection
+                    dna={s.starterDna}
+                    onChange={(i, v) => {
+                        const newDna = [...s.starterDna];
+                        newDna[i] = v;
+                        setShooterSettings({ ...s, starterDna: newDna });
+                    }}
+                />
             </section>
-            <section style={styles.section}>
+            <section className="panel panel--md" style={styles.section}>
                 <h3 style={styles.sectionTitle}>Game Round</h3>
                 <ShooterRoundSection />
             </section>
-            <section style={styles.section}>
+            <section className="panel panel--md" style={styles.section}>
                 <h3 style={styles.sectionTitle}>Player</h3>
                 <ShooterPlayerSection />
             </section>
@@ -355,11 +367,9 @@ export function ShooterSettingsPanel() {
 }
 
 const styles: Record<string, CSSProperties> = {
+    // Surface chrome comes from the "panel panel--md" className — this only
+    // carries the layout gap between the legacy panel's stacked sections.
     section: {
-        padding:      '16px',
-        background:   'var(--surface)',
-        borderRadius: 'var(--r-md)',
-        border:       '1px solid var(--border)',
         marginBottom: '12px',
     },
     sectionTitle: {
@@ -381,8 +391,8 @@ const styles: Record<string, CSSProperties> = {
         marginBottom: '10px',
     },
     label: {
-        width:      '160px',
-        fontSize:   '13px',
+        width:      '170px',
+        fontSize:   '14px',
         flexShrink: 0,
         color:      'var(--text-dim)',
     },
@@ -391,8 +401,8 @@ const styles: Record<string, CSSProperties> = {
         cursor: 'pointer',
     },
     value: {
-        width:     '48px',
-        fontSize:  '13px',
+        width:     '52px',
+        fontSize:  '14px',
         textAlign: 'right',
         color:     'var(--accent)',
     },
@@ -404,6 +414,6 @@ const styles: Record<string, CSSProperties> = {
         color:        'var(--text-muted)',
         cursor:       'pointer',
         fontFamily:   'var(--font)',
-        fontSize:     '12px',
+        fontSize:     '13px',
     },
 };
