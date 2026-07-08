@@ -1,17 +1,12 @@
 import type { Cell, FitnessFnId, Grid, MazeProblem, WalkResult, WallRule } from '../types/maze';
+import { DEFAULT_PATH_LENGTH_FACTOR } from '../types/ea';
 import { generateMaze } from './mazeGen';
 import { computeGeodesic } from './geodesic';
 
-/**
- * Genome length headroom over the maze's geodesic diameter. Roughly half of a
- * random agent's moves bump a wall and waste a step, and it backtracks, so it
- * needs several times the corridor distance to reliably thread its way to the
- * goal — empirically ~3.5× gives reliable solving without bloating the genome.
- */
-const LENGTH_SLACK = 3.5;
-/** Clamp the auto-sized genome length to a sane range. Exported so the maze
- * creator can warn when a maze's shortest path exceeds what a genome can hold. */
+/** Genome-length fallback when the goal is unreachable (shortest path unknown). */
 const MIN_PATH_LENGTH = 30;
+/** Hard genome-length cap (worker cost, replay display). Exported so the maze
+ * creator can warn when a maze's shortest path exceeds what a genome can hold. */
 export const MAX_PATH_LENGTH = 600;
 
 /**
@@ -91,6 +86,8 @@ export interface BuildMazeOptions {
   seed?: number;
   /** Fraction of dead-ends to open (0 = perfect maze). Shortens solution paths. */
   braid?: number;
+  /** Fraction of remaining interior walls to remove — opens parallel routes. */
+  openness?: number;
   /** Use this exact grid instead of generating one (hand-built creator mazes). */
   grid?: Grid;
   /** Start cell. Defaults to the top-left corner. */
@@ -99,10 +96,25 @@ export interface BuildMazeOptions {
   goal?: Cell;
   /** How a blocked move is handled during walks. Defaults to 'waste'. */
   wallRule?: WallRule;
+  /**
+   * Genome length as a multiple of the shortest start→goal path (≥ 1). Roughly
+   * half of a random agent's moves bump a wall and waste a step, and it
+   * backtracks, so it needs several times the corridor distance to reliably
+   * thread its way to the goal — the ~3.5× default gives reliable solving
+   * without bloating the genome.
+   */
+  pathLengthFactor?: number;
 }
 
 /** Default braiding — keeps the maze solvable and exploration-rich. */
 export const DEFAULT_BRAID = 0.5;
+/**
+ * Default openness — the fraction of interior walls removed after braiding.
+ * Braiding only opens dead-ends, so the backtracker's long corridors survive
+ * it and the whole population files down one path; this breaks them up.
+ * Too high and the deceptive Manhattan fitness stops being deceptive.
+ */
+export const DEFAULT_OPENNESS = 0.15;
 
 /**
  * Builds a complete maze problem from a seed: generates the maze, floods the
@@ -111,16 +123,19 @@ export const DEFAULT_BRAID = 0.5;
  * the SAME maze with a different `evaluate` — the comparison demo.
  */
 export function createMazeProblem(opts: BuildMazeOptions): MazeProblem {
-  const { cols, rows, fitnessFnId, seed = 0, braid = DEFAULT_BRAID } = opts;
-  const grid: Grid = opts.grid ?? generateMaze(cols, rows, seed, braid);
+  const {
+    cols, rows, fitnessFnId, seed = 0,
+    braid = DEFAULT_BRAID, openness = DEFAULT_OPENNESS,
+    pathLengthFactor = DEFAULT_PATH_LENGTH_FACTOR,
+  } = opts;
+  const grid: Grid = opts.grid ?? generateMaze(cols, rows, seed, { braid, openness });
   const start: Cell = opts.start ?? { x: 0, y: 0 };
   const goal: Cell = opts.goal ?? { x: cols - 1, y: rows - 1 };
 
   const geo = computeGeodesic(grid, goal, start);
-  const pathLength = Math.min(
-    MAX_PATH_LENGTH,
-    Math.max(MIN_PATH_LENGTH, geo.shortestFromStart, Math.ceil(geo.diameter * LENGTH_SLACK)),
-  );
+  // ×1 = exactly the shortest possible path (a perfect string is required).
+  const shortest = geo.shortestFromStart > 0 ? geo.shortestFromStart : MIN_PATH_LENGTH;
+  const pathLength = Math.min(MAX_PATH_LENGTH, Math.ceil(shortest * Math.max(pathLengthFactor, 1)));
 
   const fn = FITNESS_FNS[fitnessFnId];
 

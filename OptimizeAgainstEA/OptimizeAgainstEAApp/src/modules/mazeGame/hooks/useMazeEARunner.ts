@@ -15,6 +15,9 @@ export interface MazeRunParams {
   rows: number;
   /** A hand-built maze to run instead of generating from the seed. */
   maze?: SerializedMaze;
+  /** Part of the run's identity so a genome-length change restarts the run;
+   * the worker itself reads the factor from the config. */
+  pathLengthFactor?: number;
 }
 
 export interface EAState {

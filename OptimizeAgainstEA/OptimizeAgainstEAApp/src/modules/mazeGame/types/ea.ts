@@ -45,7 +45,16 @@ export interface EAConfig {
   fitnessFnId: FitnessFnId;
   /** How a blocked move is handled: waste it, crash, or repair the gene. */
   wallRule: WallRule;
+  /**
+   * Genome length as a multiple of the maze's shortest path (≥ 1; capped at
+   * MAX_PATH_LENGTH). ×1 means the EA must evolve a perfect move string.
+   * Baked into the problem at build time — changing it restarts the run.
+   */
+  pathLengthFactor: number;
 }
+
+/** Default genome-length multiplier — enough slack for wasted moves and detours. */
+export const DEFAULT_PATH_LENGTH_FACTOR = 3.5;
 
 export const DEFAULT_MAZE_EA_CONFIG: EAConfig = {
   populationSize: 100,
@@ -62,6 +71,7 @@ export const DEFAULT_MAZE_EA_CONFIG: EAConfig = {
   mutationStrategy: 'point',
   fitnessFnId: 'geodesic',
   wallRule: 'waste',
+  pathLengthFactor: DEFAULT_PATH_LENGTH_FACTOR,
 };
 
 import type { ReplayFrame } from '../engine/ea/eaReplayLog';

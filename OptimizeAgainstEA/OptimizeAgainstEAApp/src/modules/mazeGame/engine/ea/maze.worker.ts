@@ -22,6 +22,10 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
 
   if (msg.type === 'START') {
     try {
+      // The genome-length factor is fixed for the worker's lifetime: the main
+      // thread restarts the run (fresh START) when it changes, so mixed-length
+      // populations can never occur.
+      const pathLengthFactor = msg.config.pathLengthFactor;
       buildProblem = (fitnessFnId, wallRule) =>
         msg.maze
           ? createMazeProblem({
@@ -33,6 +37,7 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
               fitnessFnId,
               seed: msg.seed,
               wallRule,
+              pathLengthFactor,
             })
           : createMazeProblem({
               cols: msg.cols,
@@ -40,6 +45,7 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
               seed: msg.seed,
               fitnessFnId,
               wallRule,
+              pathLengthFactor,
             });
       curFitnessFnId = msg.config.fitnessFnId;
       curWallRule = msg.config.wallRule;

@@ -93,7 +93,7 @@ export default function MazeGamePage() {
         onSelect={(id) => (id === 'experiment' ? enterExperiment() : setMode(id as MazeMode))}
         onBack={() => navigate('/Dashboard')}
         backLabel="← Back"
-        rightContent={<HintToggle />}
+        rightContent={<div className="maze-menu-hint"><HintToggle /></div>}
       />
     );
   }

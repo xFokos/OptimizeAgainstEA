@@ -1,20 +1,40 @@
-import type { Grid } from '../types/maze';
+import type { Cell, Grid } from '../types/maze';
+import type { RNG } from '../types/ea';
 import { MOVE_DELTAS, MOVE_WALL_BIT, cellIndex } from '../types/maze';
 import { makeLCG } from './rng';
+import { computeGeodesic } from './geodesic';
 
 /** Opposite move direction (up<->down, right<->left). */
 const OPPOSITE = [2, 3, 0, 1] as const;
+
+export interface MazeGenOptions {
+  /** Fraction of dead-ends opened into loops (0..1). Shortens solution paths. */
+  braid?: number;
+  /**
+   * Fraction of the interior walls that remain after braiding to knock out
+   * (0..1). Braiding only touches dead-ends, so the backtracker's long
+   * corridors survive it; this pass punches side doors into them, creating
+   * parallel routes the population can split across.
+   */
+  openness?: number;
+}
+
+/** Carve the passage between (x,y) and its neighbour in direction d, both ways. */
+function carve(walls: Uint8Array, cols: number, x: number, y: number, d: number): void {
+  walls[cellIndex(x, y, cols)] |= MOVE_WALL_BIT[d];
+  walls[cellIndex(x + MOVE_DELTAS[d][0], y + MOVE_DELTAS[d][1], cols)] |= MOVE_WALL_BIT[OPPOSITE[d]];
+}
 
 /**
  * Generates a maze via an iterative recursive backtracker seeded by `seed`.
  * Every cell is reachable. Start is implicitly (0,0), goal (cols-1, rows-1).
  *
- * `braid` (0..1) is the fraction of dead-ends to open up afterward, adding loops
- * to the otherwise-perfect maze. Braiding shortens the corner-to-corner solution
- * path dramatically (a perfect maze's is near worst-case windy), which keeps the
- * EA reliably solvable, and gives the population trails richer routes to explore.
+ * Post-passes (all seeded, all only ever REMOVE walls, so connectivity is
+ * preserved): `braid` closes dead-ends into loops, `openness` removes a
+ * fraction of the remaining interior walls.
  */
-export function generateMaze(cols: number, rows: number, seed: number, braid = 0): Grid {
+export function generateMaze(cols: number, rows: number, seed: number, opts: MazeGenOptions = {}): Grid {
+  const { braid = 0, openness = 0 } = opts;
   const rng = makeLCG(seed);
   const walls = new Uint8Array(cols * rows); // all passages closed
   const visited = new Uint8Array(cols * rows);
@@ -58,8 +78,49 @@ export function generateMaze(cols: number, rows: number, seed: number, braid = 0
   }
 
   if (braid > 0) braidMaze(cols, rows, walls, braid, rng);
+  if (openness > 0) openWalls(cols, rows, walls, openness, rng);
 
   return { cols, rows, walls };
+}
+
+/**
+ * Removes a random fraction of the closed interior walls. Unlike braiding this
+ * also hits corridor cells, breaking long single-file passages into a lattice
+ * of alternative routes.
+ */
+function openWalls(cols: number, rows: number, walls: Uint8Array, fraction: number, rng: RNG): void {
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const i = cellIndex(x, y, cols);
+      // East + South visit every interior edge exactly once.
+      if (x + 1 < cols && !(walls[i] & MOVE_WALL_BIT[1]) && rng() < fraction) carve(walls, cols, x, y, 1);
+      if (y + 1 < rows && !(walls[i] & MOVE_WALL_BIT[2]) && rng() < fraction) carve(walls, cols, x, y, 2);
+    }
+  }
+}
+
+/**
+ * Seeded random start/goal placement: the goal lands anywhere, the start is
+ * drawn from the cells whose corridor (BFS) distance to the goal is at least
+ * `minFrac` of the maze's diameter — so the pair is never trivially close.
+ * The BFS diameter cell itself always qualifies, so a candidate always exists.
+ */
+export function pickRandomStartGoal(grid: Grid, rng: RNG, minFrac = 0.6): { start: Cell; goal: Cell } {
+  const { cols, rows } = grid;
+  const goal: Cell = { x: Math.floor(rng() * cols), y: Math.floor(rng() * rows) };
+  const geo = computeGeodesic(grid, goal, goal);
+  const minDist = geo.diameter * minFrac;
+
+  const candidates: number[] = [];
+  let farthest = 0;
+  for (let i = 0; i < geo.field.length; i++) {
+    if (geo.field[i] > geo.field[farthest]) farthest = i;
+    if (geo.field[i] >= minDist) candidates.push(i);
+  }
+  const idx = candidates.length > 0
+    ? candidates[Math.floor(rng() * candidates.length)]
+    : farthest;
+  return { start: { x: idx % cols, y: Math.floor(idx / cols) }, goal };
 }
 
 /**

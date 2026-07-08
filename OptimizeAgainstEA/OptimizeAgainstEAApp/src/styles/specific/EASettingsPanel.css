@@ -108,6 +108,10 @@
 .ea-setting__value  { font-family: var(--font-mono); font-size: 0.78rem; color: var(--accent); min-width: 36px; text-align: right; }
 .ea-setting__range  { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); margin-top: 1px; }
 
+/* Locked row — greyed out and non-interactive (e.g. a setting that needs a reset). */
+.ea-setting--disabled          { opacity: 0.45; cursor: not-allowed; }
+.ea-setting--disabled .slider  { cursor: not-allowed; pointer-events: none; }
+
 /* Range inputs use the global `.slider` primitive (src/styles/primitives/sliders.css). */
 
 .ea-select { width: 100%; padding: var(--sp-2) var(--sp-3); background: var(--bg-surface); border: 1px solid var(--border-bright); border-radius: var(--r-sm); color: var(--text-primary); font-family: var(--font-mono); font-size: 0.75rem; cursor: pointer; outline: none; transition: border-color 0.15s; }

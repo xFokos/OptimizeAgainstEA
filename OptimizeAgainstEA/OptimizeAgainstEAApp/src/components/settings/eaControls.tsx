@@ -6,14 +6,18 @@
  */
 
 export function SliderRow({
-  label, value, min, max, step, format, onChange,
+  label, value, min, max, step, format, onChange, disabled, title,
 }: {
   label: string; value: number; min: number; max: number;
   step: number; format: (v: number) => string;
   onChange: (v: number) => void;
+  /** When true the slider is greyed out and cannot be changed. */
+  disabled?: boolean;
+  /** Hover hint on the whole row — use it to explain why a disabled row is locked. */
+  title?: string;
 }) {
   return (
-    <div className="ea-setting">
+    <div className={`ea-setting${disabled ? ' ea-setting--disabled' : ''}`} title={title}>
       <div className="ea-setting__header">
         <span className="ea-setting__label">{label}</span>
         <span className="ea-setting__value">{format(value)}</span>
@@ -23,6 +27,7 @@ export function SliderRow({
         className="slider"
         min={min} max={max} step={step}
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(parseFloat(e.target.value))}
       />
       <div className="ea-setting__range">

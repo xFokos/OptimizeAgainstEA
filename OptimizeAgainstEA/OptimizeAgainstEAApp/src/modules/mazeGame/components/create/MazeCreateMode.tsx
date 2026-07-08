@@ -2,9 +2,10 @@ import { useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { Cell, SerializedMaze } from '../../types/maze';
 import { MOVE_WALL_BIT, cellIndex } from '../../types/maze';
-import { generateMaze, gridFromEdgeWalls } from '../../engine/mazeGen';
+import { generateMaze, gridFromEdgeWalls, pickRandomStartGoal } from '../../engine/mazeGen';
 import { computeGeodesic } from '../../engine/geodesic';
-import { DEFAULT_BRAID, MAX_PATH_LENGTH } from '../../engine/mazeProblem';
+import { makeLCG } from '../../engine/rng';
+import { DEFAULT_BRAID, DEFAULT_OPENNESS, MAX_PATH_LENGTH } from '../../engine/mazeProblem';
 import { useSavedMazes } from '../../hooks/useSavedMazes';
 import type { MazeWallPreview } from '../shared/MazeCanvas';
 import { MazeCanvas } from '../shared/MazeCanvas';
@@ -130,6 +131,9 @@ export function MazeCreateMode({ initialMaze, onBack, onExperiment }: MazeCreate
   // "Generate random maze" wipes the drawing, so it folds open a confirmation
   // first (skipped when the grid has no walls to lose).
   const [confirmingRandom, setConfirmingRandom] = useState(false);
+  // Random-generation settings (mirrored in the experiment setup screen).
+  const [openness, setOpenness] = useState(DEFAULT_OPENNESS);
+  const [randomEndpoints, setRandomEndpoints] = useState(false);
 
   // Edge walls → engine grid → live reachability check.
   const grid = useMemo(
@@ -316,11 +320,16 @@ export function MazeCreateMode({ initialMaze, onBack, onExperiment }: MazeCreate
   };
 
   // Replace the drawing with a freshly generated maze on the current grid
-  // size. Start/goal keep their places — a generated maze connects every cell,
-  // so they stay reachable wherever they are.
+  // size. A generated maze connects every cell, so start/goal stay reachable
+  // wherever they are — they keep their places unless random placement is on.
   const generateRandom = () => {
     const seed = Math.floor(Math.random() * 1_000_000_000);
-    const g = generateMaze(cols, rows, seed, DEFAULT_BRAID);
+    const g = generateMaze(cols, rows, seed, { braid: DEFAULT_BRAID, openness });
+    if (randomEndpoints) {
+      const endpoints = pickRandomStartGoal(g, makeLCG(seed + 1));
+      setStart(endpoints.start);
+      setGoal(endpoints.goal);
+    }
     setWallEdges(edgeWallsFrom({ cols, rows, walls: g.walls, start, goal }));
     setConfirmingRandom(false);
   };
@@ -338,123 +347,17 @@ export function MazeCreateMode({ initialMaze, onBack, onExperiment }: MazeCreate
   };
 
   return (
-    <div className="maze-app">
-      <header className="maze-topbar">
+    <div className="maze-app maze-app--create">
+      <header className="maze-topbar maze-topbar--bar">
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
-        <span className="maze-topbar__title">🧱 Maze Creator</span>
-        <span className="maze-topbar__meta">
-          {reachable
-            ? <>shortest path <b className="maze-topbar__meta-accent">{geo.shortestFromStart}</b> steps</>
-            : <b className="maze-topbar__meta-warn">goal unreachable</b>}
-        </span>
+        <span className="maze-topbar__title">🧱<span className="maze-topbar__title-label"> Maze Creator</span></span>
         <HintToggle />
       </header>
 
-      <div className="maze-layout maze-layout--wide-side">
-        {/* The stylesheet's width cap assumes a square maze; correct it by the
-            aspect ratio so tall mazes still fit the viewport height. */}
-        <div
-          className="maze-map-col"
-          style={{ maxWidth: `min(100%, calc((100dvh - 160px) * ${cols / rows}))` }}
-        >
-          <div
-            ref={wrapRef}
-            className="maze-paint-surface"
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={stopDragging}
-            onPointerCancel={stopDragging}
-            onPointerLeave={onPointerLeave}
-          >
-            <MazeCanvas
-              cols={cols}
-              rows={rows}
-              walls={grid.walls}
-              start={start}
-              goal={goal}
-              previewWall={previewWall}
-              showGrid
-            />
-          </div>
-        </div>
-
-        <div className="maze-side">
-          <div className="panel panel--surface panel--md maze-panel">
-            <div className="eyebrow">Tools</div>
-            <div className="maze-toolbar">
-              {TOOLS.map((t) => (
-                <button
-                  key={t.id}
-                  className={`btn btn--sm ${tool === t.id ? 'btn--active' : 'btn--ghost'}`}
-                  onClick={() => setTool(t.id)}
-                  title={t.hint}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            <Switch
-              checked={axisLock}
-              onChange={setAxisLock}
-              label="Straight-line strokes"
-              title="Each stroke only draws along the grid line it starts on — no stray sideways walls from a wobbly finger."
-            />
-          </div>
-
-          <div className="panel panel--surface panel--md maze-panel">
-            <div className="eyebrow">Grid</div>
-            <SliderRow
-              label="Width" value={cols}
-              min={MIN_SIZE} max={MAX_SIZE} step={1} format={String}
-              onChange={(v) => resize(Math.round(v), rows)}
-            />
-            <SliderRow
-              label="Height" value={rows}
-              min={MIN_SIZE} max={MAX_SIZE} step={1} format={String}
-              onChange={(v) => resize(cols, Math.round(v))}
-            />
-            <div className="maze-toolbar">
-              {SIZES.map((s) => (
-                <button
-                  key={s}
-                  className={`btn btn--sm ${cols === s && rows === s ? 'btn--active' : 'btn--ghost'}`}
-                  onClick={() => resize(s, s)}
-                >
-                  {s}×{s}
-                </button>
-              ))}
-              <button
-                className="btn btn--sm btn--ghost"
-                onClick={() => setWallEdges(new Set())}
-                disabled={wallEdges.size === 0}
-              >
-                🧹 Clear walls
-              </button>
-            </div>
-            {confirmingRandom ? (
-              <>
-                <p className="maze-note maze-note--warn">
-                  ⚠ A random maze will remove all your current walls.
-                </p>
-                <div className="maze-toolbar">
-                  <button className="btn btn--sm btn--primary" onClick={generateRandom}>
-                    Generate anyway
-                  </button>
-                  <button className="btn btn--sm btn--ghost" onClick={() => setConfirmingRandom(false)}>
-                    Cancel
-                  </button>
-                </div>
-              </>
-            ) : (
-              <button
-                className="btn btn--sm btn--ghost btn--block"
-                onClick={() => (wallEdges.size === 0 ? generateRandom() : setConfirmingRandom(true))}
-              >
-                🎲 Generate random maze
-              </button>
-            )}
-          </div>
-
+      <div className="maze-create-body">
+      <div className="maze-layout maze-layout--create">
+        {/* Left column: save & hand-off to the experiment. */}
+        <div className="maze-side maze-side--save">
           <div className="panel panel--surface panel--md maze-panel">
             <div className="eyebrow">Status</div>
             {exceedsGenome && (
@@ -511,6 +414,126 @@ export function MazeCreateMode({ initialMaze, onBack, onExperiment }: MazeCreate
             </button>
           </div>
         </div>
+
+        {/* Centre column: the maze. The stylesheet's width cap assumes a square
+            maze; correct it by the aspect ratio so tall mazes still fit the
+            viewport height. */}
+        <div
+          className="maze-map-col"
+          style={{ maxWidth: `min(100%, calc((100dvh - 160px) * ${cols / rows}))` }}
+        >
+          <div
+            ref={wrapRef}
+            className="maze-paint-surface"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={stopDragging}
+            onPointerCancel={stopDragging}
+            onPointerLeave={onPointerLeave}
+          >
+            <MazeCanvas
+              cols={cols}
+              rows={rows}
+              walls={grid.walls}
+              start={start}
+              goal={goal}
+              previewWall={previewWall}
+              showGrid
+            />
+          </div>
+        </div>
+
+        {/* Right column: drawing tools & grid settings. */}
+        <div className="maze-side">
+          <div className="panel panel--surface panel--md maze-panel">
+            <div className="eyebrow">Tools</div>
+            <div className="maze-toolbar">
+              {TOOLS.map((t) => (
+                <button
+                  key={t.id}
+                  className={`btn btn--sm ${tool === t.id ? 'btn--active' : 'btn--ghost'}`}
+                  onClick={() => setTool(t.id)}
+                  title={t.hint}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <Switch
+              checked={axisLock}
+              onChange={setAxisLock}
+              label="Straight-line strokes"
+              title="Each stroke only draws along the grid line it starts on — no stray sideways walls from a wobbly finger."
+            />
+          </div>
+
+          <div className="panel panel--surface panel--md maze-panel">
+            <div className="eyebrow">Grid</div>
+            <SliderRow
+              label="Width" value={cols}
+              min={MIN_SIZE} max={MAX_SIZE} step={1} format={String}
+              onChange={(v) => resize(Math.round(v), rows)}
+            />
+            <SliderRow
+              label="Height" value={rows}
+              min={MIN_SIZE} max={MAX_SIZE} step={1} format={String}
+              onChange={(v) => resize(cols, Math.round(v))}
+            />
+            <div className="maze-toolbar">
+              {SIZES.map((s) => (
+                <button
+                  key={s}
+                  className={`btn btn--sm ${cols === s && rows === s ? 'btn--active' : 'btn--ghost'}`}
+                  onClick={() => resize(s, s)}
+                >
+                  {s}×{s}
+                </button>
+              ))}
+              <button
+                className="btn btn--sm btn--ghost"
+                onClick={() => setWallEdges(new Set())}
+                disabled={wallEdges.size === 0}
+              >
+                🧹 Clear walls
+              </button>
+            </div>
+            <SliderRow
+              label="Openness" value={openness}
+              min={0} max={0.4} step={0.05}
+              format={(v) => `${Math.round(v * 100)}%`}
+              onChange={setOpenness}
+            />
+            <Switch
+              checked={randomEndpoints}
+              onChange={setRandomEndpoints}
+              label="Random start & goal"
+              title="Generating also moves start and goal to random spots, kept at least 60% of the maze diameter apart."
+            />
+            {confirmingRandom ? (
+              <>
+                <p className="maze-note maze-note--warn">
+                  ⚠ A random maze will remove all your current walls.
+                </p>
+                <div className="maze-toolbar">
+                  <button className="btn btn--sm btn--primary" onClick={generateRandom}>
+                    Generate anyway
+                  </button>
+                  <button className="btn btn--sm btn--ghost" onClick={() => setConfirmingRandom(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button
+                className="btn btn--sm btn--ghost btn--block"
+                onClick={() => (wallEdges.size === 0 ? generateRandom() : setConfirmingRandom(true))}
+              >
+                🎲 Generate random maze
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
       </div>
     </div>
   );

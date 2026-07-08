@@ -2,11 +2,20 @@ import type {
   EAConfig, SelectionStrategy, CrossoverStrategy, MutationStrategy,
 } from '../../types/ea';
 import type { WallRule } from '../../types/maze';
+import { MAX_PATH_LENGTH } from '../../engine/mazeProblem';
 import { SliderRow, SelectRow, SegmentedRow, Divider } from '../../../../components/settings/eaControls';
 
 interface MazeEASettingsControlsProps {
   config: EAConfig;
   onConfigChange: (patch: Partial<EAConfig>) => void;
+  /** Shortest start→goal path of the current maze, for the genome-length preview. */
+  shortestPath?: number;
+  /**
+   * True once the run has started. Genome length is baked into every genome, so
+   * it can only be changed before the first generation is bred — while a run is
+   * live the length slider is locked.
+   */
+  runStarted?: boolean;
 }
 
 interface MazeEASettingsPanelProps extends MazeEASettingsControlsProps {
@@ -23,11 +32,33 @@ const fmtFixed = (decimals: number) => (v: number) => v.toFixed(decimals);
  * `mutationStrength` is a per-gene re-pick probability, not a perturbation
  * magnitude — labelled accordingly.
  */
-export function MazeEASettingsControls({ config, onConfigChange }: MazeEASettingsControlsProps) {
+export function MazeEASettingsControls({ config, onConfigChange, shortestPath, runStarted }: MazeEASettingsControlsProps) {
   const set = onConfigChange;
+
+  const fmtGenomeLen = (v: number) =>
+    shortestPath && shortestPath > 0
+      ? `×${v.toFixed(2)} = ${Math.min(MAX_PATH_LENGTH, Math.ceil(shortestPath * v))} moves`
+      : `×${v.toFixed(2)}`;
 
   return (
     <>
+      <Divider label="Genome" />
+
+      <SliderRow
+        label="Length (× shortest path)" value={config.pathLengthFactor}
+        min={1} max={5} step={0.25} format={fmtGenomeLen}
+        onChange={(v) => set({ pathLengthFactor: v })}
+        disabled={runStarted}
+        title={runStarted
+          ? 'Genome length is fixed once a run starts — reset the run to change it.'
+          : undefined}
+      />
+      <p className="maze-note">
+        {runStarted
+          ? '×1 demands a perfect move string. Locked while a run is live — reset to change it.'
+          : '×1 demands a perfect move string. Changing the length restarts the run.'}
+      </p>
+
       <Divider label="Behaviour" />
 
       <SegmentedRow<WallRule>

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import type { SerializedMaze } from '../../types/maze';
-import { generateMaze } from '../../engine/mazeGen';
-import { DEFAULT_BRAID } from '../../engine/mazeProblem';
+import { generateMaze, pickRandomStartGoal } from '../../engine/mazeGen';
+import { DEFAULT_BRAID, DEFAULT_OPENNESS } from '../../engine/mazeProblem';
+import { makeLCG } from '../../engine/rng';
 import { decodeMaze } from '../../engine/mazeCodec';
 import { useSavedMazes } from '../../hooks/useSavedMazes';
 import { SliderRow } from '../../../../components/settings/eaControls';
+import { Switch } from '../../../../components/ui/Switch';
 import { HintToggle } from '../../../../components/hints';
 
 interface MazeSetupScreenProps {
@@ -32,6 +34,8 @@ export function MazeSetupScreen({ onBack, onStart }: MazeSetupScreenProps) {
   const [selected, setSelected] = useState<string>(RANDOM);
   const [genCols, setGenCols] = useState(DEFAULT_SIZE);
   const [genRows, setGenRows] = useState(DEFAULT_SIZE);
+  const [openness, setOpenness] = useState(DEFAULT_OPENNESS);
+  const [randomEndpoints, setRandomEndpoints] = useState(false);
   const [error, setError] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -40,13 +44,15 @@ export function MazeSetupScreen({ onBack, onStart }: MazeSetupScreenProps) {
   const handlePlay = () => {
     if (selected === RANDOM) {
       const seed = Math.floor(Math.random() * 1_000_000_000);
-      const grid = generateMaze(genCols, genRows, seed, DEFAULT_BRAID);
+      const grid = generateMaze(genCols, genRows, seed, { braid: DEFAULT_BRAID, openness });
+      const endpoints = randomEndpoints
+        ? pickRandomStartGoal(grid, makeLCG(seed + 1))
+        : { start: { x: 0, y: 0 }, goal: { x: genCols - 1, y: genRows - 1 } };
       onStart({
         cols: genCols,
         rows: genRows,
         walls: grid.walls,
-        start: { x: 0, y: 0 },
-        goal: { x: genCols - 1, y: genRows - 1 },
+        ...endpoints,
       });
       return;
     }
@@ -74,7 +80,7 @@ export function MazeSetupScreen({ onBack, onStart }: MazeSetupScreenProps) {
     <div className="maze-app maze-app--menu">
       <header className="maze-topbar maze-topbar--bar">
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
-        <span className="maze-topbar__title">🧬 EA Experiment</span>
+        <span className="maze-topbar__title">🧬<span className="maze-topbar__title-label"> EA Experiment</span></span>
         <HintToggle />
       </header>
 
@@ -92,6 +98,18 @@ export function MazeSetupScreen({ onBack, onStart }: MazeSetupScreenProps) {
             label="Height" value={genRows}
             min={MIN_SIZE} max={MAX_SIZE} step={1} format={String}
             onChange={(v) => { setGenRows(Math.round(v)); setSelected(RANDOM); }}
+          />
+          <SliderRow
+            label="Openness" value={openness}
+            min={0} max={0.4} step={0.05}
+            format={(v) => `${Math.round(v * 100)}%`}
+            onChange={(v) => { setOpenness(v); setSelected(RANDOM); }}
+          />
+          <Switch
+            checked={randomEndpoints}
+            onChange={(v) => { setRandomEndpoints(v); setSelected(RANDOM); }}
+            label="Random start & goal"
+            title="Place start and goal at random (kept at least 60% of the maze diameter apart) instead of corner to corner."
           />
 
           <button
@@ -185,9 +203,11 @@ export function MazeSetupScreen({ onBack, onStart }: MazeSetupScreenProps) {
 
           {error && <p className="maze-note maze-note--warn">{error}</p>}
 
-          <button className="btn btn--primary btn--block" onClick={handlePlay}>
-            ▶ Play
-          </button>
+          <div className="maze-setup__play">
+            <button className="btn btn--primary btn--block" onClick={handlePlay}>
+              ▶ Play
+            </button>
+          </div>
         </div>
       </div>
     </div>

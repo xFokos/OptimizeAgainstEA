@@ -84,16 +84,16 @@ function GenotypeStrip({
   walkStep,
   onSeek,
 }: {
-  best: Individual;
+  best: Individual | null;
   walkStep: number;
   onSeek: (i: number) => void;
 }) {
-  const end = walkEndOf(best);
+  const end = best ? walkEndOf(best) : 0;
   // Outcome markers on the responsible gene: the move that crashed the walk
   // (break-on-wall only) gets a red ✕, the move that stepped onto the goal a
   // green ✓. reachedGoalAt is a step index, so move reachedGoalAt−1 caused it.
-  const crashGene = best.walk.crashedAt;
-  const goalGene = best.walk.reachedGoalAt - 1;
+  const crashGene = best?.walk.crashedAt ?? -1;
+  const goalGene = best ? best.walk.reachedGoalAt - 1 : -1;
   return (
     <div className="maze-genome-strip">
       <div className="maze-genome-strip__highlight" aria-hidden="true" />
@@ -102,7 +102,9 @@ function GenotypeStrip({
         // Slide so the current gene's centre sits under the highlight box.
         style={{ transform: `translate(calc(${-(walkStep + 0.5)} * var(--gene-w)), -50%)` }}
       >
-        {best.path.map((move, i) => {
+        {/* Before the first generation there is no genome yet — the strip shows
+            just the empty highlight box. */}
+        {best?.path.map((move, i) => {
           // Move i takes the walker from trail[i] to trail[i+1]; identical cells
           // mean it bumped into a wall and the gene was wasted.
           const bumped =
@@ -166,6 +168,9 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
   const [walkPlaying, setWalkPlaying] = useState(false);
   const [walkTick, setWalkTick] = useState(0);
   const [showGhosts, setShowGhosts] = useState(true);
+  // Pre-run state: the maze sits darkened behind a Play overlay while the
+  // player tunes the settings; the first generation is only bred on Play.
+  const [started, setStarted] = useState(false);
 
   const config: EAConfig = useMemo(
     () => ({ ...tuning, fitnessFnId }),
@@ -187,59 +192,82 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
             fitnessFnId,
             seed,
             wallRule: tuning.wallRule,
+            pathLengthFactor: tuning.pathLengthFactor,
           })
         : createMazeProblem({
             cols: MAZE_SIZE, rows: MAZE_SIZE, seed, fitnessFnId,
             braid: DEFAULT_BRAID, wallRule: tuning.wallRule,
+            pathLengthFactor: tuning.pathLengthFactor,
           }),
-    [maze, seed, fitnessFnId, tuning.wallRule],
+    [maze, seed, fitnessFnId, tuning.wallRule, tuning.pathLengthFactor],
   );
 
   const ea = useMazeEARunner();
   const { init, step, reset, updateConfig, status, currentGeneration, generations, latestReplay } = ea;
 
-  // Only the maze / seed identity restarts the run from scratch. Everything else
-  // (tuning + fitness fn) is applied to the running EA and takes effect on the
-  // next generation — so the player can experiment without losing progress.
+  // Only the run's identity — maze, seed, genome length — restarts it from
+  // scratch. Everything else (tuning + fitness fn) is applied to the running EA
+  // and takes effect on the next generation — so the player can experiment
+  // without losing progress. Genome length is structural (the population's
+  // genomes are that long), so it belongs to the identity.
   const runParams = useMemo(
     () => ({
       seed,
       cols: maze?.cols ?? MAZE_SIZE,
       rows: maze?.rows ?? MAZE_SIZE,
       maze: maze ?? undefined,
+      pathLengthFactor: tuning.pathLengthFactor,
     }),
-    [maze, seed],
+    [maze, seed, tuning.pathLengthFactor],
   );
 
   // Generation-change markers for the fitness chart. `configRef` holds the
   // config the worker currently runs; `genCountRef` mirrors the generation
   // count so the config effect can read it without depending on it.
   const [markers, setMarkers] = useState<ConfigMarker[]>([]);
+  // The config the worker currently runs. While the run is in its pre-state
+  // the update effect below keeps it in sync with every edit, so Play always
+  // starts the worker with the latest settings.
   const configRef = useRef(config);
   const genCountRef = useRef(0);
   useEffect(() => { genCountRef.current = generations.length; }, [generations.length]);
 
-  // A new run identity (maze / seed) rewinds the walk and clears the chart
-  // markers — done during render (the React-idiomatic reset-on-prop-change).
+  // A new run identity (maze / seed / genome length) rewinds the walk, clears
+  // the chart markers and drops back to the pre-run overlay — done during
+  // render (the React-idiomatic reset-on-prop-change).
   const [prevRunParams, setPrevRunParams] = useState(runParams);
   if (prevRunParams !== runParams) {
     setPrevRunParams(runParams);
     setWalkTick(0);
     setMarkers([]);
+    setStarted(false);
   }
 
-  // (Re)start the worker only when the maze / seed changes. Reads the current
-  // config once; later config edits go through the update effect below.
+  // Pre-run: tear down any previous worker so a stale generation never shows
+  // behind the Play overlay.
   useEffect(() => {
+    if (!started) reset();
+  }, [started, reset]);
+
+  // Start the worker when the player presses Play (and on the identity change
+  // of an already-started run). Reads the settings as tuned in the pre-state;
+  // walk & markers are already clear — every path into the pre-state resets them.
+  useEffect(() => {
+    if (!started) return;
     init(runParams, configRef.current);
     step(0); // pull generation 0 so the canvas renders immediately
-  }, [runParams, init, step]);
+  }, [started, runParams, init, step]);
 
   // Apply tuning / fitness-function edits to the running EA (next generation),
   // and drop a marker on the chart where the change lands. Skips the first run
-  // and the re-init above (which already carries the current config).
+  // and the re-init above (which already carries the current config). Pre-run
+  // edits just sync the ref — Play reads them when it starts the worker.
   useEffect(() => {
     if (config === configRef.current) return;
+    if (!started) {
+      configRef.current = config;
+      return;
+    }
     const label = describeConfigChange(configRef.current, config);
     configRef.current = config;
     updateConfig(config);
@@ -251,7 +279,7 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
         return [...m.filter((x) => x.gen !== gen), { gen, label }];
       });
     }
-  }, [config, updateConfig]);
+  }, [config, updateConfig, started]);
 
   const best: Individual | null = currentGeneration?.individuals[0] ?? null;
 
@@ -354,10 +382,10 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
 
   const reseed = useCallback(() => setSeed(Math.floor(Math.random() * 100000)), []);
 
+  // Back to the pre-run overlay; the next Play breeds a fresh first generation.
   const restart = () => {
     reset();
-    init(runParams, configRef.current);
-    step(0);
+    setStarted(false);
     setWalkTick(0);
     setMarkers([]);
   };
@@ -386,7 +414,7 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
     <div className="maze-app maze-app--menu">
       <header className="maze-topbar maze-topbar--bar">
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
-        <span className="maze-topbar__title">🧬 EA Experiment</span>
+        <span className="maze-topbar__title">🧬<span className="maze-topbar__title-label"> EA Experiment</span></span>
         <HintToggle />
       </header>
 
@@ -399,77 +427,25 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
               <button
                 className="btn btn--sm btn--primary"
                 onClick={() => step(1)}
-                disabled={solved}
+                disabled={!started || solved}
               >
                 🧬 Evolve
               </button>
-              <button className="btn btn--ghost btn--sm" onClick={restart}>Reset</button>
+              <button className="btn btn--ghost btn--sm" onClick={restart} disabled={!started}>Reset</button>
             </div>
-            <button className="btn btn--ghost btn--sm btn--block" onClick={editMaze}>
-              ✏️ Edit this maze
-            </button>
-          </div>
-
-          <div className="panel panel--surface panel--md maze-panel">
-            <div className="eyebrow">Animation</div>
-            <div className="maze-walk-transport">
-              <button
-                className="btn btn--ghost btn--sm"
-                onClick={() => { setWalkPlaying(false); setWalkTick(0); }}
-                disabled={!best || walkStep === 0}
-                title="Skip to first input"
-                aria-label="Skip to first input"
-              >
-                ┃◀
-              </button>
-              <button
-                className="btn btn--ghost btn--sm"
-                onClick={() => { setWalkPlaying(false); setWalkTick(Math.max(0, walkStep - 1)); }}
-                disabled={!best || walkStep === 0}
-                title="One input back"
-                aria-label="One input back"
-              >
-                ◀
-              </button>
-              <button
-                className={`btn btn--sm ${walkPlaying ? 'btn--active' : 'btn--ghost'}`}
-                onClick={() => setWalkPlaying((p) => !p)}
-                disabled={!best}
-                title={walkPlaying ? 'Pause autoplay' : 'Autoplay'}
-                aria-label={walkPlaying ? 'Pause autoplay' : 'Autoplay'}
-              >
-                {walkPlaying ? '▮▮' : '▷'}
-              </button>
-              <button
-                className="btn btn--ghost btn--sm"
-                onClick={() => { setWalkPlaying(false); setWalkTick(Math.min(bestEnd, walkStep + 1)); }}
-                disabled={!best || walkStep === bestEnd}
-                title="One input further"
-                aria-label="One input further"
-              >
-                ▶
-              </button>
-              <button
-                className="btn btn--ghost btn--sm"
-                onClick={() => { setWalkPlaying(false); setWalkTick(bestEnd); }}
-                disabled={!best || walkStep === bestEnd}
-                title="Skip to last input"
-                aria-label="Skip to last input"
-              >
-                ▶┃
-              </button>
-            </div>
-            <Switch
-              checked={showGhosts}
-              onChange={setShowGhosts}
-              label="Show ghosts"
-            />
             <button
               className="btn btn--ghost btn--sm btn--block"
               onClick={() => setShowReplay(true)}
               disabled={!latestReplay || latestReplay.length === 0}
             >
               🔬 Dissect last generation
+            </button>
+            <button
+              className="btn btn--ghost btn--sm btn--block"
+              onClick={editMaze}
+              disabled={!started}
+            >
+              ✏️ Edit this maze
             </button>
           </div>
 
@@ -491,34 +467,99 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
           className="maze-map-col"
           style={{ maxWidth: `min(100%, calc((100dvh - 220px) * ${problem.cols / problem.rows}))` }}
         >
-          {best && (
-            <div className="panel panel--surface panel--md maze-panel maze-genome-panel">
+          <div className="panel panel--surface panel--md maze-panel maze-genome-panel">
               <div className="maze-genome-head">
                 <div className="eyebrow">Best genotype</div>
                 <span className="maze-genome-stats">
-                  <span>fitness <b>{best.fitness.toFixed(3)}</b></span>
-                  <span>
-                    {best.walk.reachedGoalAt >= 0
-                      ? <>goal in <b>{best.walk.reachedGoalAt}</b> steps</>
-                      : <>goal not reached</>}
-                  </span>
-                  <span>step <b>{walkStep}</b>/{bestEnd}</span>
+                  {best ? (
+                    <>
+                      <span>fitness <b>{best.fitness.toFixed(3)}</b></span>
+                      <span>
+                        {best.walk.reachedGoalAt >= 0
+                          ? <>goal in <b>{best.walk.reachedGoalAt}</b> steps</>
+                          : <>goal not reached</>}
+                      </span>
+                      <span>step <b>{walkStep}</b>/{bestEnd}</span>
+                    </>
+                  ) : (
+                    <span>awaiting the first generation…</span>
+                  )}
                 </span>
               </div>
               <GenotypeStrip best={best} walkStep={walkStep} onSeek={seekWalk} />
-            </div>
-          )}
 
-          <MazeCanvas
-            cols={problem.cols}
-            rows={problem.rows}
-            walls={problem.grid.walls}
-            start={problem.start}
-            goal={problem.goal}
-            solidCells={solidCells}
-            trails={trails}
-            agents={agents}
-          />
+              {/* Step transport, centred under the strip. */}
+              <div className="maze-anim-row">
+                <div className="maze-walk-transport">
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => { setWalkPlaying(false); setWalkTick(0); }}
+                    disabled={!best || walkStep === 0}
+                    title="Skip to first input"
+                    aria-label="Skip to first input"
+                  >
+                    ┃◀
+                  </button>
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => { setWalkPlaying(false); setWalkTick(Math.max(0, walkStep - 1)); }}
+                    disabled={!best || walkStep === 0}
+                    title="One input back"
+                    aria-label="One input back"
+                  >
+                    ◀
+                  </button>
+                  <button
+                    className={`btn btn--sm ${walkPlaying ? 'btn--active' : 'btn--ghost'}`}
+                    onClick={() => setWalkPlaying((p) => !p)}
+                    disabled={!best}
+                    title={walkPlaying ? 'Pause autoplay' : 'Autoplay'}
+                    aria-label={walkPlaying ? 'Pause autoplay' : 'Autoplay'}
+                  >
+                    {walkPlaying ? '▮▮' : '▷'}
+                  </button>
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => { setWalkPlaying(false); setWalkTick(Math.min(bestEnd, walkStep + 1)); }}
+                    disabled={!best || walkStep === bestEnd}
+                    title="One input further"
+                    aria-label="One input further"
+                  >
+                    ▶
+                  </button>
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => { setWalkPlaying(false); setWalkTick(bestEnd); }}
+                    disabled={!best || walkStep === bestEnd}
+                    title="Skip to last input"
+                    aria-label="Skip to last input"
+                  >
+                    ▶┃
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          <div className="maze-canvas-stage">
+            <MazeCanvas
+              cols={problem.cols}
+              rows={problem.rows}
+              walls={problem.grid.walls}
+              start={problem.start}
+              goal={problem.goal}
+              solidCells={solidCells}
+              trails={trails}
+              agents={agents}
+            />
+            {!started && (
+              <div className="maze-start-overlay">
+                <button className="btn btn--primary maze-start-overlay__btn" onClick={() => setStarted(true)}>
+                  ▶ Breed first generation
+                </button>
+                <p className="maze-start-overlay__note">Tune the settings first — they shape generation 0.</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* RIGHT — collapsible dock: fitness function + EA settings, tucks to the side */}
@@ -528,6 +569,12 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
           <div className="maze-settings__head">
             <div className="eyebrow">Settings</div>
           </div>
+          <Switch
+            checked={showGhosts}
+            onChange={setShowGhosts}
+            label="Show ghosts"
+            disabled={!started}
+          />
           <p className="maze-note maze-settings__note">
             Changes apply to the next generation — the run keeps its progress.
           </p>
@@ -564,6 +611,8 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
             <MazeEASettingsControls
               config={config}
               onConfigChange={(patch) => setTuning((t) => ({ ...t, ...patch }))}
+              shortestPath={problem.metadata?.shortestPath}
+              runStarted={started}
             />
           </div>
         </aside>

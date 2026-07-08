@@ -26,8 +26,10 @@
 /* ── Menu-style shell (selection screen) ──
    Mirrors the main menu (.game-selector-shell): animated gradient background
    with a full-bleed, visually separated top bar. The bar handles its own
-   spacing, so the shell drops the app's padding/gap. */
-.maze-app--menu {
+   spacing, so the shell drops the app's padding/gap. The creator shares this
+   background so every maze tab renders the same header colour. */
+.maze-app--menu,
+.maze-app--create {
   gap: 0;
   padding: 0;
   background: linear-gradient(120deg, #0f2027, #203a43, #2c5364);
@@ -37,6 +39,13 @@
 .maze-topbar--bar {
   height: 56px;
   flex-shrink: 0;
+  /* Stay pinned to the top when the page scrolls (experiment mode scrolls its
+     own .maze-app on mobile; create/setup scroll an inner body under the bar,
+     where this is simply a no-op). Below the settings drawer/backdrop (z 55-65)
+     so an open dock still covers it. */
+  position: sticky;
+  top: 0;
+  z-index: 10;
   padding: 0 var(--sp-4);
   background: rgba(0, 0, 0, 0.32);
   border-bottom: 1px solid var(--border-bright);
@@ -49,6 +58,28 @@
    the settings dock docks flush to the right edge. */
 .maze-app--menu .maze-layout--exp {
   padding: var(--sp-4) 0 var(--sp-5) var(--sp-5);
+}
+
+/* ── Creator shell ──
+   Same full-bleed top bar as the other tabs (matches .maze-topbar--bar). The
+   bar sits outside the scroll area so it stays put while the maze/panels below
+   scroll on short viewports. .maze-create-body carries the padding (the shell
+   itself is padding-less — see the shared rule above). */
+.maze-create-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--sp-4) var(--sp-5);
+}
+
+/* The hint toggle is a shared component fixed to the very top-right of the
+   viewport. Across every maze screen — the mode-selection menu and each tab —
+   drop it to the vertical centre of the 56px top bar (it stays flush right). */
+.maze-app .hint-toggle,
+.maze-menu-hint .hint-toggle {
+  top: 28px;
+  transform: translateY(-50%);
 }
 
 /* ── Top bar ── */
@@ -64,6 +95,10 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   color: var(--text-primary);
+}
+/* On phones the bar gets cramped — show just the emoji, hide the word. */
+@media (max-width: 640px) {
+  .maze-topbar__title-label { display: none; }
 }
 /* Selection bar has no meta text, so push its hint toggle to the right edge
    (the role the meta's margin-left:auto plays in the other bars). */
@@ -88,10 +123,22 @@
   max-width: 1100px;
   margin-inline: auto;
 }
-/* Creator variant: room for the four tool buttons on a single row. */
-.maze-layout--wide-side { grid-template-columns: minmax(0, 1fr) 400px; }
+/* Creator variant: three columns — Status (save / experiment) · maze · tools &
+   grid settings. The maze sits centred between the two side panels. The right
+   track needs room for the four tool buttons on a single row. */
+.maze-layout--create {
+  grid-template-columns: 300px minmax(0, 1fr) 400px;
+  max-width: 1400px;
+}
+@media (max-width: 1080px) {
+  /* Stacked single column: maze on top, tools & grid next, saving last. */
+  .maze-layout--create { grid-template-columns: 1fr; }
+  .maze-layout--create .maze-map-col   { order: 1; }
+  .maze-layout--create .maze-side      { order: 2; }
+  .maze-layout--create .maze-side--save { order: 3; }
+}
 @media (max-width: 880px) {
-  .maze-layout, .maze-layout--wide-side { grid-template-columns: 1fr; }
+  .maze-layout { grid-template-columns: 1fr; }
 }
 
 /* Experiment variant: three columns — controls+chart · maze · settings dock.
@@ -111,6 +158,35 @@
 @media (max-width: 1080px) {
   .maze-layout--exp,
   .maze-layout--exp-collapsed { grid-template-columns: 1fr; }
+  /* Stacked order: input string + maze on top, then the Evolution controls and
+     the fitness chart (already in that order inside .maze-controls) below. */
+  .maze-layout--exp .maze-map-col { order: -1; }
+  /* The dock is off-canvas here, so the desktop's flush-right (0) padding just
+     leaves panels touching the edge — restore symmetric left/right gaps. */
+  .maze-app--menu .maze-layout--exp { padding-right: var(--sp-5); }
+}
+
+/* Desktop: keep the genotype island + maze within one screen (no page scroll).
+   Bound the middle column to the height left under the 56px bar and the
+   layout's own top/bottom padding; the island keeps its natural height and the
+   (aspect-locked) maze scales to fill whatever height remains. */
+@media (min-width: 1081px) {
+  .maze-layout--exp .maze-map-col {
+    /* 56px bar (+1px border) + layout top/bottom padding, with a few px of
+       cushion so borders/rounding never spill into a page scrollbar. */
+    height: calc(100dvh - 56px - var(--sp-4) - var(--sp-5) - 6px);
+  }
+  .maze-layout--exp .maze-canvas-stage {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+  }
+  .maze-layout--exp .maze-canvas-stage .maze-canvas {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+  }
 }
 
 /* Left playback column. */
@@ -130,6 +206,7 @@
 }
 .maze-walk-transport .btn {
   flex: 1;
+  min-width: 3.25rem;
   padding-inline: 0;
   justify-content: center;
   font-family: var(--font-mono);
@@ -331,6 +408,20 @@
 .maze-setup > .maze-panel {
   width: 100%;
   max-width: 520px;
+  /* Never taller than the setup area: the saved-mazes list is the flexible
+     part and scrolls internally, so the screen itself never scrolls. */
+  max-height: 100%;
+}
+/* Pinned to the bottom of the setup scroller: the negative offsets stretch the
+   footer over the panel's own padding so the Play button never scrolls away. */
+.maze-setup__play {
+  position: sticky;
+  bottom: calc(-1 * var(--sp-5)); /* .maze-setup's bottom padding */
+  margin: 0 calc(-1 * var(--sp-5)) calc(-1 * var(--sp-5));
+  padding: var(--sp-3) var(--sp-5) var(--sp-5);
+  background: var(--bg-surface);
+  border-bottom-left-radius: var(--r-md);
+  border-bottom-right-radius: var(--r-md);
 }
 
 .maze-saved__list {
@@ -340,7 +431,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  max-height: 40vh;
+  /* The one shrinkable panel row: soaks up whatever height the fixed controls
+     leave over and scrolls its overflow (min-height 0 lets it collapse). */
+  min-height: 0;
   overflow-y: auto;
 }
 .maze-saved__item {
@@ -420,6 +513,12 @@
 
 .maze-genome-panel { flex-shrink: 0; }
 
+/* Playback row under the genotype strip: the step transport, centred. */
+.maze-anim-row {
+  display: flex;
+  justify-content: center;
+}
+
 /* Filmstrip: a fixed highlight box marks the current input at the centre; the
    whole move string slides underneath it and fades out toward both edges. */
 .maze-genome-strip {
@@ -487,6 +586,50 @@
 }
 .maze-gene__mark--crash { color: var(--danger); }
 .maze-gene__mark--goal  { color: #66bb6a; }
+
+/* ─────────────────────────────────────────────
+   PRE-RUN OVERLAY (experiment start)
+───────────────────────────────────────────── */
+
+.maze-canvas-stage { position: relative; }
+
+/* Darkens the maze until the player breeds the first generation. */
+.maze-start-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 5, 8, 0.6);
+  border-radius: var(--r-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  z-index: 5;
+}
+.maze-start-overlay__btn {
+  font-size: 1rem;
+  padding: 12px 28px;
+}
+.maze-start-overlay__note {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin: 0;
+  padding: 0 var(--sp-4);
+  text-align: center;
+}
+/* Mobile: the layout is a single column with the maze stacked below the control
+   panels, so an overlay pinned to the maze sits off-screen. Promote the pre-run
+   gate to a fixed popup covering the whole experiment area below the 56px top
+   bar — dimming the controls too. Kept below the settings handle (z 65) and
+   drawer (z 60) so generation 0 can still be tuned before breeding. */
+@media (max-width: 1080px) {
+  .maze-start-overlay {
+    position: fixed;
+    inset: 56px 0 0; /* top clears the bar so Back stays reachable */
+    border-radius: 0;
+    z-index: 40;
+  }
+}
 
 /* ─────────────────────────────────────────────
    REPLAY OVERLAY (generation dissection)
