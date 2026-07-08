@@ -12,10 +12,8 @@ Built with **React 19 + TypeScript + Vite**.
 
 | Name | Email | Student ID |
 |---|---|---|
-| Philipp Sehne | sehne.philipp@gmail.com | ❓ **TODO: add student ID** |
-| Ahrens (first name?) | ❓ **TODO: add email** | ❓ **TODO: add student ID** |
-
-> 🔴 **TODO:** Confirm the full name(s) of the second team member ("Ahrens") and fill in all missing emails and student IDs above.
+| Philipp Sehne | Philipp.Sehne@stud-mail.uni-wuerzburg.de | s511696 |
+| David Ahrens | David.Ahrens@stud-mail.uni-wuerzburg.de | s511500 |
 
 Repository: https://gitlab2.informatik.uni-wuerzburg.de/GE/Teaching/gl2/projects/2025/b-ahrens-und-sehne
 
@@ -23,9 +21,9 @@ Repository: https://gitlab2.informatik.uni-wuerzburg.de/GE/Teaching/gl2/projects
 
 ## Presentation of results
 
-> 🔴 **TODO:** Add a link to / reference for the presentation of the project results once it exists (slides, recording, or live deployment URL).
+> [OptimizeAgainstEA.web.app](OptimizeAgainstEA.web.app)
 
-A live deployment is configured via Firebase Hosting (Firebase project `optimizeagainstea`), but the public URL still needs to be confirmed and linked here.
+A live deployment is configured via Firebase Hosting (Firebase project `optimizeagainstea`).
 
 ---
 
@@ -35,13 +33,12 @@ The app is a single React SPA with multiple routed mini-games. The most develope
 
 | Route | Game | Concept |
 |---|---|---|
-| `/PeakFinder` | **Peak Finder** ("Schiffe Versenken"-style) | Probe a hidden function surface to find its global minimum — play solo or against an EA, with a full step-by-step EA replay viewer |
+| `/PeakFinder` | **Peak Finder** | Probe a hidden function surface to find its global minimum — play solo or against an EA, with a full step-by-step EA replay viewer |
 | `/ShooterGame` | **Shooter Game** | A genetic algorithm evolves enemy agent behaviour each round, adapting to the player's style |
-| `/MazeGame` | **Maze Game** | EA-based maze solving / generation |
-| `/TravelingSalesman` | **Traveling Salesman** | Classic TSP optimization game |
-| `/MapGame` | **Map Game** | Map-based analytics game |
+| `/MazeGame` | **Maze Game** | EA-based maze solving / Experimentation Playground |
 
-Additional routes exist for navigation and tooling: `/` (home), `/Settings`, `/Dashboard`, `/Analytics`, `Problem` (problem selection), `/JumpGame`, and `/lobby/shooter`. Some of these are scaffolding for features still in progress.
+
+Additional routes exist for navigation and tooling: `/` (home), `/Dashboard` (game selection), /functionTuner (Adjusting Maths Functions for peakfinder).
 
 ---
 
@@ -49,7 +46,7 @@ Additional routes exist for navigation and tooling: `/` (home), `/Settings`, `/D
 
 - **Runtime:** A modern web browser (latest Chrome / Firefox / Edge / Safari). The app runs entirely client-side.
 - **Build toolchain:** [Node.js](https://nodejs.org/) (developed and tested with **Node v24.x**; Node 20+ should also work) and npm.
-- **No joypad / gamepad required.** All games are played with **keyboard and mouse** (and the app is also intended to be usable on touch / mobile, though the mobile layout is not yet fully tested below 640px width — see below).
+- **No joypad / gamepad required.** All games are played with **touch and mouse** 
 
 ---
 
@@ -126,14 +123,10 @@ This project is bootstrapped from the official **Vite `react-ts` template** (Rea
 
 Vite, TypeScript, ESLint (with `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`), `@vitejs/plugin-react`, and associated type packages — all MIT-licensed. See `OptimizeAgainstEAApp/package.json` for exact versions.
 
-All algorithmic code (the evolutionary / genetic algorithms, game engines, rendering, hint system, etc.) was written by the team for this project.
-
 ### Assets
 
 The following background / image assets are bundled under `OptimizeAgainstEAApp/src/assets/`:
 
-- `HomePageBG.jpg`, `JumpGameBG.jpg`, `TravelingSalesmanBG.PNG`, `TestBG1.jpg`, `TestBG2.jpg`
-- `react.svg`, `public/vite.svg` (from the Vite/React template)
 
 > 🔴 **TODO:** Clarify and reference the **source and license** of every image asset in `src/assets/` (self-made, stock, generated, etc.). Any asset that is not original work must be attributed with its source and license here. Placeholder/test backgrounds (`TestBG1/2`) should be replaced or removed before final submission.
 
