@@ -4,7 +4,6 @@ An educational web app that teaches **optimization concepts** (in particular Evo
 
 Built with **React 19 + TypeScript + Vite**.
 
-> ⚠️ **Project status: work in progress.** This project is part of the GameLab 2 course and is not yet complete. Some games and features are still under development (see [What's not built yet](#whats-not-built-yet)). The structure may still be extended.
 
 ---
 
