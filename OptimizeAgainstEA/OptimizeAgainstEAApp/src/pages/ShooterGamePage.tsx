@@ -90,7 +90,7 @@ export default function ShooterGamePage() {
 
     const { containerRef, scale } = useScaledCanvas({
         baseWidth:  ARENA.WIDTH,
-        baseHeight: ARENA.HEIGHT + 44,  // +44 = TugBar-Höhe in ShooterCanvas
+        baseHeight: ARENA.HEIGHT + 44,  // +44 = TugBar-Höhe in ShooterCanvas (inkl. Mod-Progress-Akzent)
         padding:    isMobileLandscape ? 4 : 16,
     });
 

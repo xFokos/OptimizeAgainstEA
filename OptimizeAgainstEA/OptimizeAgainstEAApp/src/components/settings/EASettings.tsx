@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { useSettings, resetEASettings, defaultHordeSettings } from '../../context/SettingsContext';
+import { CompiTooltip } from '../ui/CompiTooltip';
 
 export function EASettingsPanel() {
     const { eaSettings: s, setEaSettings } = useSettings();
@@ -9,7 +10,9 @@ export function EASettingsPanel() {
             <h3 style={styles.sectionTitle}>EA Settings</h3>
 
             <div style={styles.row}>
-                <label style={styles.label}>Mutation Rate</label>
+                <CompiTooltip text="Chance each gene has to randomly mutate when a new generation is created.">
+                    <label style={styles.label}>Mutation Rate</label>
+                </CompiTooltip>
                 <input
                     type="range" min={0} max={0.5} step={0.01}
                     value={s.mutationRate}
@@ -21,7 +24,9 @@ export function EASettingsPanel() {
             </div>
 
             <div style={styles.row}>
-                <label style={styles.label}>Mutation Strength</label>
+                <CompiTooltip text="How large a mutation's random change to a gene can be.">
+                    <label style={styles.label}>Mutation Strength</label>
+                </CompiTooltip>
                 <input
                     type="range" min={0} max={0.5} step={0.01}
                     value={s.mutationStrength}
@@ -33,7 +38,9 @@ export function EASettingsPanel() {
             </div>
 
             <div style={styles.row}>
-                <label style={styles.label}>Presim Generations</label>
+                <CompiTooltip text="How many generations the EA simulates against itself before your first round — higher starts tougher.">
+                    <label style={styles.label}>Presim Generations</label>
+                </CompiTooltip>
                 <input
                     type="range" min={0} max={10} step={1}
                     value={s.presimGenerations}
@@ -45,7 +52,9 @@ export function EASettingsPanel() {
             </div>
 
             <div style={styles.row}>
-                <label style={styles.label}>Population Size</label>
+                <CompiTooltip text="How many individuals compete and evolve each generation.">
+                    <label style={styles.label}>Population Size</label>
+                </CompiTooltip>
                 <input
                     type="range" min={5} max={50} step={5}
                     value={s.populationSize}
@@ -57,7 +66,9 @@ export function EASettingsPanel() {
             </div>
 
             <div style={styles.row}>
-                <label style={styles.label}>Crossover Type</label>
+                <CompiTooltip text="How two parents' DNA combine into a child: Uniform mixes genes randomly, Single-Point splits the DNA at one point.">
+                    <label style={styles.label}>Crossover Type</label>
+                </CompiTooltip>
                 <div style={styles.toggleGroup}>
                     {(['uniform', 'single-point'] as const).map(type => (
                         <button
@@ -72,7 +83,9 @@ export function EASettingsPanel() {
             </div>
 
             <div style={styles.row}>
-                <label style={styles.label}>Injection Deviation</label>
+                <CompiTooltip text="Random spread applied when refreshing the population, to keep genetic diversity.">
+                    <label style={styles.label}>Injection Deviation</label>
+                </CompiTooltip>
                 <input
                     type="range" min={0.05} max={1} step={0.05}
                     value={s.injectionDeviation}
@@ -84,7 +97,9 @@ export function EASettingsPanel() {
             </div>
 
             <div style={styles.row}>
-                <label style={styles.label}>Hall of Fame</label>
+                <CompiTooltip text="Keeps the best individual ever found so evolution can't lose a good solution.">
+                    <label style={styles.label}>Hall of Fame</label>
+                </CompiTooltip>
                 <div style={styles.toggleGroup}>
                     {([true, false] as const).map(val => (
                         <button
@@ -122,7 +137,9 @@ export function HordeEASettingsPanel() {
             <h3 style={styles.sectionTitle}>Horde EA Settings</h3>
 
             <div style={styles.row}>
-                <label style={styles.label}>Mutation Rate</label>
+                <CompiTooltip text="Chance each gene has to randomly mutate when a new generation is created.">
+                    <label style={styles.label}>Mutation Rate</label>
+                </CompiTooltip>
                 <input
                     type="range" min={0} max={0.5} step={0.01}
                     value={s.mutationRate}
@@ -134,7 +151,9 @@ export function HordeEASettingsPanel() {
             </div>
 
             <div style={styles.row}>
-                <label style={styles.label}>Mutation Strength</label>
+                <CompiTooltip text="How large a mutation's random change to a gene can be.">
+                    <label style={styles.label}>Mutation Strength</label>
+                </CompiTooltip>
                 <input
                     type="range" min={0} max={0.5} step={0.01}
                     value={s.mutationStrength}
@@ -146,7 +165,9 @@ export function HordeEASettingsPanel() {
             </div>
 
             <div style={styles.row}>
-                <label style={styles.label}>Crossover Type</label>
+                <CompiTooltip text="How two parents' DNA combine into a child: Uniform mixes genes randomly, Single-Point splits the DNA at one point.">
+                    <label style={styles.label}>Crossover Type</label>
+                </CompiTooltip>
                 <div style={styles.toggleGroup}>
                     {(['uniform', 'single-point'] as const).map(type => (
                         <button

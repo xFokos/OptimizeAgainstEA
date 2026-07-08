@@ -29,6 +29,8 @@ import { renderer }          from '../game/core/renderer';
 import { calculateFitness, calculateRaidbossFitness } from '../game/ga/fitness';
 import { gameStore }         from '../game/gameStore';
 import { analyticsStore }    from '../game/analyticsStore';
+import { applyMods, MOD_POOL, type ModDefinition } from '../mods/modTypes';
+import { runModsStore }      from '../mods/runModsStore';
 import { useSettings }       from '../../../context/SettingsContext.tsx';
 import type { ShooterSettings } from '../../../context/SettingsContext.tsx';
 import styles                from './ShooterCanvas.module.css';
@@ -42,7 +44,11 @@ const COL_B = '#f97316';
 
 const BAR_HEIGHT = 44;
 
-function TugOfWarBar({ score, threshold }: { score: number; threshold: number }) {
+// modProgress: null blendet den Balken aus (Raidboss); sonst 0–1, Fortschritt
+// zur nächsten Mod-Auswahl (alle ShooterSettings.modChoiceInterval Runden) — läuft als
+// dünner Akzentstreifen am unteren Rand der Score-Leiste selbst mit, statt als
+// eigene zusätzliche Zeile.
+function TugOfWarBar({ score, threshold, modProgress }: { score: number; threshold: number; modProgress: number | null }) {
     const pct         = (score / threshold) * 50 + 50; // 0–100 %
     const playerWins  = score > 0;
     const fillWidth   = Math.abs(score / threshold) * 50;
@@ -65,6 +71,11 @@ function TugOfWarBar({ score, threshold }: { score: number; threshold: number })
                 <div className={styles.tugKnot} style={{ left: `${pct}%` }} />
             </div>
             <span className={styles.tugLabelPlayer}>YOU</span>
+            {modProgress !== null && (
+                <div className={styles.tugModTrack} title="Progress to next mod choice">
+                    <div className={styles.tugModFill} style={{ width: `${modProgress * 100}%` }} />
+                </div>
+            )}
         </div>
     );
 }
@@ -73,6 +84,11 @@ function TugOfWarBar({ score, threshold }: { score: number; threshold: number })
 // Unabhängig von den Spielereinstellungen, damit Fitness-Werte verschiedener Spieler vergleichbar sind
 const RAIDBOSS_ROUND_DURATION = 30;
 const RAIDBOSS_TUG_THRESHOLD  = 15;
+
+// Wie viele Mods pro Auswahl-Overlay angeboten werden. Das Intervall selbst
+// (alle N Runden) ist konfigurierbar via ShooterSettings.modChoiceInterval —
+// siehe difficulty presets in ShooterLobbyPage.tsx (Easy 4 / Medium 5 / Hard 6).
+const MOD_CHOICE_COUNT = 3;
 
 // ---- Komponente ----
 
@@ -117,6 +133,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
     const [displayedRevealDna, setDisplayedRevealDna]     = useState<number[]>([]);
     const [revealGeneration, setRevealGeneration]         = useState<number | null>(null);
     const [revealCrossoverExample, setRevealCrossoverExample] = useState<CrossoverExample | null>(null);
+    const [pendingModChoices, setPendingModChoices]       = useState<ModDefinition[] | null>(null);
     const raidbossSlotRef    = useRef<RaidbossSlot | null>(null);
     const raidbossInfoRef    = useRef<{ generation: number; index: number; total: number } | null>(null);
     const pendingSubmitRef   = useRef<Promise<void>>(Promise.resolve());
@@ -312,7 +329,12 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
         dt:    number,
         input: InputState,
     ): GameState => {
-        const next = update(state, dt, input, gameShooterSettings.playerStats);
+        // Mods gelten nur außerhalb von Raidboss-Runden (feste Stats für faire Fitness-Vergleiche)
+        const effectivePlayerStats = isRaidbossRound
+            ? gameShooterSettings.playerStats
+            : applyMods(gameShooterSettings.playerStats, runModsStore.activeModIds);
+        const activeModIds = isRaidbossRound ? [] : runModsStore.activeModIds;
+        const next = update(state, dt, input, effectivePlayerStats, activeModIds);
 
         if (next.lastPlayerFrame) playerFramesRef.current.push(next.lastPlayerFrame);
         if (next.lastAgentFrame)  agentFramesRef.current.push(next.lastAgentFrame);
@@ -433,7 +455,10 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
         const currentState = gameStateRef.current!;
         const nextRound    = currentState.roundNumber + 1;
 
-        if (currentState.roundNumber === 0) analyticsStore.clear();
+        if (currentState.roundNumber === 0) {
+            analyticsStore.clear();
+            runModsStore.reset();
+        }
         analyticsLoggedRef.current = false;
 
         const population = currentState.population
@@ -539,6 +564,28 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
         } satisfies EvolutionWorkerIn);
     };
 
+    // Alle MOD_CHOICE_INTERVAL gespielten Runden (bewusst nicht Generationen —
+    // presimGenerations lässt population.generation pro Runde um mehr als 1 springen,
+    // wodurch Powerups viel zu oft und dicht getaktet kämen und nur noch ablenken):
+    // 2-3 noch nicht aktive Mods als Bonus-Auswahl anbieten. Sonst direkt weiter zur
+    // nächsten Runde. Alle Mods bleiben davon unabhängig jederzeit frei im Player-Tab
+    // togglebar.
+    const maybeOfferModChoice = () => {
+        if (!gameShooterSettings.modChoiceEnabled) { startRound(); return; }
+        const roundJustEnded = gameStateRef.current?.roundNumber ?? 0;
+        const interval  = gameShooterSettings.modChoiceInterval;
+        const available = MOD_POOL.filter(m => !runModsStore.activeModIds.includes(m.id));
+        if (roundJustEnded % interval !== 0 || available.length === 0) { startRound(); return; }
+        const shuffled = [...available].sort(() => Math.random() - 0.5);
+        setPendingModChoices(shuffled.slice(0, Math.min(MOD_CHOICE_COUNT, available.length)));
+    };
+
+    const chooseMod = (mod: ModDefinition) => {
+        runModsStore.toggleMod(mod.id);
+        setPendingModChoices(null);
+        startRound();
+    };
+
     const applyAndPlay = () => {
         const newState = pendingNewStateRef.current;
         if (!newState) return;
@@ -568,7 +615,11 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                     left: 0,
                 }}
             >
-                <TugOfWarBar score={matchScore} threshold={gameShooterSettings.tugWinThreshold} />
+                <TugOfWarBar
+                    score={matchScore}
+                    threshold={gameShooterSettings.tugWinThreshold}
+                    modProgress={(isRaidbossRound || !gameShooterSettings.modChoiceEnabled) ? null : (((gameStateRef.current?.roundNumber ?? 0) - 1) % gameShooterSettings.modChoiceInterval + 1) / gameShooterSettings.modChoiceInterval}
+                />
 
                 <canvas
                     ref={canvasRef}
@@ -613,6 +664,20 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                         <button className="btn btn--primary" style={{ fontSize: 16, padding: '14px 32px' }} onClick={applyAndPlay}>
                             Next Round →
                         </button>
+                    </div>
+                ) : pendingModChoices !== null ? (
+                    <div className={styles.overlay}>
+                        <h2 className={styles.title}>Choose a Mod</h2>
+                        <p className={styles.subtitle}>Stays active for the rest of this run</p>
+                        <div className={styles.modChoiceGrid}>
+                            {pendingModChoices.map(mod => (
+                                <button key={mod.id} className={styles.modCard} onClick={() => chooseMod(mod)}>
+                                    <span className={styles.modCardIcon}>{mod.icon}</span>
+                                    <span className={styles.modCardName}>{mod.name}</span>
+                                    <span className={styles.modCardDesc}>{mod.description}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 ) : phase === 'idle' ? (
                     <div className={styles.overlay}>
@@ -679,7 +744,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                                 </button>
                             </div>
                         ) : (
-                            <button className="btn btn--primary" style={{ fontSize: 16, padding: '14px 32px' }} onClick={startRound}>
+                            <button className="btn btn--primary" style={{ fontSize: 16, padding: '14px 32px' }} onClick={maybeOfferModChoice}>
                                 Continue →
                             </button>
                         )}

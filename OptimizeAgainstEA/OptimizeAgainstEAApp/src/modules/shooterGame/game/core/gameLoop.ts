@@ -10,12 +10,21 @@ import {
     DNA_INDEX,
 } from '../../shooter.types';
 import { GAME_CONFIG, ARENA } from '../../shooter.types';
+import { computeShotPlan } from '../../mods/modTypes';
+import { steerHomingBullet, type QueuedShot } from '../../mods/shotEngine';
 
 let bulletIdCounter     = 0;
 let playerShootCooldown = 0;
 let agentShootCooldown  = 0;
 let ghostFrameSkip      = 0;
 const dodgedBulletIdSet = new Set<string>();
+
+// Schüsse aus Verhaltens-Mods (z.B. Burst Shot), die zeitversetzt nach dem
+// eigentlichen Trigger-Pull abgefeuert werden. Meist leer → kein GC-Druck.
+const queuedPlayerShots: QueuedShot[] = [];
+
+// Homing-Rounds-Mod: max. Drehrate in rad/s, mit der eine Kugel Richtung Agent einlenkt
+const HOMING_TURN_RATE = 5;
 
 // Scratch-Vektoren für updateAgent – einmal allokiert, jeden Frame wiederverwendet (kein GC)
 const _agToP   = { x: 0, y: 0 };  // Agent → Spieler, normalisiert
@@ -29,14 +38,37 @@ export function resetGameLoop() {
     agentShootCooldown  = 0;
     ghostFrameSkip      = 0;
     dodgedBulletIdSet.clear();
+    queuedPlayerShots.length = 0;
+}
+
+function spawnPlayerBullet(
+    bullets:     Bullet[],
+    player:      PlayerState,
+    playerStats: PlayerStats,
+    angleOffset: number,
+    speedMult:   number,
+    homing:      boolean,
+) {
+    const angle = player.rotation + angleOffset;
+    const speed = playerStats.bulletSpeed * speedMult;
+    bullets.push({
+        id:       `p_${bulletIdCounter++}`,
+        position: { ...player.position },
+        velocity: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        ownerId:  'player',
+        lifetime: GAME_CONFIG.BULLET_LIFETIME,
+        radius:   GAME_CONFIG.BULLET_RADIUS,
+        homing,
+    });
 }
 
 // Update-Funktion – kriegt alten State, gibt neuen zurück
 export function update(
-    state:       GameState,
-    dt:          number,
-    input:       InputState,
-    playerStats: PlayerStats,
+    state:        GameState,
+    dt:           number,
+    input:        InputState,
+    playerStats:  PlayerStats,
+    activeModIds: string[] = [],
 ): GameState {
     if (state.phase !== 'playing') return state;
 
@@ -78,14 +110,27 @@ export function update(
     const playerShotThisFrame = input.shoot && playerShootCooldown === 0;
     if (playerShotThisFrame) {
         playerShootCooldown = playerStats.shootCooldown;
-        bullets.push({
-            id:       `p_${bulletIdCounter++}`,
-            position: { ...player.position },
-            velocity: { x: Math.cos(player.rotation) * playerStats.bulletSpeed, y: Math.sin(player.rotation) * playerStats.bulletSpeed },
-            ownerId:  'player',
-            lifetime: GAME_CONFIG.BULLET_LIFETIME,
-            radius:   GAME_CONFIG.BULLET_RADIUS,
-        });
+        // Schuss-Mods (Triple Shot, Burst Shot, ...) nur beim tatsächlichen
+        // Trigger-Pull berechnen, nicht jeden Frame – vernachlässigbare Kosten.
+        for (const shot of computeShotPlan(activeModIds)) {
+            if (shot.delay <= 0) {
+                spawnPlayerBullet(bullets, player, playerStats, shot.angleOffset, shot.speedMult, shot.homing ?? false);
+            } else {
+                queuedPlayerShots.push({ timer: shot.delay, angleOffset: shot.angleOffset, speedMult: shot.speedMult, homing: shot.homing ?? false });
+            }
+        }
+    }
+
+    // ---- Verzögerte Mod-Schüsse abfeuern (z.B. Burst Shot) – meist leer ----
+    if (queuedPlayerShots.length > 0) {
+        for (let i = queuedPlayerShots.length - 1; i >= 0; i--) {
+            const q = queuedPlayerShots[i];
+            q.timer -= dt;
+            if (q.timer <= 0) {
+                spawnPlayerBullet(bullets, player, playerStats, q.angleOffset, q.speedMult, q.homing);
+                queuedPlayerShots.splice(i, 1);
+            }
+        }
     }
 
     // ---- Agent bewegen (KI) ----
@@ -105,6 +150,11 @@ export function update(
     // ---- Bullets bewegen + filtern + Kollision: alles in einem Pass ----
     const newBullets: Bullet[] = [];
     for (const b of bullets) {
+        // Homing Rounds: Geschwindigkeitsvektor pro Frame Richtung Agent eindrehen
+        if (b.homing && b.ownerId === 'player') {
+            steerHomingBullet(b.position, b.velocity, agent.position, HOMING_TURN_RATE, dt);
+        }
+
         // In-place bewegen (kein Spread → kein GC-Druck)
         b.position.x += b.velocity.x * dt;
         b.position.y += b.velocity.y * dt;

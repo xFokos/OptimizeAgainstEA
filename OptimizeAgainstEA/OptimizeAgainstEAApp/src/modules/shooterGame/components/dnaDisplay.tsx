@@ -1,20 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { gameStore } from '../game/gameStore';
 import { getRaidbossActive } from '../game/raidbossStore';
-import { DNA_NAMES } from '../shooter.types';
+import { DNA_NAMES, DNA_GENE_INFO } from '../shooter.types';
 
 const FONT   = 'var(--font)';
 const ACCENT = 'var(--accent)';
-
-const GENE_LABELS: Record<string, string> = {
-    AGGRESSION:      'Aggression',
-    DODGE_WEIGHT:    'Dodge',
-    SHOOT_ACCURACY:  'Accuracy',
-    PREFERRED_RANGE: 'Range',
-    MOVEMENT_SPEED:  'Speed',
-    PREDICT_LEAD:    'Lead',
-    FIRE_RATE:       'Fire Rate',
-};
 
 // ---- DNA String (Zahlen) ----
 
@@ -45,10 +35,11 @@ function DeltaBadge({ delta }: { delta: number }) {
 }
 
 function GeneBar({ name, value, delta }: { name: string; value: number; delta: number }) {
+    const info = DNA_GENE_INFO[name as keyof typeof DNA_GENE_INFO];
     return (
-        <div style={styles.geneRow}>
+        <div style={styles.geneRow} title={info?.tooltip}>
             <div style={styles.geneHeader}>
-                <span style={styles.geneName}>{GENE_LABELS[name] ?? name}</span>
+                <span style={styles.geneName}>{info?.label ?? name}</span>
                 <span style={{ display: 'flex', alignItems: 'baseline' }}>
                     <span style={styles.geneValue}>{value.toFixed(2)}</span>
                     <DeltaBadge delta={delta} />

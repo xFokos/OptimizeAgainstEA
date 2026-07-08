@@ -24,3 +24,24 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ------------------------------------------------------------
+   Bar variant — an invisible full-size range input layered over a
+   custom-drawn fill bar (see DnaGeneRow in ShooterLobbyPage.tsx), so the
+   value reads as a stat bar while keeping full native drag/click/keyboard
+   interaction. The parent must be `position: relative`.
+   ------------------------------------------------------------ */
+.slider--bar-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+}
+
+.slider--bar-wrap:has(.slider--bar-input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}

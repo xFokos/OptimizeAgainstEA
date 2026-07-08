@@ -1,0 +1,84 @@
+/* ============================================================
+   COMPI TOOLTIP — site-styled hover bubble, mascot included.
+   Drop-in replacement for a native title="" tooltip.
+   ============================================================ */
+
+.compi-tip {
+	position: relative;
+	display: inline-flex;
+	cursor: help;
+}
+
+/* position: fixed with top/left set inline from getBoundingClientRect() (see
+   CompiTooltip.tsx) — portaled to document.body, so it can't be clipped by
+   a scrolling ancestor's overflow the way position: absolute would be. */
+.compi-tip__pop {
+	position: fixed;
+	z-index: 400;
+	pointer-events: none;
+}
+/* 'top' placement: the anchor point is the bubble's bottom edge, so it grows
+   upward from the trigger instead of downward off of it. */
+.compi-tip__pop--top    { transform: translateY(-100%); }
+
+.compi-tip__bubble {
+	/* Was an unstyled <span> (display: inline) — width/max-width are ignored
+	   on inline boxes, so the text wrapped against whatever width the browser
+	   felt like instead of the intended column. Must be a block for the width
+	   constraint below to actually apply. */
+	display:      block;
+	position:     relative;
+	width:        max-content;
+	max-width:    260px;
+	margin-left:  38px; /* room for Compi to overlap the left edge */
+	background:   var(--bg-light, #1f2f38);
+	border:       2px solid var(--accent, #4fc3f7);
+	border-radius: var(--r-md, 8px);
+	padding:      10px 12px;
+	font-size:    12px;
+	line-height:  1.5;
+	color:        var(--text-dim, rgba(255, 255, 255, 0.7));
+	box-shadow:   0 10px 26px rgba(0, 0, 0, 0.5);
+	overflow-wrap: break-word;
+	/* Lives here (not on .compi-tip__pop) so it doesn't fight the --top
+	   variant's own positioning transform on the parent. */
+	animation:    compiTipIn 0.15s ease;
+}
+
+.compi-tip__mascot {
+	position:     absolute;
+	left:         -38px;
+	bottom:       -10px;
+	width:        68px;
+	height:       auto;
+	transform:    scaleX(-1); /* face right, into the bubble — overlaps its left edge */
+	image-rendering: pixelated;
+	filter:       drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+}
+
+.compi-tip__tail {
+	position:   absolute;
+	left:       14px;
+	width:      12px;
+	height:     12px;
+	background: var(--bg-light, #1f2f38);
+	transform:  rotate(45deg);
+}
+.compi-tip__pop--top .compi-tip__tail {
+	bottom: -7px;
+	border-right:  2px solid var(--accent, #4fc3f7);
+	border-bottom: 2px solid var(--accent, #4fc3f7);
+}
+.compi-tip__pop--bottom .compi-tip__tail {
+	top: -7px;
+	border-left: 2px solid var(--accent, #4fc3f7);
+	border-top:  2px solid var(--accent, #4fc3f7);
+}
+
+@keyframes compiTipIn {
+	from { opacity: 0; transform: translateY(4px) scale(0.97); }
+	to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.compi-tip__bubble { animation: none; }
+}

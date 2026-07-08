@@ -4,13 +4,13 @@ import PageContainer from '../../../components/layout/PageContainer';
 import { GameModeSelectorLayout } from '../../../components/layout/GameModeSelectorLayout';
 import { HintsProvider, HintToggle, HintLayer, useHints } from '../../../components/hints';
 import { HelpButton } from '../../../components/help';
-import { ShooterPlayerSection, ShooterRoundSection, HordeWaveSection } from '../settings/ShooterSettings';
+import { CompiTooltip } from '../../../components/ui/CompiTooltip';
+import { ShooterPlayerSection, ShooterRoundSection, ShooterDnaSection, HordeWaveSection } from '../settings/ShooterSettings';
 import { useSettings, resetShooterSettings, defaultShooterSettings } from '../../../context/SettingsContext';
 import { EASettingsPanel, HordeEASettingsPanel } from '../../../components/settings/EASettings';
 import { makeInitialGameState } from '../game/makeGameState';
 import { vec } from '../game/core/vec';
-import { ARENA, DNA_INDEX, DNA_NAMES, GAME_CONFIG } from '../shooter.types';
-import { initPopulation } from '../game/ga/population';
+import { ARENA, DNA_INDEX, DNA_NAMES, DNA_GENE_INFO, GAME_CONFIG } from '../shooter.types';
 import { gameStore } from '../game/gameStore';
 import { analyticsStore } from '../game/analyticsStore';
 import { hordeRunStore } from '../horde/hordeRunStore';
@@ -761,6 +761,7 @@ const PRESETS = [
         mutation: 0.05,
         strength: 0.1,
         presim:   0,
+        modInterval: 4,
     },
     {
         id:       'medium',
@@ -771,6 +772,7 @@ const PRESETS = [
         mutation: 0.15,
         strength: 0.2,
         presim:   1,
+        modInterval: 5,
     },
     {
         id:       'hard',
@@ -781,26 +783,64 @@ const PRESETS = [
         mutation: 0.25,
         strength: 0.3,
         presim:   3,
+        modInterval: 6,
     },
 ] as const;
 
 type PresetId = typeof PRESETS[number]['id'] | 'custom';
+
+// ---- DNA gene row — read-only stat bar with a delta badge on evolution.
+// Editing starter DNA happens in the Algorithm tab (ShooterDnaSection); this
+// is a "look, don't touch" view so the Overview stays glanceable. ----
+
+function DnaDeltaBadge({ delta }: { delta: number }) {
+    if (Math.abs(delta) < 0.005) return null;
+    return (
+        <span style={{ ...ovStyles.geneDelta, color: delta > 0 ? '#4ade80' : '#f87171' }}>
+            {delta > 0 ? '+' : ''}{delta.toFixed(2)}
+        </span>
+    );
+}
+
+function DnaGeneRow({ name, value, delta }: {
+    name:  keyof typeof DNA_GENE_INFO;
+    value: number;
+    delta: number;
+}) {
+    const info = DNA_GENE_INFO[name];
+    return (
+        <div style={ovStyles.geneRow}>
+            <div style={ovStyles.geneHeader}>
+                <CompiTooltip text={info.tooltip}>
+                    <span style={ovStyles.geneName}>{info.label}</span>
+                </CompiTooltip>
+                <span style={{ display: 'flex', alignItems: 'baseline' }}>
+                    <span style={ovStyles.geneValue}>{value.toFixed(2)}</span>
+                    <DnaDeltaBadge delta={delta} />
+                </span>
+            </div>
+            <div style={ovStyles.geneBarTrack}>
+                <div style={{ ...ovStyles.geneBarFill, width: `${value * 100}%` }} />
+            </div>
+        </div>
+    );
+}
 
 // ---- Solo Play Overview (tab 1) ----
 
 interface SoloPlayOverviewProps {
     selectedPreset:    PresetId;
     setSelectedPreset: (p: PresetId) => void;
+    onNavigateTab:     (tab: LobbyTab) => void;
 }
 
-function SoloPlayOverview({ selectedPreset, setSelectedPreset }: SoloPlayOverviewProps) {
+function SoloPlayOverview({ selectedPreset, setSelectedPreset, onNavigateTab }: SoloPlayOverviewProps) {
     const navigate = useNavigate();
     const isMobile = useMobile();
     const [round, setRound]     = useState(gameStore.state?.roundNumber ?? 0);
     const [hasGame, setHasGame] = useState(!!gameStore.state);
     const [lastRecord, setLastRecord] = useState(analyticsStore.rounds.at(-1) ?? null);
     const { shooterSettings, setShooterSettings, eaSettings, setEaSettings } = useSettings();
-    const { showHint } = useHints();
 
     useEffect(() => {
         const syncGame = () => {
@@ -828,22 +868,9 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset }: SoloPlayOvervie
 
     const applyPreset = (p: typeof PRESETS[number]) => {
         setSelectedPreset(p.id);
-        setShooterSettings({ ...defaultShooterSettings, starterDna: [...p.dna] });
+        setShooterSettings({ ...defaultShooterSettings, starterDna: [...p.dna], modChoiceInterval: p.modInterval });
         setEaSettings({ ...eaSettings, mutationRate: p.mutation, mutationStrength: p.strength, presimGenerations: p.presim });
     };
-
-    // Wenn Settings manuell geändert werden → zurück zu Custom
-    useEffect(() => {
-        if (selectedPreset === 'custom') return;
-        const active = PRESETS.find(p => p.id === selectedPreset);
-        if (!active) return;
-        const dnaMatch = active.dna.every((v, i) => Math.abs(v - (shooterSettings.starterDna[i] ?? 0)) < 0.001);
-        const mutMatch = Math.abs(active.mutation - eaSettings.mutationRate) < 0.001 &&
-                         Math.abs(active.strength  - eaSettings.mutationStrength) < 0.001;
-        const presimMatch = active.presim === eaSettings.presimGenerations;
-        if (!dnaMatch || !mutMatch || !presimMatch) setSelectedPreset('custom');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [shooterSettings.starterDna, eaSettings.mutationRate, eaSettings.mutationStrength, eaSettings.presimGenerations]);
 
     const activePreset = PRESETS.find(p => p.id === selectedPreset) ?? null;
 
@@ -851,6 +878,7 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset }: SoloPlayOvervie
     const displayDna    = showActiveDna ? gameStore.state.agent.dna : shooterSettings.starterDna;
 
     const [displayedDna, setDisplayedDna] = useState<number[]>([...displayDna]);
+    const [prevDna, setPrevDna] = useState<number[]>([...displayDna]);
     const animTimers   = useRef<ReturnType<typeof setTimeout>[]>([]);
     const prevRoundRef = useRef(round);
 
@@ -860,7 +888,9 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset }: SoloPlayOvervie
 
         if (!roundIncreased || !showActiveDna) {
             setDisplayedDna([...displayDna]);
+            setPrevDna([...displayDna]);
         } else {
+            setPrevDna([...displayedDna]); // freeze the last-shown values as the delta baseline
             displayDna.forEach((target, i) => {
                 const t = setTimeout(() => {
                     setDisplayedDna(prev => {
@@ -880,25 +910,8 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset }: SoloPlayOvervie
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [round, displayDna, showActiveDna]);
 
-    const updateDna = (index: number, value: number) => {
-        if (round > 0 && hasGame) showHint('shooter.dnaChangeDuringRound');
-        const newDna = [...displayDna];
-        newDna[index] = value;
-        setShooterSettings({ ...shooterSettings, starterDna: newDna });
-        if (gameStore.state) {
-            const newPop  = initPopulation(newDna);
-            const prevGen = gameStore.state.population?.generation ?? 1;
-            gameStore.state = {
-                ...gameStore.state,
-                population: { ...newPop, generation: prevGen },
-                agent:      { ...gameStore.state.agent, dna: newDna },
-            };
-        }
-    };
-
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={isMobile ? { display: 'flex', flexDirection: 'column', gap: 16 } : ovStyles.layout}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 16 }}>
             <div style={ovStyles.slot}>
             {hasGame ? (
                     <div style={ovStyles.activeSlot}>
@@ -960,75 +973,79 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset }: SoloPlayOvervie
                     </div>
                 )}
             </div>
-            <div style={ovStyles.placeholder}>
-                <span style={ovStyles.placeholderHeading}>Difficulty</span>
-                <div style={ovStyles.presetBtns}>
-                    {PRESETS.map(p => (
+
+            {/* Right column: Difficulty stacked above the (read-only) DNA display.
+                Both stretch to the same width automatically; the Status box on the
+                left stretches to match this column's combined height. */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ ...ovStyles.placeholder, flex: 'none' }}>
+                    <span style={ovStyles.placeholderHeading}>Difficulty</span>
+                    <div style={ovStyles.presetBtns}>
+                        {PRESETS.map(p => (
+                            <button
+                                key={p.id}
+                                onClick={() => applyPreset(p)}
+                                disabled={round > 0}
+                                style={{
+                                    ...ovStyles.presetBtn,
+                                    borderColor: selectedPreset === p.id ? p.color : 'var(--border)',
+                                    color:       selectedPreset === p.id ? p.color : 'var(--text-dim)',
+                                    background:  selectedPreset === p.id ? `${p.color}18` : 'transparent',
+                                    opacity:     round > 0 ? 0.35 : 1,
+                                    cursor:      round > 0 ? 'not-allowed' : 'pointer',
+                                }}
+                            >
+                                {p.label}
+                            </button>
+                        ))}
                         <button
-                            key={p.id}
-                            onClick={() => applyPreset(p)}
-                            disabled={round > 0}
+                            onClick={() => setSelectedPreset('custom')}
                             style={{
                                 ...ovStyles.presetBtn,
-                                borderColor: selectedPreset === p.id ? p.color : 'var(--border)',
-                                color:       selectedPreset === p.id ? p.color : 'var(--text-dim)',
-                                background:  selectedPreset === p.id ? `${p.color}18` : 'transparent',
-                                opacity:     round > 0 ? 0.35 : 1,
-                                cursor:      round > 0 ? 'not-allowed' : 'pointer',
+                                borderColor: selectedPreset === 'custom' ? 'rgba(255,255,255,0.4)' : 'var(--border)',
+                                color:       selectedPreset === 'custom' ? 'rgba(255,255,255,0.75)' : 'var(--text-dim)',
+                                background:  selectedPreset === 'custom' ? 'rgba(255,255,255,0.06)' : 'transparent',
                             }}
                         >
-                            {p.label}
+                            Custom
                         </button>
-                    ))}
+                    </div>
+                    <p style={ovStyles.presetDesc}>
+                        {activePreset
+                            ? activePreset.desc
+                            : 'Custom configuration — settings adjusted manually.'}
+                    </p>
                     <button
-                        onClick={() => setSelectedPreset('custom')}
-                        style={{
-                            ...ovStyles.presetBtn,
-                            borderColor: selectedPreset === 'custom' ? 'rgba(255,255,255,0.4)' : 'var(--border)',
-                            color:       selectedPreset === 'custom' ? 'rgba(255,255,255,0.75)' : 'var(--text-dim)',
-                            background:  selectedPreset === 'custom' ? 'rgba(255,255,255,0.06)' : 'transparent',
-                        }}
+                        className="btn btn--ghost btn--sm"
+                        style={{ alignSelf: 'flex-start' }}
+                        onClick={() => onNavigateTab('Player')}
                     >
-                        Custom
+                        Round Settings →
                     </button>
                 </div>
-                <p style={ovStyles.presetDesc}>
-                    {activePreset
-                        ? activePreset.desc
-                        : 'Custom configuration — settings adjusted manually.'}
-                </p>
-                <div style={ovStyles.divider} />
-                <span style={ovStyles.placeholderHeading}>Round Settings</span>
-                <ShooterRoundSection onBeforeChange={() => { setSelectedPreset('custom'); if (round > 0 && hasGame) showHint('shooter.dnaChangeDuringRound'); }} />
-            </div>
-        </div>
 
-        {/* DNA-Sektion */}
-        <div style={tabStyles.box}>
-            <p style={{ ...tabStyles.sectionLabel, marginBottom: 12 }}>
-                {showActiveDna ? 'Current DNA' : 'Starter DNA'}
-            </p>
-            <div style={isMobile ? { display: 'grid', gridTemplateColumns: '1fr', gap: '8px 16px' } : ovStyles.dnaGrid}>
-                {DNA_NAMES.map((name, i) => (
-                    <div key={i} style={ovStyles.dnaGridItem}>
-                        <div style={ovStyles.dnaGridHeader}>
-                            <span style={ovStyles.dnaGridLabel}>{name}</span>
-                            <span style={{ ...ovStyles.dnaGridValue, transition: 'color 0.15s ease' }}>
-                                {(displayedDna[i] ?? 0).toFixed(2)}
-                            </span>
-                        </div>
-                        <input
-                            type="range" min={0} max={1} step={0.01}
-                            value={displayedDna[i] ?? 0}
-                            onChange={e => updateDna(i, parseFloat(e.target.value))}
-                            className="slider"
-                            style={{ width: '100%', cursor: 'pointer' }}
-                        />
+                {/* DNA-Sektion — read-only here; edited from the Algorithm tab */}
+                <div style={tabStyles.box}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <p style={{ ...tabStyles.sectionLabel, margin: 0 }}>
+                            {showActiveDna ? 'Current DNA' : 'Starter DNA'}
+                        </p>
+                        <button className="btn btn--ghost btn--sm" onClick={() => onNavigateTab('Algorithm')}>
+                            Edit →
+                        </button>
                     </div>
-                ))}
+                    <div style={{ ...ovStyles.geneList, gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)' }}>
+                        {DNA_NAMES.map((name, i) => (
+                            <DnaGeneRow
+                                key={i}
+                                name={name}
+                                value={displayedDna[i] ?? 0}
+                                delta={showActiveDna ? (displayedDna[i] ?? 0) - (prevDna[i] ?? 0) : 0}
+                            />
+                        ))}
+                    </div>
+                </div>
             </div>
-        </div>
-
         </div>
     );
 }
@@ -1177,35 +1194,52 @@ const ovStyles: Record<string, React.CSSProperties> = {
         lineHeight: 1,
     },
 
-    dnaGrid: {
+    geneList: {
         display:             'grid',
         gridTemplateColumns: 'repeat(2, 1fr)',
-        gap:                 '8px 16px',
+        gap:                 '10px 20px',
     },
-    dnaGridItem: {
+    geneRow: {
         display:       'flex',
         flexDirection: 'column',
         gap:           4,
     },
-    dnaGridHeader: {
+    geneHeader: {
         display:        'flex',
         justifyContent: 'space-between',
         alignItems:     'baseline',
     },
-    dnaGridLabel: {
-        fontFamily:   'var(--font-mono)',
-        fontSize:     10,
-        color:        'var(--text-dim)',
-        whiteSpace:   'nowrap' as const,
-        overflow:     'hidden',
-        textOverflow: 'ellipsis',
+    geneName: {
+        fontFamily:    'var(--font-mono)',
+        fontSize:      11,
+        color:         'var(--text-dim)',
         letterSpacing: '0.04em',
     },
-    dnaGridValue: {
+    geneValue: {
         fontFamily: 'var(--font-mono)',
-        fontSize:   10,
+        fontSize:   12,
+        fontWeight: 700,
         color:      'var(--accent)',
         flexShrink: 0,
+    },
+    geneDelta: {
+        fontFamily: 'var(--font-mono)',
+        fontSize:   11,
+        fontWeight: 700,
+        marginLeft: 6,
+    },
+    geneBarTrack: {
+        height:       8,
+        borderRadius: 4,
+        background:   'var(--border)',
+        overflow:     'hidden',
+    },
+    geneBarFill: {
+        height:       '100%',
+        borderRadius: 4,
+        background:   'var(--accent)',
+        opacity:      0.85,
+        transition:   'width 0.2s ease',
     },
 
     statsCompact: {
@@ -1240,6 +1274,14 @@ const ovStyles: Record<string, React.CSSProperties> = {
 
 const LOBBY_TABS = ['Overview', 'Algorithm', 'Performance', 'Player'] as const;
 type LobbyTab = typeof LOBBY_TABS[number];
+
+// Friendlier display text — internal ids stay stable so nothing else needs to change.
+const LOBBY_TAB_LABELS: Record<LobbyTab, string> = {
+    Overview:    'Overview',
+    Algorithm:   'AI Behavior',
+    Performance: 'Simulation',
+    Player:      'Round & Player',
+};
 
 const tabStyles: Record<string, React.CSSProperties> = {
     shell: {
@@ -1365,12 +1407,14 @@ function NormalLobby() {
     const [tab, setTab] = useState<LobbyTab>('Overview');
     const [hasActiveGame, setHasActiveGame] = useState(!!gameStore.state);
     const { shooterSettings, eaSettings, setShooterSettings } = useSettings();
+    const { showHint } = useHints();
     const [selectedPreset, setSelectedPreset] = useState<PresetId>(() => {
         const match = PRESETS.find(p =>
             p.dna.every((v, i) => Math.abs(v - shooterSettings.starterDna[i]) < 0.001) &&
             Math.abs(p.mutation - eaSettings.mutationRate) < 0.001 &&
             Math.abs(p.strength - eaSettings.mutationStrength) < 0.001 &&
-            p.presim === eaSettings.presimGenerations
+            p.presim === eaSettings.presimGenerations &&
+            p.modInterval === shooterSettings.modChoiceInterval
         );
         return match?.id ?? 'custom';
     });
@@ -1383,12 +1427,30 @@ function NormalLobby() {
         return gameStore.subscribe(sync);
     }, []);
 
+    // Wenn Settings manuell geändert werden → zurück zu Custom.
+    // Lives here (not in a single tab) since DNA/round settings can now be
+    // edited from the Algorithm and Player tabs, not just Overview.
+    useEffect(() => {
+        if (selectedPreset === 'custom') return;
+        const active = PRESETS.find(p => p.id === selectedPreset);
+        if (!active) return;
+        const dnaMatch = active.dna.every((v, i) => Math.abs(v - (shooterSettings.starterDna[i] ?? 0)) < 0.001);
+        const mutMatch = Math.abs(active.mutation - eaSettings.mutationRate) < 0.001 &&
+                         Math.abs(active.strength  - eaSettings.mutationStrength) < 0.001;
+        const presimMatch = active.presim === eaSettings.presimGenerations;
+        const intervalMatch = active.modInterval === shooterSettings.modChoiceInterval;
+        if (!dnaMatch || !mutMatch || !presimMatch || !intervalMatch) setSelectedPreset('custom');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [shooterSettings.starterDna, shooterSettings.modChoiceInterval, eaSettings.mutationRate, eaSettings.mutationStrength, eaSettings.presimGenerations]);
+
+    const warnIfMidRound = () => { if (hasActiveGame) showHint('shooter.dnaChangeDuringRound'); };
+
     const tabBar = (
         <div style={{ ...tabStyles.bar, overflowX: 'auto', flexWrap: 'nowrap' as const, flexShrink: 0 }}>
             {LOBBY_TABS.map(t => (
                 <button key={t} onClick={() => setTab(t)}
                     style={{ ...(tab === t ? tabStyles.tabActive : tabStyles.tabInactive), flexShrink: 0 }}>
-                    {t}
+                    {LOBBY_TAB_LABELS[t]}
                 </button>
             ))}
         </div>
@@ -1396,11 +1458,32 @@ function NormalLobby() {
 
     const tabContent = (
         <div style={{ ...tabStyles.panel, overflowY: isMobile ? 'visible' : 'auto' }}>
-            {tab === 'Overview' && <SoloPlayOverview selectedPreset={selectedPreset} setSelectedPreset={setSelectedPreset} />}
-            {tab === 'Algorithm' && <EASettingsPanel />}
+            {tab === 'Overview' && (
+                <SoloPlayOverview
+                    selectedPreset={selectedPreset}
+                    setSelectedPreset={setSelectedPreset}
+                    onNavigateTab={setTab}
+                />
+            )}
+            {tab === 'Algorithm' && (
+                <>
+                    <div style={{ ...tabStyles.box, marginBottom: 12 }}>
+                        <p style={tabStyles.sectionLabel}>Starter DNA</p>
+                        <ShooterDnaSection onBeforeChange={warnIfMidRound} />
+                    </div>
+                    <EASettingsPanel />
+                </>
+            )}
             {tab === 'Performance' && <PerformanceTab />}
             {tab === 'Player' && (
                 <>
+                    <div style={{ ...tabStyles.box, marginBottom: 12 }}>
+                        <p style={tabStyles.sectionLabel}>Round Settings</p>
+                        <ShooterRoundSection
+                            locked={selectedPreset !== 'custom'}
+                            onBeforeChange={warnIfMidRound}
+                        />
+                    </div>
                     <div style={tabStyles.box}>
                         <ShooterPlayerSection />
                     </div>

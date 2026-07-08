@@ -27,16 +27,20 @@ export const defaultEASettings: EASettings = {
 
 // ---- Shooter Settings ----
 export interface ShooterSettings {
-    starterDna:      number[];
-    roundDuration:   number;
-    tugWinThreshold: number;
-    playerStats:     PlayerStats;
+    starterDna:        number[];
+    roundDuration:     number;
+    tugWinThreshold:   number;
+    playerStats:       PlayerStats;
+    modChoiceEnabled:  boolean; // opt-in: offer a powerup choice during play at all
+    modChoiceInterval: number;  // powerup choice offered every N rounds (deliberately not generations — see maybeOfferModChoice)
 }
 
 export const defaultShooterSettings: ShooterSettings = {
-    starterDna:      [...STARTER_DNA],
-    roundDuration:   20,
-    tugWinThreshold: 15,
+    starterDna:        [...STARTER_DNA],
+    roundDuration:      20,
+    tugWinThreshold:    15,
+    modChoiceEnabled:   false,
+    modChoiceInterval:  5,
     playerStats: {
         bulletSpeed:   GAME_CONFIG.BULLET_SPEED,
         moveSpeed:     GAME_CONFIG.PLAYER_SPEED,
@@ -59,6 +63,7 @@ export interface HordeSettings {
     customObstacles:    HordeObstacle[];              // user-built layout, edited via HordeMapEditorPage
     customSpawnSides:   HordeSpawnSide[];
     customPlayerSpawn:  { x: number; y: number };
+    modChoiceEnabled:   boolean;                      // offer a powerup choice every KILLS_PER_UPGRADE kills
 }
 
 export const defaultHordeSettings: HordeSettings = {
@@ -72,6 +77,7 @@ export const defaultHordeSettings: HordeSettings = {
     mapId:              'open',
     customObstacles:    [],
     customSpawnSides:   ['top', 'right', 'bottom', 'left'],
+    modChoiceEnabled:   true,
     customPlayerSpawn:  { x: ARENA.WIDTH / 2, y: ARENA.HEIGHT / 2 },
 };
 

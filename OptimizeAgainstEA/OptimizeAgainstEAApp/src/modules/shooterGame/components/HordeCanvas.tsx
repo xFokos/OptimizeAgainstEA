@@ -13,6 +13,9 @@ import { useInput }       from '../hooks/useInput';
 import { useSettings }    from '../../../context/SettingsContext';
 import type { HordeSettings } from '../../../context/SettingsContext';
 import type { PlayerStats } from '../shooter.types';
+import { applyMods, computeShotPlan, MOD_POOL, type ModDefinition } from '../mods/modTypes';
+import { steerHomingBullet, type QueuedShot } from '../mods/shotEngine';
+import { runModsStore } from '../mods/runModsStore';
 
 // Horde has its own mutation/crossover tuning (via HordeSettings) — deliberately
 // decoupled from the shared EASettings used by Solo Play, so changing difficulty
@@ -89,6 +92,15 @@ function agentOpacity(dna: DNA): number {
 
 let bulletCounter = 0;
 let shootTimer    = 0; // countdown until the player can fire again; reset to ea.shootCooldown
+
+// Schüsse aus Verhaltens-Mods (Burst Shot etc.), zeitversetzt nach dem Trigger-Pull.
+// Meist leer → kein GC-Druck. Homing-Turn-Rate: siehe gameLoop.ts (Solo), gleicher Wert.
+const hordeQueuedShots: QueuedShot[] = [];
+const HORDE_HOMING_TURN_RATE = 5;
+
+// Alle N Kills eine Mod-Auswahl anbieten (Vampire-Survivors-Stil)
+const KILLS_PER_UPGRADE = 15;
+const MOD_CHOICE_COUNT  = 3;
 
 // ---- Mini-GA helpers (no rounds, just per-death offspring) ----
 
@@ -207,11 +219,12 @@ function makeInitialState(pop: Population, map: HordeMap): HordeGameState {
 // ---- Pure game update ----
 
 function updateHorde(
-    state:  HordeGameState,
-    dt:     number,
-    input:  InputState,
-    pStats: PlayerStats,
-    ea:     HordeEA,
+    state:        HordeGameState,
+    dt:           number,
+    input:        InputState,
+    pStats:       PlayerStats,
+    ea:           HordeEA,
+    activeModIds: string[] = [],
 ): HordeGameState {
     if (state.phase !== 'playing') return state;
 
@@ -242,20 +255,45 @@ function updateHorde(
 
     // --- Player shoots ---
     const bullets: Bullet[] = [...state.bullets];
-    shootTimer = Math.max(0, shootTimer - dt);
-    if (input.shoot && shootTimer === 0) {
-        shootTimer = ea.shootCooldown;
+
+    function spawnHordeBullet(angleOffset: number, speedMult: number, homing: boolean) {
+        const angle = player.rotation + angleOffset;
+        const speed = pStats.bulletSpeed * speedMult;
         bullets.push({
             id:       `h_${bulletCounter++}`,
             position: { ...player.position },
-            velocity: {
-                x: Math.cos(player.rotation) * pStats.bulletSpeed,
-                y: Math.sin(player.rotation) * pStats.bulletSpeed,
-            },
+            velocity: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
             ownerId:  'player',
             lifetime: GAME_CONFIG.BULLET_LIFETIME,
             radius:   GAME_CONFIG.BULLET_RADIUS,
+            homing,
         });
+    }
+
+    shootTimer = Math.max(0, shootTimer - dt);
+    if (input.shoot && shootTimer === 0) {
+        shootTimer = ea.shootCooldown;
+        // Schuss-Mods (Triple Shot, Burst Shot, Homing Rounds, ...) nur beim
+        // tatsächlichen Trigger-Pull berechnen – vernachlässigbare Kosten.
+        for (const shot of computeShotPlan(activeModIds)) {
+            if (shot.delay <= 0) {
+                spawnHordeBullet(shot.angleOffset, shot.speedMult, shot.homing ?? false);
+            } else {
+                hordeQueuedShots.push({ timer: shot.delay, angleOffset: shot.angleOffset, speedMult: shot.speedMult, homing: shot.homing ?? false });
+            }
+        }
+    }
+
+    // --- Verzögerte Mod-Schüsse abfeuern (z.B. Burst Shot) – meist leer ---
+    if (hordeQueuedShots.length > 0) {
+        for (let i = hordeQueuedShots.length - 1; i >= 0; i--) {
+            const q = hordeQueuedShots[i];
+            q.timer -= dt;
+            if (q.timer <= 0) {
+                spawnHordeBullet(q.angleOffset, q.speedMult, q.homing);
+                hordeQueuedShots.splice(i, 1);
+            }
+        }
     }
 
     // --- Agent movement ---
@@ -375,6 +413,20 @@ function updateHorde(
     const newBullets: Bullet[] = [];
 
     for (const b of bullets) {
+        // Homing Rounds: pro Frame Richtung nächsten lebenden Agenten eindrehen
+        if (b.homing && b.ownerId === 'player') {
+            let nearest: HordeAgent | undefined;
+            let nearestD2 = Infinity;
+            for (const a of agents) {
+                if (!a.alive) continue;
+                const dx = a.position.x - b.position.x;
+                const dy = a.position.y - b.position.y;
+                const d2 = dx * dx + dy * dy;
+                if (d2 < nearestD2) { nearestD2 = d2; nearest = a; }
+            }
+            if (nearest) steerHomingBullet(b.position, b.velocity, nearest.position, HORDE_HOMING_TURN_RATE, dt);
+        }
+
         b.position.x += b.velocity.x * dt;
         b.position.y += b.velocity.y * dt;
         b.lifetime   -= dt;
@@ -702,11 +754,13 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
     const eaRef          = useRef<HordeEA>(hordeSettings);
     const playerStatsRef = useRef<PlayerStats>(shooterSettings.playerStats);
     const hordeSizeRef   = useRef(hordeSettings.waveSize);
+    const modChoiceEnabledRef = useRef(hordeSettings.modChoiceEnabled);
     const mapRef         = useRef<HordeMap>(resolveHordeMap(hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn));
 
     useEffect(() => { eaRef.current          = hordeSettings;               }, [hordeSettings]);
     useEffect(() => { playerStatsRef.current = shooterSettings.playerStats;  }, [shooterSettings]);
     useEffect(() => { hordeSizeRef.current   = hordeSettings.waveSize;       }, [hordeSettings]);
+    useEffect(() => { modChoiceEnabledRef.current = hordeSettings.modChoiceEnabled; }, [hordeSettings.modChoiceEnabled]);
     useEffect(() => {
         mapRef.current = resolveHordeMap(hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn);
     }, [hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn]);
@@ -715,11 +769,14 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
     const [uiGen,    setUiGen]    = useState(0);
     const [uiScore,  setUiScore]  = useState(0);
     const [bestDna,  setBestDna]  = useState<DNA | null>(null);
+    const [pendingModChoices, setPendingModChoices] = useState<ModDefinition[] | null>(null);
 
     const startGame = () => {
         agentIdCounter = 0;
         bulletCounter  = 0;
         shootTimer     = 0;
+        hordeQueuedShots.length = 0;
+        runModsStore.reset();
         // Random DNA so every run starts with real diversity — no starter-DNA bootstrap problem
         const pop: Population = {
             generation:  1,
@@ -735,6 +792,13 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
         setUiGen(pop.individuals.length);
         setUiScore(0);
         setBestDna(null);
+    };
+
+    const chooseHordeMod = (mod: ModDefinition) => {
+        runModsStore.toggleMod(mod.id);
+        setPendingModChoices(null);
+        if (stateRef.current) stateRef.current = { ...stateRef.current, phase: 'playing' };
+        setUiPhase('playing');
     };
 
     useEffect(() => {
@@ -755,8 +819,9 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
                 ctx.fillStyle = '#0f0f1a';
                 ctx.fillRect(0, 0, ARENA.WIDTH, ARENA.HEIGHT);
             } else if (s.phase === 'playing') {
-                const next = updateHorde(s, dt, inputRef.current, playerStatsRef.current, eaRef.current);
-                stateRef.current = next;
+                const activeModIds       = runModsStore.activeModIds;
+                const effectivePlayerStats = applyMods(playerStatsRef.current, activeModIds);
+                let next = updateHorde(s, dt, inputRef.current, effectivePlayerStats, eaRef.current, activeModIds);
                 if (next.generation > s.generation) {
                     const best = next.population.individuals.reduce((a, b) => b.fitness > a.fitness ? b : a);
                     setBestDna([...best.dna]);
@@ -766,7 +831,18 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
                     setUiScore(next.score);
                     setUiGen(next.generation);
                     hordeRunStore.record({ score: next.score, generation: next.generation });
+                } else if (modChoiceEnabledRef.current && Math.floor(next.score / KILLS_PER_UPGRADE) > Math.floor(s.score / KILLS_PER_UPGRADE)) {
+                    // Kill-Meilenstein erreicht (Vampire-Survivors-Stil): Auswahl anbieten,
+                    // falls noch nicht unlockte Mods übrig sind — sonst einfach weiterspielen.
+                    const available = MOD_POOL.filter(m => !runModsStore.activeModIds.includes(m.id));
+                    if (available.length > 0) {
+                        const shuffled = [...available].sort(() => Math.random() - 0.5);
+                        setPendingModChoices(shuffled.slice(0, Math.min(MOD_CHOICE_COUNT, available.length)));
+                        setUiPhase('choosing');
+                        next = { ...next, phase: 'choosing' };
+                    }
                 }
+                stateRef.current = next;
                 render(ctx, next);
             } else {
                 render(ctx, s);
@@ -811,6 +887,31 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
                             Every kill evolves the next spawn.
                         </div>
                         <button style={{ ...BTN, marginTop: 8 }} onClick={startGame}>Start →</button>
+                    </div>
+                )}
+
+                {uiPhase === 'choosing' && pendingModChoices !== null && (
+                    <div style={{ ...overlay, pointerEvents: 'auto' }}>
+                        <div style={{ fontSize: 22, fontWeight: 700, color: HC, letterSpacing: '0.1em' }}>CHOOSE A MOD</div>
+                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{uiScore} kills so far</div>
+                        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 640 }}>
+                            {pendingModChoices.map(mod => (
+                                <button
+                                    key={mod.id}
+                                    onClick={() => chooseHordeMod(mod)}
+                                    style={{
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                                        width: 170, padding: '18px 14px',
+                                        background: 'rgba(255,255,255,0.05)', border: `1px solid ${HC}55`,
+                                        borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+                                    }}
+                                >
+                                    <span style={{ fontSize: 26 }}>{mod.icon}</span>
+                                    <span style={{ fontSize: 14, fontWeight: 700, color: HC, textAlign: 'center' }}>{mod.name}</span>
+                                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', textAlign: 'center' }}>{mod.description}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
 

@@ -27,6 +27,18 @@ export const DNA_NAMES = Object.keys(DNA_INDEX) as (keyof typeof DNA_INDEX)[];
 
 export const DNA_LENGTH = Object.keys(DNA_INDEX).length; // = 7
 
+// Display label + hover explanation for each gene — shared by every DNA slider/readout in the UI.
+export const DNA_GENE_INFO: Record<keyof typeof DNA_INDEX, { label: string; tooltip: string }> = {
+    AGGRESSION:      { label: 'Aggression',   tooltip: 'How strongly the agent chases you instead of keeping its distance.' },
+    DODGE_WEIGHT:    { label: 'Dodge',        tooltip: "How likely the agent is to dodge your incoming bullets." },
+    SHOOT_ACCURACY:  { label: 'Accuracy',     tooltip: 'How precisely the agent aims — 1 means it never misses.' },
+    PREFERRED_RANGE: { label: 'Range',        tooltip: 'The distance the agent tries to keep between itself and you.' },
+    MOVEMENT_SPEED:  { label: 'Speed',        tooltip: 'How fast the agent moves.' },
+    PREDICT_LEAD:    { label: 'Lead',         tooltip: "How much the agent aims ahead of your movement instead of at your current position." },
+    FIRE_RATE:       { label: 'Fire Rate',    tooltip: 'How often the agent fires.' },
+    BULLET_SPEED:    { label: 'Bullet Speed', tooltip: "How fast the agent's bullets travel." },
+};
+
 export type DNA = number[]; // Float-Array der Länge DNA_LENGTH
 
 export interface Individual {
@@ -69,6 +81,7 @@ export interface Bullet {
     ownerId:  'player' | 'agent';
     lifetime: number;       // Sekunden bis sie verschwindet
     radius:   number;
+    homing?:  boolean;      // Homing-Rounds-Mod: dreht pro Frame Richtung Agent ein
 }
 
 // ---- Stats & Fitness ----

@@ -1,7 +1,7 @@
 import type { PlayerState, Bullet, Population, DNA } from '../shooter.types';
 import type { Vector2D } from '../game/core/vec';
 
-export type HordePhase = 'playing' | 'dead';
+export type HordePhase = 'playing' | 'dead' | 'choosing';
 
 export interface HordeAgent {
     id:          number;
