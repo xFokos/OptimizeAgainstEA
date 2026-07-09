@@ -25,7 +25,7 @@ export default function App() {
                 <Route path="/Game" element={<GamePage />} />
                 <Route path="/Analytics" element={<AnalyticsPage />} />
                 <Route path="/PeakFinder" element={<BattleShipsPage />} />
-                <Route path="/MazeGame" element={<MazeGamePage />} />
+                <Route path="/MazeExplorer" element={<MazeGamePage />} />
                 <Route path="Problem" element={<ProblemPage />}/>
                 <Route path="Dashboard" element={<DashboardPage />}/>
                 <Route path="ShooterGame" element={<ShooterGamePage/>}/>
