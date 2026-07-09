@@ -1,7 +1,7 @@
 import type { Cell, Grid } from '../types/maze';
 import type { RNG } from '../types/ea';
 import { MOVE_DELTAS, MOVE_WALL_BIT, cellIndex } from '../types/maze';
-import { makeLCG } from './rng';
+import { makeLCG } from '../../../utils/rng';
 import { computeGeodesic } from './geodesic';
 
 /** Opposite move direction (up<->down, right<->left). */

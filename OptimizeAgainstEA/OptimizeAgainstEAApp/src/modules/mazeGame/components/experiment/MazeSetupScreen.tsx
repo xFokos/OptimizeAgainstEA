@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { SerializedMaze } from '../../types/maze';
 import { generateMaze, pickRandomStartGoal } from '../../engine/mazeGen';
 import { DEFAULT_BRAID, DEFAULT_OPENNESS } from '../../engine/mazeProblem';
-import { makeLCG } from '../../engine/rng';
+import { makeLCG } from '../../../../utils/rng';
 import { decodeMaze } from '../../engine/mazeCodec';
 import { useSavedMazes } from '../../hooks/useSavedMazes';
 import { SliderRow } from '../../../../components/settings/eaControls';

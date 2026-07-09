@@ -401,7 +401,9 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
     goal: problem.goal,
   });
 
-  const solved = status === 'solved';
+  // Finding the goal doesn't end the run — you can keep evolving to refine the
+  // population; only running out of generations (maxGenerations) stops it.
+  const exhausted = status === 'exhausted';
   const bestEnd = best ? walkEndOf(best) : 0;
 
   // Clicking a gene in the filmstrip jumps the walk there (and pauses autoplay).
@@ -427,7 +429,7 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
               <button
                 className="btn btn--sm btn--primary"
                 onClick={() => step(1)}
-                disabled={!started || solved}
+                disabled={!started || exhausted}
               >
                 🧬 Evolve
               </button>

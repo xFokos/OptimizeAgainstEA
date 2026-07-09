@@ -6,7 +6,7 @@ import {
   CROSSOVER_STRATEGIES_RECORDING,
   MUTATION_STRATEGIES,
 } from './operators';
-import { makeLCG } from '../rng';
+import { makeLCG } from '../../../../utils/rng';
 import { createNoveltyScorer, type NoveltyScorer } from './novelty';
 import { buildReplayFrames, type ReplayFrame, type BreedingRecord } from './eaReplayLog';
 

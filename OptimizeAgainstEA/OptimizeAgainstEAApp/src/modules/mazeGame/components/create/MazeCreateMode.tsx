@@ -4,7 +4,7 @@ import type { Cell, SerializedMaze } from '../../types/maze';
 import { MOVE_WALL_BIT, cellIndex } from '../../types/maze';
 import { generateMaze, gridFromEdgeWalls, pickRandomStartGoal } from '../../engine/mazeGen';
 import { computeGeodesic } from '../../engine/geodesic';
-import { makeLCG } from '../../engine/rng';
+import { makeLCG } from '../../../../utils/rng';
 import { DEFAULT_BRAID, DEFAULT_OPENNESS, MAX_PATH_LENGTH } from '../../engine/mazeProblem';
 import { useSavedMazes } from '../../hooks/useSavedMazes';
 import type { MazeWallPreview } from '../shared/MazeCanvas';
