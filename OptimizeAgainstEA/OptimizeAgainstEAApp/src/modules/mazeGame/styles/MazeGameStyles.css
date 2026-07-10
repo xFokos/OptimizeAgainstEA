@@ -86,7 +86,8 @@
 .maze-topbar {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  /* Clear breathing room between the Back button, title and any meta/controls. */
+  gap: var(--sp-4);
   flex-wrap: wrap;
 }
 .maze-topbar__title {
@@ -834,4 +835,206 @@
   height: 100%;
   border-radius: 3px;
   transition: width 0.4s ease;
+}
+
+/* ─────────────────────────────────────────────
+   SOLVE MODE ("You are the EA")
+───────────────────────────────────────────── */
+
+/* Three columns — D-pad + stats · maze · fitness selector. Centred, like the
+   other tabs; the right track is narrow (just the fitness buttons + legend). */
+.maze-layout--play {
+  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr) minmax(180px, 220px);
+  max-width: 1200px;
+  /* Breathing room below the sticky top bar (the menu shell strips the app's
+     own padding) so the panels don't touch it. The desktop height calc below
+     subtracts this same top + bottom padding. */
+  padding: var(--sp-5) var(--sp-5) var(--sp-5);
+}
+@media (max-width: 1080px) {
+  .maze-layout--play { grid-template-columns: 1fr; }
+  .maze-layout--play .maze-map-col { order: -1; }
+}
+/* Desktop: bound the middle column to the height under the top bar so the
+   square maze scales to fill the leftover space instead of overflowing the
+   viewport (mirrors the experiment layout). */
+@media (min-width: 1081px) {
+  .maze-layout--play .maze-map-col {
+    height: calc(100dvh - 56px - var(--sp-5) - var(--sp-5) - 6px);
+  }
+  .maze-layout--play .maze-canvas-stage {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+  }
+  .maze-layout--play .maze-canvas-stage .maze-canvas {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+  }
+}
+
+/* Directional pad — a 3×3 grid with the four arrows on the cross. */
+.maze-dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, auto);
+  gap: var(--sp-2);
+  width: min(100%, 190px);
+  margin: var(--sp-2) auto var(--sp-3);
+}
+.maze-dpad__btn {
+  aspect-ratio: 1;
+  font-size: 1.3rem;
+  font-family: var(--font-mono);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.maze-dpad__up    { grid-area: 1 / 2; }
+.maze-dpad__left  { grid-area: 2 / 1; }
+.maze-dpad__down  { grid-area: 3 / 2; }
+.maze-dpad__right { grid-area: 2 / 3; }
+/* One arrow glyph rotated per direction — inline-block so the rotation applies. */
+.maze-dpad__glyph { display: inline-block; line-height: 1; }
+
+/* Desktop shows only the in-panel D-pad; the overlay copy is mobile-only. */
+.maze-dpad--overlay { display: none; }
+
+@media (max-width: 1080px) {
+  /* Mobile: lift the direction pad onto the maze as a translucent overlay so it
+     doesn't eat vertical space. Submit / Delete / Clear stay in the panel below. */
+  .maze-controls .maze-dpad { display: none; }
+  .maze-dpad--overlay {
+    display: grid;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(58%, 176px);
+    margin: 0;
+    opacity: 0.85;
+    z-index: 6; /* under the win overlay (z 40) so it can't cover the finish */
+  }
+  /* A dark, blurred backing plus a bright glyph keeps the arrows clearly legible
+     over the maze. */
+  .maze-dpad--overlay .maze-dpad__btn {
+    background: rgba(8, 10, 16, 0.8);
+    border: 1.5px solid rgba(255, 255, 255, 0.5);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 1.5rem;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
+  /* Touch devices keep :hover/:focus on the last-tapped button; hold the resting
+     look in those states (the base ghost-hover rule would otherwise dim it) so
+     no button stays highlighted after a press. */
+  .maze-dpad--overlay .maze-dpad__btn:hover:not(:disabled),
+  .maze-dpad--overlay .maze-dpad__btn:focus {
+    border-color: rgba(255, 255, 255, 0.5);
+    color: #ffffff;
+  }
+  /* Only the button actually being pressed highlights; it reverts on release. */
+  .maze-dpad--overlay .maze-dpad__btn:active:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(8, 10, 16, 0.95);
+  }
+}
+
+/* Stats panel on the left. */
+.maze-play-stats { display: flex; flex-direction: column; gap: var(--sp-2); }
+.maze-play-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.maze-play-stat b {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Solve mode reuses the shared sliding filmstrip (.maze-genome-strip). Its hover
+   keeps the fitness tint legible. */
+.maze-genome-strip .maze-gene:hover { filter: brightness(1.25); }
+
+/* Two stacked strips (submitted + draft) sharing one caret, so their centre
+   highlights line up vertically and move together. */
+.maze-dual-strips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.maze-strip-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.maze-strip-line .maze-genome-strip { flex: 1; min-width: 0; }
+.maze-strip-tag {
+  flex: 0 0 4.2rem;
+  text-align: right;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+/* Placeholder shown centred while a strip has no moves yet. */
+.maze-strip-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+/* Draft move that differs from the submission — flags where you edited. */
+.maze-gene--edited { color: var(--accent); font-weight: 700; }
+
+/* "unsubmitted edits" flag in the strip header. */
+.maze-genome-pending { color: var(--text-muted); }
+
+/* Right-hand fitness selector. */
+.maze-play-side { display: flex; flex-direction: column; gap: var(--sp-3); }
+.maze-play-side__note { margin: 0; }
+.maze-fitness-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.maze-fitness-btn { justify-content: flex-start; }
+.maze-fitness-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: var(--sp-2);
+}
+.maze-fitness-ramp {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  /* Matches colorScale.ts: violet (near/0) → red (far/1). */
+  background: linear-gradient(to right,
+    #1a0050 0%, #0040ff 15%, #00e5ff 30%, #00ff60 45%,
+    #ffe000 60%, #ff6000 75%, #cc0010 100%);
+}
+
+/* Win overlay reuses the pre-run overlay's dimmed-card look. */
+.maze-win-overlay { background: rgba(4, 5, 8, 0.72); }
+.maze-win-overlay__title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent);
 }

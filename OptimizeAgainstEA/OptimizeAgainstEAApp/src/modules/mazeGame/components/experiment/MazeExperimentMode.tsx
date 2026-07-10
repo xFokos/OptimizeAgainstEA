@@ -24,7 +24,7 @@ interface MazeExperimentModeProps {
 
 const MAZE_SIZE = 12;
 const WALK_TICK_MS = 140; // one walk step per tick; matches MazeCanvas's glide transition
-const WALK_END_DWELL = 8; // ticks the walker rests at its end before looping
+const WALK_END_DWELL = 8; // ticks the walker rests at its end before stopping
 const MAX_GHOSTS = 80;    // animated ghost dots capped for SVG performance
 
 const BEST_COLOR = '#4af0a0';
@@ -295,18 +295,30 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
   const animating = walkPlaying && best !== null;
   useEffect(() => {
     if (!animating) return;
-    const id = setInterval(() => setWalkTick((t) => t + 1), WALK_TICK_MS);
+    const stopAt = walkEndOf(best!) + WALK_END_DWELL;
+    const id = setInterval(() => {
+      setWalkTick((t) => {
+        // Reached the end (plus the end-of-walk dwell): stop autoplay instead of looping.
+        if (t + 1 >= stopAt) {
+          setWalkPlaying(false);
+          return stopAt;
+        }
+        return t + 1;
+      });
+    }, WALK_TICK_MS);
     return () => clearInterval(id);
-  }, [animating]);
+  }, [animating, best]);
 
-  // Dwell at the end for a beat, then loop.
-  const walkStep = best ? Math.min(walkTick % (walkEndOf(best) + WALK_END_DWELL), walkEndOf(best)) : 0;
+  // Rest at the end; the walker holds its final position once autoplay stops.
+  const walkStep = best ? Math.min(walkTick, walkEndOf(best)) : 0;
 
-  // Arrow keys step the walk one input left/right (pausing autoplay). Ignored
-  // while a form field is focused so sliders / the seed input keep the keys.
+  // Arrow keys or A/D step the walk one input left/right (pausing autoplay).
+  // Ignored while a form field is focused so sliders / the seed input keep the keys.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const left = e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A';
+      const right = e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D';
+      if (!left && !right) return;
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
       if (!best) return;
@@ -314,8 +326,8 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
       const end = walkEndOf(best);
       setWalkPlaying(false);
       setWalkTick((t) => {
-        const cur = Math.min(t % (end + WALK_END_DWELL), end);
-        return e.key === 'ArrowLeft' ? Math.max(0, cur - 1) : Math.min(end, cur + 1);
+        const cur = Math.min(t, end);
+        return left ? Math.max(0, cur - 1) : Math.min(end, cur + 1);
       });
     };
     window.addEventListener('keydown', onKey);
@@ -513,7 +525,11 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
                   </button>
                   <button
                     className={`btn btn--sm ${walkPlaying ? 'btn--active' : 'btn--ghost'}`}
-                    onClick={() => setWalkPlaying((p) => !p)}
+                    onClick={() => {
+                      // If the walk has run to the end, restart it from the beginning.
+                      if (!walkPlaying && best && walkStep >= walkEndOf(best)) setWalkTick(0);
+                      setWalkPlaying((p) => !p);
+                    }}
                     disabled={!best}
                     title={walkPlaying ? 'Pause autoplay' : 'Autoplay'}
                     aria-label={walkPlaying ? 'Pause autoplay' : 'Autoplay'}

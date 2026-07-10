@@ -133,7 +133,7 @@ export function MazeCreateMode({ initialMaze, onBack, onExperiment }: MazeCreate
   const [confirmingRandom, setConfirmingRandom] = useState(false);
   // Random-generation settings (mirrored in the experiment setup screen).
   const [openness, setOpenness] = useState(DEFAULT_OPENNESS);
-  const [randomEndpoints, setRandomEndpoints] = useState(false);
+  const [randomEndpoints, setRandomEndpoints] = useState(true);
 
   // Edge walls → engine grid → live reachability check.
   const grid = useMemo(
