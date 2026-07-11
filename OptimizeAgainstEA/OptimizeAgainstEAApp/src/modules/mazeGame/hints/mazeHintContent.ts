@@ -15,7 +15,12 @@ import type { HintDef } from '../../../components/hints/hintContent';
 
 export type MazeHintId =
   | 'maze.play.start'
-  | 'maze.play.submit';
+  | 'maze.play.submit'
+  | 'maze.play.filmstrip'
+  | 'maze.play.readyToRun'
+  | 'maze.play.firstRun'
+  | 'maze.play.fitness'
+  | 'maze.play.mutation';
 
 export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
   // ── Solve mode: blocking modal fired once the maze is loaded ─────────────
@@ -47,5 +52,85 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
       'can improve on.',
     style: 'toast',
     once: true,
+  },
+
+  // ── Solve mode: a second TourSpotlight, this one on the filmstrips. Fires
+  //    once the player has written 10% of the string (see FILMSTRIP_HINT_AT in
+  //    MazePlayMode) — by then they've used the D-pad and the strip has enough
+  //    on it to be worth explaining. Spotlight, so `style` is unused. ─────────
+  'maze.play.filmstrip': {
+    title: 'Your string, move by move',
+    body:
+      'The bottom strip is the string you are writing; the top one is the last ' +
+      'one you submitted, tinted by how close each move landed to the goal. ' +
+      'Both share one caret: click any move to jump there — the D-pad overwrites ' +
+      'from that spot, so you can fix a bad stretch without redoing the rest.',
+    style: 'toast',
+    once: true,
+  },
+
+  // ── Solve mode: the last spotlight, on the Submit button alone, the moment
+  //    the draft is full-length (see MazePlayMode's draftComplete). Unlike
+  //    'maze.play.submit' — which lights the whole input panel while the string
+  //    is still being written — this one points at the single control that is
+  //    now unlocked. Spotlight, so `style` is unused. ─────────────────────────
+  'maze.play.readyToRun': {
+    title: 'Your string is complete',
+    body:
+      'Every slot is filled, so Submit has unlocked. Run it and watch the ' +
+      'walker follow your moves through the fog — whatever it uncovers, and the ' +
+      'fitness it comes back with, is what you get to work from for the next ' +
+      'attempt. Not confident in it? Good — the EA\'s first guess is random too.',
+    style: 'toast',
+    once: true,
+  },
+
+  // ── Solve mode: fires the moment the FIRST string is submitted, spotlighting
+  //    the whole strips panel (both strips + the transport row). MazePlayMode
+  //    holds the walk animation back until this is dismissed, so the player
+  //    reads what they are about to watch before the walker sets off. ─────────
+  'maze.play.firstRun': {
+    title: 'Watch it run',
+    body:
+      'Your string moved to the top strip and the walker is about to follow it. ' +
+      'Each move is tinted by how close it landed to the goal, and a dimmed one ' +
+      'means the walker hit a wall there and stood still — a wasted move. Use ' +
+      'the transport buttons below to replay, pause, or step through it move by ' +
+      'move. Dismiss this and the run starts.',
+    style: 'toast',
+    once: true,
+  },
+
+  // ── Solve mode: fires once the first run has animated all the way to its end,
+  //    spotlighting the fitness selector on the right. Last hint in the chain. ─
+  'maze.play.fitness': {
+    title: 'What "good" even means',
+    body:
+      'The run is scored by a fitness function, and you can swap which one. ' +
+      'Manhattan measures straight-line distance to the goal, so it happily ' +
+      'rewards a move that is walled off from it — it deceives. Geodesic ' +
+      'measures distance through the corridors, so it never lies to you. ' +
+      'Switching repaints the strip and the trail instantly, without resubmitting: ' +
+      'the same run, judged two different ways. This is the choice that decides ' +
+      'what an EA hill-climbs toward — pick badly and it optimizes the wrong thing.',
+    style: 'toast',
+    once: true,
+  },
+
+  // ── Solve mode: fires once the player has changed 10% of the moves in an
+  //    already-submitted string (see EDIT_HINT_AT in MazePlayMode). A plain
+  //    non-blocking hint on purpose — they are mid-edit, so a spotlight would
+  //    dim the very strip they are working on. ────────────────────────────────
+  'maze.play.mutation': {
+    title: 'That\'s a mutation',
+    body:
+      'You just did what the EA does: keep the string that scored well, change ' +
+      'a few of its moves, and run it again to see whether the fitness improved. ' +
+      'Resubmit and compare — a better number means the change was worth keeping, ' +
+      'a worse one means throw it away and try a different tweak. Repeat that a ' +
+      'few thousand times a second and you have an evolutionary algorithm.',
+    style: 'toast',
+    once: true,
+    sticky: true,
   },
 };

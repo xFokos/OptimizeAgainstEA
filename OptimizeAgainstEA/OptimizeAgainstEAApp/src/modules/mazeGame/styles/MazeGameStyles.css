@@ -859,6 +859,10 @@
    square maze scales to fill the leftover space instead of overflowing the
    viewport (mirrors the experiment layout). */
 @media (min-width: 1081px) {
+  /* The map column defines the row height; the side panels are shorter, so
+     centre them against it instead of hanging from the top (.maze-layout's
+     `align-items: start`). */
+  .maze-layout--play { align-items: center; }
   .maze-layout--play .maze-map-col {
     height: calc(100dvh - 56px - var(--sp-5) - var(--sp-5) - 6px);
   }
@@ -874,6 +878,58 @@
     max-width: 100%;
   }
 }
+
+/* ── Big displays (1440p and up) ──
+   At the 1200px cap a 2560×1440 screen is mostly empty margin and the maze is
+   pinned to ~700px while a metre of height goes spare. Widen the grid in tiers
+   and scale every control with it through --maze-ui (1 below 1600px, so all the
+   rules underneath are no-ops on normal screens).
+
+   The maze needs no rule of its own: MazeCanvas sets `aspect-ratio: cols/rows`
+   and the desktop block above gives it `height: 100%; width: auto` inside a
+   flex-bounded stage, so it grows into the taller column and stays square —
+   whichever of width/height runs out first, the other follows. */
+.maze-layout--play { --maze-ui: 1; }
+
+@media (min-width: 1600px) {
+  .maze-layout--play {
+    --maze-ui: 1.15;
+    max-width: 1700px;
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(220px, 280px);
+    gap: var(--sp-6);
+  }
+}
+@media (min-width: 2000px) {
+  .maze-layout--play {
+    --maze-ui: 1.3;
+    max-width: 2200px;
+    grid-template-columns: minmax(300px, 380px) minmax(0, 1fr) minmax(260px, 330px);
+    gap: var(--sp-7);
+  }
+}
+
+/* Controls scale with the column they sit in (base values match the unscoped
+   rules elsewhere in this file / the shared primitives). */
+.maze-layout--play .maze-dpad        { width: min(100%, calc(190px * var(--maze-ui))); }
+.maze-layout--play .maze-dpad__btn   { font-size: calc(1.3rem * var(--maze-ui)); }
+.maze-layout--play .maze-play-stat   { font-size: calc(0.78rem * var(--maze-ui)); }
+.maze-layout--play .maze-note        { font-size: calc(0.78rem * var(--maze-ui)); }
+.maze-layout--play .eyebrow          { font-size: calc(0.65rem * var(--maze-ui)); }
+.maze-layout--play .btn              { font-size: calc(0.8rem * var(--maze-ui)); }
+.maze-layout--play .btn--sm          { font-size: calc(0.75rem * var(--maze-ui)); }
+.maze-layout--play .maze-fitness-legend { font-size: calc(0.7rem * var(--maze-ui)); }
+.maze-layout--play .maze-strip-empty    { font-size: calc(0.72rem * var(--maze-ui)); }
+.maze-layout--play .maze-strip-tag {
+  flex-basis: calc(4.2rem * var(--maze-ui));
+  font-size: calc(0.6rem * var(--maze-ui));
+}
+/* The filmstrip is sized off --gene-w, so scaling that grows the whole strip
+   (highlight box, track and every move) in one go. */
+.maze-layout--play .maze-genome-strip {
+  --gene-w: calc(2.1rem * var(--maze-ui));
+  height: calc(2.6rem * var(--maze-ui));
+}
+.maze-layout--play .maze-gene { font-size: calc(1rem * var(--maze-ui)); }
 
 /* Directional pad — a 3×3 grid with the four arrows on the cross. */
 .maze-dpad {
