@@ -63,7 +63,8 @@ export function DNADisplay() {
 
     useEffect(() => {
         return gameStore.subscribe(() => {
-            const state    = gameStore.state;
+            const state = gameStore.state;
+            if (!state) return;
             const newDna   = state.agent.dna;
             const newRound = state.roundNumber;
 

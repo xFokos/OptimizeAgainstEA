@@ -181,6 +181,20 @@ export const STARTER_DNA: DNA = [
     0.5,  // BULLET_SPEED   – mittlere Geschwindigkeit (~525 px/s)
 ];
 
+// Nahezu regungslose Zielscheibe fürs Tutorial — verfolgt nicht, weicht nie aus,
+// trifft so gut wie nie. Kein Sonderfall im gameLoop nötig: die DNA allein macht
+// den Agenten harmlos, genau wie die Engine es sonst auch überall handhabt.
+export const TUTORIAL_DNA: DNA = [
+    0,    // AGGRESSION      – verfolgt nicht
+    0,    // DODGE_WEIGHT    – weicht nie aus
+    0,    // SHOOT_ACCURACY  – trifft so gut wie nie
+    0.9,  // PREFERRED_RANGE – hält maximalen Abstand
+    0,    // MOVEMENT_SPEED  – bewegt sich kaum (nur Basisgeschwindigkeit)
+    0,    // PREDICT_LEAD    – zielt nicht vorausschauend
+    0,    // FIRE_RATE       – schießt so selten wie möglich
+    0,    // BULLET_SPEED    – langsamste Kugeln
+];
+
 // ---- Player Ghosting ----
 export interface PlayerGhostFrame {
     position: Vector2D;

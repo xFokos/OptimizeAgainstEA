@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useScaledCanvas } from '../hooks/useScaledCanvas';
 import { useOrientationLock } from '../hooks/useOrientationLock';
 import { useViewport } from '../hooks/useViewport';
@@ -11,6 +11,7 @@ import { DNADisplay } from '../modules/shooterGame/components/dnaDisplay';
 import { MobileJoystickZone } from '../modules/shooterGame/components/MobileJoystickZone';
 import { MobileAimZone } from '../modules/shooterGame/components/MobileAimZone';
 import { useInput } from '../modules/shooterGame/hooks/useInput';
+import { gameStore } from '../modules/shooterGame/game/gameStore';
 import PageContainer from '../components/layout/PageContainer';
 
 const supportsFullscreen =
@@ -79,6 +80,8 @@ function RotateOverlay() {
 
 export default function ShooterGamePage() {
     const navigate             = useNavigate();
+    const location             = useLocation();
+    const tutorial             = !!(location.state as { tutorial?: boolean } | null)?.tutorial;
     const { W, H }             = useViewport();
     const isMobileDevice       = Math.min(W, H) < 550;   // kleines Gerät?
     const isPortrait           = H > W;                   // hochkant?
@@ -87,6 +90,18 @@ export default function ShooterGamePage() {
     const inputRef             = useInput();
     const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
     const leaveHandlerRef      = useRef<(() => Promise<void>) | undefined>(undefined);
+
+    // Tutorial round is single-use — leaving early (nav bar / mobile back
+    // button) should not leave a half-finished round for a later real Play
+    // to accidentally restore.
+    const leaveToLobby = async () => {
+        await leaveHandlerRef.current?.();
+        if (tutorial) {
+            gameStore.state = null as unknown as typeof gameStore.state;
+            gameStore.notify();
+        }
+        navigate('/lobby/shooter', { state: { mode: 'normal' } });
+    };
 
     const { containerRef, scale } = useScaledCanvas({
         baseWidth:  ARENA.WIDTH,
@@ -107,10 +122,7 @@ export default function ShooterGamePage() {
                         ? <MobileJoystickZone inputRef={inputRef} />
                         : <ShooterLeftBar
                             onAnalytics={() => navigate('/Analytics')}
-                            onLobby={async () => {
-                                await leaveHandlerRef.current?.();
-                                navigate('/lobby/shooter', { state: { mode: 'normal' } });
-                            }}
+                            onLobby={leaveToLobby}
                           />
                 }
                 sidebar={
@@ -123,6 +135,7 @@ export default function ShooterGamePage() {
                     scale={scale}
                     externalInputRef={isMobileLandscape ? inputRef : undefined}
                     leaveHandlerRef={leaveHandlerRef}
+                    tutorial={tutorial}
                 />
             </GameLayout>
 
@@ -132,6 +145,10 @@ export default function ShooterGamePage() {
                     onClick={async () => {
                         await leaveHandlerRef.current?.();
                         if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+                        if (tutorial) {
+                            gameStore.state = null as unknown as typeof gameStore.state;
+                            gameStore.notify();
+                        }
                         navigate('/lobby/shooter', { state: { mode: 'normal' } });
                     }}
                     style={{

@@ -13,7 +13,8 @@
 .hint-modal-backdrop,
 .hint-popover,
 .compi,
-.compi-backdrop {
+.compi-backdrop,
+.tour-spotlight__tooltip {
 	--h-bg:        var(--bg-light, #1a1e26);
 	--h-text:      var(--text, #e8eaf0);
 	--h-text-dim:  var(--text-dim, #7a8099);
@@ -29,7 +30,8 @@
 .hint-toast .btn,
 .hint-modal .btn,
 .hint-popover .btn,
-.compi .btn {
+.compi .btn,
+.tour-spotlight__tooltip .btn {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--sp-2, 8px);
@@ -49,19 +51,22 @@
 .hint-toast .btn:hover:not(:disabled),
 .hint-modal .btn:hover:not(:disabled),
 .hint-popover .btn:hover:not(:disabled),
-.compi .btn:hover:not(:disabled) { border-color: var(--h-accent); color: var(--h-accent); }
+.compi .btn:hover:not(:disabled),
+.tour-spotlight__tooltip .btn:hover:not(:disabled) { border-color: var(--h-accent); color: var(--h-accent); }
 
 .hint-toggle .btn--sm,
 .hint-toast .btn--sm,
 .hint-modal .btn--sm,
 .hint-popover .btn--sm,
-.compi .btn--sm { padding: var(--sp-2, 8px) var(--sp-3, 12px); font-size: 0.75rem; }
+.compi .btn--sm,
+.tour-spotlight__tooltip .btn--sm { padding: var(--sp-2, 8px) var(--sp-3, 12px); font-size: 0.75rem; }
 
 .hint-toggle .btn--primary,
 .hint-toast .btn--primary,
 .hint-modal .btn--primary,
 .hint-popover .btn--primary,
 .compi .btn--primary,
+.tour-spotlight__tooltip .btn--primary,
 .hint-toggle .btn--active {
 	background: var(--h-accent);
 	border-color: var(--h-accent);
@@ -71,7 +76,8 @@
 .hint-modal .btn--primary:hover:not(:disabled),
 .compi .btn--primary:hover:not(:disabled),
 .hint-popover .btn--primary:hover:not(:disabled),
-.hint-toast .btn--primary:hover:not(:disabled) {
+.hint-toast .btn--primary:hover:not(:disabled),
+.tour-spotlight__tooltip .btn--primary:hover:not(:disabled) {
 	color: #060809;
 	box-shadow: 0 0 16px var(--h-accent-dim);
 }
@@ -310,4 +316,67 @@
 /* Respect reduced-motion preferences. */
 @media (prefers-reduced-motion: reduce) {
 	.compi, .compi__mascot, .hint-toast, .hint-modal, .hint-popover { animation: none; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   TOUR SPOTLIGHT — guided-tour coachmark that highlights one real element
+   at a time (see TourSpotlight.tsx) instead of a corner-pinned bubble.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Full-screen click target — clicking the dimmed area skips the tour. The
+   dimming itself lives on .tour-spotlight__hole's box-shadow (below), not
+   here, so the "hole" stays genuinely clear. */
+.tour-spotlight__catcher {
+	position: fixed;
+	inset: 0;
+	z-index: 400;
+	cursor: pointer;
+}
+
+/* The cutout: a box-shadow with a huge spread paints the dimmed backdrop
+   everywhere *except* this element's own rect, which is the highlight. */
+.tour-spotlight__hole {
+	position: fixed;
+	z-index: 401;
+	border-radius: var(--r-md, 8px);
+	border: 2px solid var(--h-accent, #4fc3f7);
+	box-shadow:
+		0 0 0 9999px rgba(6, 8, 14, 0.8),
+		0 0 24px var(--h-accent-dim, rgba(79, 195, 247, 0.14));
+	pointer-events: none;
+	transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
+}
+
+.tour-spotlight__tooltip {
+	position: fixed;
+	z-index: 402;
+	width: min(320px, calc(100vw - 32px));
+	background: var(--h-bg);
+	border: 1px solid var(--h-accent);
+	border-radius: var(--r-lg, 12px);
+	padding: var(--sp-4, 16px) var(--sp-5, 20px);
+	display: flex;
+	flex-direction: column;
+	gap: var(--sp-2, 8px);
+	box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+	animation: hintScaleIn 0.2s ease;
+}
+.tour-spotlight__title { font-family: var(--h-mono); font-size: 0.95rem; font-weight: 700; color: var(--h-accent); padding-right: var(--sp-5, 20px); }
+.tour-spotlight__body  { font-size: 0.85rem; color: var(--h-text-dim); line-height: 1.55; }
+.tour-spotlight__actions { display: flex; gap: var(--sp-2, 8px); flex-wrap: wrap; margin-top: var(--sp-1, 4px); }
+.tour-spotlight__close {
+	position: absolute;
+	top: 8px;
+	right: 10px;
+	background: none;
+	border: none;
+	color: var(--text-muted, #3d4259);
+	font-size: 1.2rem;
+	cursor: pointer;
+	line-height: 1;
+}
+.tour-spotlight__close:hover { color: var(--h-text); }
+
+@media (prefers-reduced-motion: reduce) {
+	.tour-spotlight__hole, .tour-spotlight__tooltip { animation: none; transition: none; }
 }

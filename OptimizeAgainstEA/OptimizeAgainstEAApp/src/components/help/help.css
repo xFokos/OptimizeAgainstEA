@@ -39,8 +39,38 @@ button.help-button {
     white-space: nowrap;
 }
 
+/* .modal is a column flex by default (see overlays.css) — overridden to a
+   row here so Compi can sit to the left of the actual content, as if he's
+   presenting it. Not positioned to poke outside the box (like the trigger
+   button does) since .modal has overflow-y: auto and would clip it. */
 .help-modal {
-    text-align: left;
+    text-align:     left;
+    flex-direction: row;
+    align-items:    flex-start;
+}
+
+.help-modal__compi {
+    flex-shrink:  0;
+    width:        84px;
+    height:       auto;
+    margin-top:   2px;
+    transform:    scaleX(-1); /* face right, toward the content */
+    image-rendering: pixelated;
+    filter:       drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+}
+
+.help-modal__content {
+    display:        flex;
+    flex-direction: column;
+    gap:            var(--sp-5, 20px);
+    min-width:      0;
+    flex:           1;
+}
+
+@media (max-width: 560px) {
+    .help-modal        { flex-direction: column; align-items: center; }
+    .help-modal__compi { transform: scaleX(-1) rotate(0deg); }
+    .help-modal__content { width: 100%; }
 }
 
 .help-modal__header {
@@ -90,6 +120,13 @@ button.help-button {
     padding-right:  4px;
 }
 
+.help-modal__footer {
+    display:         flex;
+    justify-content: flex-end;
+    padding-top:     14px;
+    border-top:      1px solid rgba(255,255,255,0.08);
+}
+
 .help-modal__section {
     display:        flex;
     flex-direction: column;
@@ -111,4 +148,208 @@ button.help-button {
     font-size:  13px;
     line-height: 1.6;
     color:      var(--text-dim);
+}
+
+/* ============================================================
+   Help concept cards — visual + short caption, replacing walls
+   of text. Stack on narrow screens, sit side by side otherwise.
+   ============================================================ */
+
+.help-card {
+    display:      flex;
+    gap:          16px;
+    align-items:  center;
+    padding:      14px;
+    background:   var(--surface, rgba(255,255,255,0.04));
+    border:       1px solid var(--border);
+    border-radius: var(--r-md);
+}
+@media (max-width: 560px) {
+    .help-card { flex-direction: column; align-items: stretch; }
+}
+
+.help-card__visual {
+    flex-shrink: 0;
+    width:       168px;
+    display:     flex;
+    align-items: center;
+    justify-content: center;
+}
+@media (max-width: 560px) {
+    .help-card__visual { width: 100%; }
+}
+
+.help-card__text {
+    display:        flex;
+    flex-direction: column;
+    gap:            4px;
+    min-width:      0;
+}
+
+.help-card__heading {
+    margin:        0;
+    font-family:   var(--font-mono);
+    font-size:     11px;
+    font-weight:   700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color:         var(--accent);
+}
+
+.help-card__body {
+    margin:      0;
+    font-size:   13px;
+    line-height: 1.55;
+    color:       var(--text-dim);
+}
+
+/* ── DNA gene bars ───────────────────────────────────────────── */
+
+.help-dna {
+    width:          100%;
+    display:        flex;
+    flex-direction: column;
+    gap:            8px;
+}
+.help-dna__row  { display: flex; flex-direction: column; gap: 3px; }
+.help-dna__head { display: flex; justify-content: space-between; align-items: baseline; }
+.help-dna__label {
+    font-family: var(--font-mono);
+    font-size:   10px;
+    color:       var(--text-dim);
+}
+.help-dna__value {
+    font-family: var(--font-mono);
+    font-size:   11px;
+    font-weight: 700;
+    color:       var(--accent);
+}
+.help-dna__delta { margin-left: 5px; font-size: 10px; font-weight: 700; }
+.help-dna__delta--up   { color: #4ade80; }
+.help-dna__delta--down { color: #f87171; }
+.help-dna__track {
+    height:       5px;
+    border-radius: 3px;
+    background:   var(--border);
+    overflow:     hidden;
+}
+.help-dna__fill {
+    height:       100%;
+    border-radius: 3px;
+    background:   var(--accent);
+    opacity:      0.85;
+}
+
+/* ── Difficulty preset pills ─────────────────────────────────── */
+
+.help-presets {
+    display:  flex;
+    flex-wrap: wrap;
+    gap:      6px;
+    justify-content: center;
+}
+.help-presets__pill {
+    padding:       4px 11px;
+    border-radius: var(--r-sm);
+    border:        1px solid var(--border);
+    color:         var(--text-dim);
+    font-family:   var(--font-mono);
+    font-size:     11px;
+    font-weight:   700;
+    letter-spacing: 0.03em;
+}
+
+/* ── Population / progress dots ──────────────────────────────── */
+
+.help-pop {
+    display:  flex;
+    flex-wrap: wrap;
+    gap:      5px;
+    justify-content: center;
+    max-width: 160px;
+}
+.help-pop__dot {
+    width:        10px;
+    height:       10px;
+    border-radius: 50%;
+    background:   var(--border-bright, rgba(255,255,255,0.15));
+    flex-shrink:  0;
+}
+.help-pop__dot--elite {
+    background: var(--accent-global, #f0c44a);
+    box-shadow: 0 0 6px var(--accent-global-glow, rgba(240,196,74,0.5));
+}
+.help-pop__dot--rb-done {
+    background: #a855f7;
+    box-shadow: 0 0 6px rgba(168,85,247,0.5);
+}
+.help-pop__dot--rb-next {
+    background: rgba(168,85,247,0.35);
+    border: 1px solid #a855f7;
+}
+
+/* ── Static Horde map diagram ────────────────────────────────── */
+
+.help-map {
+    position:     relative;
+    width:        160px;
+    height:       160px;
+    background:   #0f0f1a;
+    border:       1px solid rgba(251,146,60,0.2);
+    border-radius: var(--r-sm);
+    overflow:     hidden;
+    flex-shrink:  0;
+}
+.help-map__glow {
+    position:   absolute;
+    background: linear-gradient(var(--glow-dir, 0deg), rgba(251,146,60,0.45), rgba(251,146,60,0));
+}
+.help-map__glow--top    { top: 0; left: 0; right: 0; height: 22px; --glow-dir: 180deg; }
+.help-map__glow--bottom { bottom: 0; left: 0; right: 0; height: 22px; --glow-dir: 0deg; }
+.help-map__glow--left   { top: 0; bottom: 0; left: 0; width: 22px; --glow-dir: 90deg; }
+.help-map__glow--right  { top: 0; bottom: 0; right: 0; width: 22px; --glow-dir: 270deg; }
+.help-map__obstacle {
+    position:     absolute;
+    background:   rgba(255,255,255,0.08);
+    border-radius: 2px;
+}
+.help-map__obstacle--solid  { border: 1.5px solid rgba(251,146,60,0.6); }
+.help-map__obstacle--dashed { border: 1.5px dashed rgba(255,255,255,0.3); }
+.help-map__player {
+    position:      absolute;
+    left:          50%;
+    top:           50%;
+    width:         10px;
+    height:        10px;
+    border-radius: 50%;
+    background:    #4fc3f7;
+    box-shadow:    0 0 6px rgba(79,195,247,0.6);
+    transform:     translate(-50%, -50%);
+}
+
+/* ── Mod / powerup icon row ──────────────────────────────────── */
+
+.help-mods {
+    display: flex;
+    gap:     8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.help-mods__slot {
+    display:        flex;
+    flex-direction: column;
+    align-items:    center;
+    gap:            2px;
+    width:          52px;
+    padding:        6px 4px;
+    background:     var(--surface, rgba(255,255,255,0.04));
+    border:         1px solid var(--border);
+    border-radius:  var(--r-sm);
+}
+.help-mods__icon { font-size: 16px; line-height: 1; }
+.help-mods__name {
+    font-size:   8px;
+    color:       var(--text-dim);
+    text-align:  center;
+    line-height: 1.2;
 }

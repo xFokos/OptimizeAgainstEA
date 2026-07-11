@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     ARENA, GAME_CONFIG, DNA_INDEX, DNA_LENGTH,
     type InputState, type Bullet, type Population, type Individual, type DNA,
@@ -7,7 +8,8 @@ import {
 import type { HordeGameState, HordeAgent, HordePhase, HordeMap, HordeSpawnSide, HordeObstacle } from '../horde/hordeTypes';
 import { hordeRunStore }  from '../horde/hordeRunStore';
 import { hordeGameStore } from '../horde/hordeGameStore';
-import { resolveHordeMap } from '../horde/hordeMaps';
+import { LOOP_STEPS, LOOP_STEP_DURATION, LOOP_GENE_START, loopOffsetRad, SIZE_GENE_INDEX, OPACITY_GENE_INDEX, HORDE_TUTORIAL_DNA } from '../horde/hordeDna';
+import { resolveHordeMap, getHordeMap } from '../horde/hordeMaps';
 import { circleIntersectsObstacle, pushOutOfObstacles } from '../horde/hordeCollision';
 import { computeFlowField, sampleFlowField } from '../horde/hordePathfinding';
 import { useInput }       from '../hooks/useInput';
@@ -17,6 +19,7 @@ import type { PlayerStats } from '../shooter.types';
 import { applyMods, computeShotPlan, MOD_POOL, type ModDefinition } from '../mods/modTypes';
 import { steerHomingBullet, type QueuedShot } from '../mods/shotEngine';
 import { runModsStore } from '../mods/runModsStore';
+import { CompiBubble } from '../../../components/hints';
 
 // Horde has its own mutation/crossover tuning (via HordeSettings) — deliberately
 // decoupled from the shared EASettings used by Solo Play, so changing difficulty
@@ -36,21 +39,8 @@ const DIVERSITY_INJECTION_RATE = 0.08;  // chance a non-elite replacement is a r
 // Loop movement genes: an evolved sequence of steering-rotation offsets, applied
 // on top of the chase/wander/dodge direction — creates emergent zigzag/spiral
 // approach patterns while the agent still tracks the player (never open-loop).
-const LOOP_STEPS         = 4;
-const LOOP_STEP_DURATION = 0.6;                       // seconds per step
-const LOOP_MAX_ANGLE_RAD = (70 * Math.PI) / 180;       // max rotation per step
-const LOOP_GENE_START    = DNA_LENGTH;                 // loop genes sit right after the shared DNA genes
-
-function loopOffsetRad(gene: number): number {
-    return (gene - 0.5) * 2 * LOOP_MAX_ANGLE_RAD;
-}
-
-// Size/opacity genes: an evolvable body — smaller & more transparent agents are
-// genuinely harder to hit (smaller hitbox, harder for the player to spot), so
-// there's a real, emergent selection pressure toward shrinking/fading if that
-// out-survives the disadvantage of needing to get closer to actually touch the player.
-const SIZE_GENE_INDEX    = LOOP_GENE_START + LOOP_STEPS;
-const OPACITY_GENE_INDEX = SIZE_GENE_INDEX + 1;
+// LOOP_STEPS/LOOP_GENE_START/SIZE_GENE_INDEX/OPACITY_GENE_INDEX/loopOffsetRad
+// live in horde/hordeDna.ts (shared with the lobby overview) — imported above.
 
 // Spawn-side genes: one weight per compass side (top/right/bottom/left), read the
 // same way on every map — no special-casing by how many sides a map allows, since
@@ -99,9 +89,27 @@ let shootTimer    = 0; // countdown until the player can fire again; reset to ea
 const hordeQueuedShots: QueuedShot[] = [];
 const HORDE_HOMING_TURN_RATE = 5;
 
-// Alle N Kills eine Mod-Auswahl anbieten (Vampire-Survivors-Stil)
-const KILLS_PER_UPGRADE = 15;
+// Alle N Kills eine Mod-Auswahl anbieten (Vampire-Survivors-Stil) — N is now
+// configurable via hordeSettings.killsPerUpgrade (see killsPerUpgradeRef below).
 const MOD_CHOICE_COUNT  = 3;
+
+// ---- Tutorial-feste Spielkonfiguration ----
+// Einzige Übungsrunde: feste Map mit Deckung (Pillars), kleine Welle, inerte
+// Gegner (siehe HORDE_TUTORIAL_DNA) und ein niedriger Kill-Schwellwert, damit
+// die Mod-Auswahl ("Powerups") garantiert schnell auftaucht.
+const TUTORIAL_WAVE_SIZE           = 8;
+const TUTORIAL_KILLS_PER_UPGRADE   = 2;
+
+type HordeTutorialStep = 'move' | 'aim' | 'shoot' | 'obstacles' | 'mods' | 'done';
+
+const HORDE_TUTORIAL_STEP_CONTENT: Record<HordeTutorialStep, { title: string; body: string }> = {
+    move:      { title: 'Step 1 — Move',      body: 'Use WASD or the arrow keys to move around the arena.' },
+    aim:       { title: 'Step 2 — Aim',       body: 'Move your mouse — your reticle follows it wherever it goes.' },
+    shoot:     { title: 'Step 3 — Shoot',     body: 'Left-click or press Space to fire at the dummies.' },
+    obstacles: { title: 'Cover',              body: "Those pillars block bullets — yours and theirs. Duck behind one to break line of sight." },
+    mods:      { title: 'Powerups',           body: 'Every couple of kills you get to pick a powerup that boosts your stats for the rest of the run.' },
+    done:      { title: "You've got it!",     body: 'Try the powerup choice below, then finish whenever you\'re ready.' },
+};
 
 // ---- Mini-GA helpers (no rounds, just per-death offspring) ----
 
@@ -611,9 +619,6 @@ function render(ctx: CanvasRenderingContext2D, state: HordeGameState) {
     ctx.textAlign = 'left';
     ctx.fillStyle = HC;
     ctx.fillText(`GEN ${state.generation}`, 14, 19);
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.fillText(`${state.agents.filter(a => a.alive).length} alive`, ARENA.WIDTH / 2, 19);
     ctx.textAlign = 'right';
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.fillText(`KILLS: ${state.score}`, ARENA.WIDTH - 14, 19);
@@ -743,12 +748,14 @@ interface HordeCanvasProps {
     scale?:            number;
     externalInputRef?: RefObject<InputState>;
     hideDnaPanel?:     boolean;
+    tutorial?:         boolean;
 }
 
-export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false }: HordeCanvasProps) {
+export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false, tutorial = false }: HordeCanvasProps) {
     const canvasRef  = useRef<HTMLCanvasElement>(null);
     const localInput = useInput();
     const inputRef   = externalInputRef ?? localInput;
+    const navigate   = useNavigate();
 
     const { hordeSettings, shooterSettings } = useSettings();
     // Resume a saved run if there is one. A 'choosing' phase can't resume as-is —
@@ -760,17 +767,23 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
     const stateRef       = useRef<HordeGameState | null>(resumed);
     const eaRef          = useRef<HordeEA>(hordeSettings);
     const playerStatsRef = useRef<PlayerStats>(shooterSettings.playerStats);
-    const hordeSizeRef   = useRef(hordeSettings.waveSize);
-    const modChoiceEnabledRef = useRef(hordeSettings.modChoiceEnabled);
-    const mapRef         = useRef<HordeMap>(resolveHordeMap(hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn));
+    const hordeSizeRef   = useRef(tutorial ? TUTORIAL_WAVE_SIZE : hordeSettings.waveSize);
+    const starterDnaRef  = useRef(tutorial ? HORDE_TUTORIAL_DNA : hordeSettings.starterDna);
+    const modChoiceEnabledRef = useRef(tutorial ? true : hordeSettings.modChoiceEnabled);
+    const killsPerUpgradeRef  = useRef(tutorial ? TUTORIAL_KILLS_PER_UPGRADE : hordeSettings.killsPerUpgrade);
+    const mapRef         = useRef<HordeMap>(tutorial ? getHordeMap('pillars') : resolveHordeMap(hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn));
 
     useEffect(() => { eaRef.current          = hordeSettings;               }, [hordeSettings]);
     useEffect(() => { playerStatsRef.current = shooterSettings.playerStats;  }, [shooterSettings]);
-    useEffect(() => { hordeSizeRef.current   = hordeSettings.waveSize;       }, [hordeSettings]);
-    useEffect(() => { modChoiceEnabledRef.current = hordeSettings.modChoiceEnabled; }, [hordeSettings.modChoiceEnabled]);
+    useEffect(() => { hordeSizeRef.current   = tutorial ? TUTORIAL_WAVE_SIZE : hordeSettings.waveSize;     }, [hordeSettings, tutorial]);
+    useEffect(() => { starterDnaRef.current  = tutorial ? HORDE_TUTORIAL_DNA : hordeSettings.starterDna;   }, [hordeSettings.starterDna, tutorial]);
+    useEffect(() => { modChoiceEnabledRef.current = tutorial ? true : hordeSettings.modChoiceEnabled; }, [hordeSettings.modChoiceEnabled, tutorial]);
+    useEffect(() => { killsPerUpgradeRef.current  = tutorial ? TUTORIAL_KILLS_PER_UPGRADE : hordeSettings.killsPerUpgrade;   }, [hordeSettings.killsPerUpgrade, tutorial]);
     useEffect(() => {
-        mapRef.current = resolveHordeMap(hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn);
-    }, [hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn]);
+        mapRef.current = tutorial
+            ? getHordeMap('pillars')
+            : resolveHordeMap(hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn);
+    }, [tutorial, hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn]);
 
     const [uiPhase,  setUiPhase]  = useState<HordePhase | 'start'>(resumed?.phase ?? 'start');
     const [uiGen,    setUiGen]    = useState(resumed?.generation ?? 0);
@@ -782,17 +795,48 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
     });
     const [pendingModChoices, setPendingModChoices] = useState<ModDefinition[] | null>(null);
 
+    // Tutorial step coachmarks — advanced live from the game loop (refs, since
+    // that callback is created once and must not go stale). Mirrors ShooterCanvas.
+    const tutorialStepRef      = useRef<HordeTutorialStep>('move');
+    const tutorialAimOriginRef = useRef<{ x: number; y: number } | null>(null);
+    const [tutorialStep, setTutorialStep]                 = useState<HordeTutorialStep>('move');
+    const [tutorialBubbleClosed, setTutorialBubbleClosed] = useState(false);
+    const advanceTutorialStep = (next: HordeTutorialStep) => {
+        tutorialStepRef.current = next;
+        setTutorialStep(next);
+        setTutorialBubbleClosed(false);
+    };
+
+    const finishTutorial = async () => {
+        if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+        hordeGameStore.state = null;
+        hordeGameStore.notify();
+        navigate('/lobby/shooter', { state: { mode: 'horde' } });
+    };
+
     const startGame = () => {
         agentIdCounter = 0;
         bulletCounter  = 0;
         shootTimer     = 0;
         hordeQueuedShots.length = 0;
         runModsStore.reset();
-        // Random DNA so every run starts with real diversity — no starter-DNA bootstrap problem
+        if (tutorial) {
+            tutorialAimOriginRef.current = null;
+            advanceTutorialStep('move');
+        }
+        // Base genes + movement loop + size/opacity are all jittered around the
+        // player's Horde Starter DNA (±0.05 per gene — same bootstrap Solo Play's
+        // initPopulation() uses), so none of it is a dead setting that always
+        // gets overridden by pure randomness. Only the spawn-side weights have
+        // no starter equivalent (see HORDE_STARTER_DNA_LENGTH) and stay fully
+        // random every spawn, on purpose — not something to bias up front.
         const pop: Population = {
             generation:  1,
             individuals: Array.from({ length: hordeSizeRef.current }, () => ({
-                dna:     randomDna(),
+                dna: [
+                    ...starterDnaRef.current.map(v => Math.max(0, Math.min(1, v + (Math.random() - 0.5) * 0.1))),
+                    ...Array.from({ length: 4 }, () => Math.random()), // spawn-side weights: top, right, bottom, left
+                ],
                 fitness: 0,
             })),
             bestFitness: 0,
@@ -849,7 +893,7 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
                     // already has the score/generation via hordeRunStore.
                     hordeGameStore.state = null;
                     hordeGameStore.notify();
-                } else if (modChoiceEnabledRef.current && Math.floor(next.score / KILLS_PER_UPGRADE) > Math.floor(s.score / KILLS_PER_UPGRADE)) {
+                } else if (modChoiceEnabledRef.current && Math.floor(next.score / killsPerUpgradeRef.current) > Math.floor(s.score / killsPerUpgradeRef.current)) {
                     // Kill-Meilenstein erreicht (Vampire-Survivors-Stil): Auswahl anbieten,
                     // falls noch nicht unlockte Mods übrig sind — sonst einfach weiterspielen.
                     const available = MOD_POOL.filter(m => !runModsStore.activeModIds.includes(m.id));
@@ -860,6 +904,29 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
                         next = { ...next, phase: 'choosing' };
                     }
                 }
+
+                if (tutorial) {
+                    const step = tutorialStepRef.current;
+                    const inp  = inputRef.current;
+                    if (step === 'move' && (inp.up || inp.down || inp.left || inp.right)) {
+                        advanceTutorialStep('aim');
+                    } else if (step === 'aim') {
+                        if (tutorialAimOriginRef.current === null) {
+                            tutorialAimOriginRef.current = { x: inp.mouseX, y: inp.mouseY };
+                        } else {
+                            const dx = inp.mouseX - tutorialAimOriginRef.current.x;
+                            const dy = inp.mouseY - tutorialAimOriginRef.current.y;
+                            if (dx * dx + dy * dy > 40 * 40) advanceTutorialStep('shoot');
+                        }
+                    } else if (step === 'shoot' && inp.shoot) {
+                        advanceTutorialStep('obstacles');
+                    } else if (step === 'obstacles' && next.score >= 1) {
+                        advanceTutorialStep('mods');
+                    } else if (step === 'mods' && next.phase === 'choosing') {
+                        advanceTutorialStep('done');
+                    }
+                }
+
                 stateRef.current = next;
                 if (next.phase !== 'dead') hordeGameStore.state = next;
                 render(ctx, next);
@@ -899,13 +966,26 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
 
                 {uiPhase === 'start' && (
                     <div style={{ ...overlay, pointerEvents: 'auto' }}>
-                        <div style={{ fontSize: 26, fontWeight: 700, color: HC, letterSpacing: '0.12em' }}>HORDE MODE</div>
-                        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', textAlign: 'center', maxWidth: 320, lineHeight: 1.7 }}>
-                            Agents rush toward you — one shot kills.<br />
-                            If one touches you, it&apos;s over.<br />
-                            Every kill evolves the next spawn.
+                        <div style={{ fontSize: 26, fontWeight: 700, color: HC, letterSpacing: '0.12em' }}>
+                            {tutorial ? 'HORDE TUTORIAL' : 'HORDE MODE'}
                         </div>
-                        <button style={{ ...BTN, marginTop: 8 }} onClick={startGame}>Start →</button>
+                        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', textAlign: 'center', maxWidth: 320, lineHeight: 1.7 }}>
+                            {tutorial ? (
+                                <>
+                                    Practice against harmless dummies — they barely move.<br />
+                                    Learn the pillars for cover and the powerup picks along the way.
+                                </>
+                            ) : (
+                                <>
+                                    Agents rush toward you — one shot kills.<br />
+                                    If one touches you, it&apos;s over.<br />
+                                    Every kill evolves the next spawn.
+                                </>
+                            )}
+                        </div>
+                        <button style={{ ...BTN, marginTop: 8 }} onClick={startGame}>
+                            {tutorial ? 'Start Tutorial →' : 'Start →'}
+                        </button>
                     </div>
                 )}
 
@@ -942,6 +1022,17 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false 
                         </div>
                         <button style={{ ...BTN, marginTop: 8 }} onClick={startGame}>Try Again →</button>
                     </div>
+                )}
+
+                {tutorial && uiPhase === 'playing' && !tutorialBubbleClosed && (
+                    <CompiBubble
+                        title={HORDE_TUTORIAL_STEP_CONTENT[tutorialStep].title}
+                        body={HORDE_TUTORIAL_STEP_CONTENT[tutorialStep].body}
+                        actions={tutorialStep === 'done'
+                            ? [{ label: 'Finish Tutorial → Lobby', onClick: finishTutorial, variant: 'primary' }]
+                            : []}
+                        onClose={() => setTutorialBubbleClosed(true)}
+                    />
                 )}
             </div>
         </div>

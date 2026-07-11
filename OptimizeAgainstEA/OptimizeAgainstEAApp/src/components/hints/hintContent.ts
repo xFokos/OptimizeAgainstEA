@@ -48,6 +48,11 @@ export type HintId =
   | 'vsEa.playerWon'
   | 'vsEa.eaWon'
   | 'shooter.dnaChangeDuringRound'
+  | 'shooter.tour.welcome'
+  | 'shooter.tour.modes'
+  | 'shooter.tour.difficulty'
+  | 'shooter.tour.dna'
+  | 'shooter.tour.start'
   | 'horde.mobileNotOptimized'
   | 'functions.intro';
 
@@ -243,6 +248,56 @@ export const HINTS: Record<HintId, HintDef> = {
     once: true,
     sticky: true,
   },
+  // ── Solo lobby guided tour: chained step-by-step, wired up in
+  //    ShooterLobbyPage.tsx (the "Next"/"Skip" actions live at the call site,
+  //    not here — see startShooterTour there). 'welcome' fires once on the
+  //    first visit; the other steps are re-triggerable via the "Take the
+  //    Tour" button, so they deliberately don't set `once`. ──────────────────
+  'shooter.tour.welcome': {
+    title: 'New here?',
+    body:
+      'Want a quick walkthrough of the Solo Play lobby before you jump in? ' +
+      'It only takes a few seconds.',
+    style: 'modal',
+    once: true,
+  },
+
+  'shooter.tour.modes': {
+    title: 'Step 1 — Tabs',
+    body:
+      'Overview, Algorithm, DNA & Round and Player — each tab controls a ' +
+      'different part of the fight. Overview has quick difficulty presets; ' +
+      'the others let you fine-tune everything by hand.',
+    style: 'toast',
+  },
+
+  'shooter.tour.difficulty': {
+    title: 'Step 2 — Difficulty',
+    body:
+      'Easy, Medium and Hard set the opponent\'s starting DNA and how many ' +
+      'generations it secretly pre-trains before round one even begins. ' +
+      'Higher difficulty means it walks in already sharper.',
+    style: 'toast',
+  },
+
+  'shooter.tour.dna': {
+    title: 'Step 3 — DNA',
+    body:
+      'Those bars in the preview are the opponent\'s entire behavior — ' +
+      'aggression, dodge, accuracy and more. No hidden neural net, just 8 ' +
+      'numbers that evolve a little more after every round you play.',
+    style: 'toast',
+  },
+
+  'shooter.tour.start': {
+    title: 'Step 4 — Play',
+    body:
+      'When you\'re ready, hit "Play" to start round one. Land more hits ' +
+      'than you take in 20 seconds to win — the opponent evolves to counter ' +
+      'you a little more each round after that.',
+    style: 'toast',
+  },
+
   // ── Horde mode: fired once when a mobile-landscape player enters the game ─
   'horde.mobileNotOptimized': {
     title: 'Heads up',

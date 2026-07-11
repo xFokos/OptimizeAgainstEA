@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { ARENA, STARTER_DNA, DNA_LENGTH, GAME_CONFIG, type PlayerStats } from '../modules/shooterGame/shooter.types';
 import type { HordeObstacle, HordeSpawnSide } from '../modules/shooterGame/horde/hordeTypes';
+import { HORDE_STARTER_DNA_LENGTH } from '../modules/shooterGame/horde/hordeDna';
 
 // ---- Allgemeine EA Settings (spielübergreifend) ----
 export interface EASettings {
@@ -63,11 +64,20 @@ export interface HordeSettings {
     customObstacles:    HordeObstacle[];              // user-built layout, edited via HordeMapEditorPage
     customSpawnSides:   HordeSpawnSide[];
     customPlayerSpawn:  { x: number; y: number };
-    modChoiceEnabled:   boolean;                      // offer a powerup choice every KILLS_PER_UPGRADE kills
+    modChoiceEnabled:   boolean;                      // offer a powerup choice every killsPerUpgrade kills
+    killsPerUpgrade:    number;                       // how many kills between powerup offers
 }
 
+// Base genes from the shared STARTER_DNA, padded out to HORDE_STARTER_DNA_LENGTH
+// with neutral 0.5s for the Horde-only genes (movement loop / size / opacity) —
+// 0.5 loop = no turn offset, 0.5 size/opacity = an average-built, fully visible agent.
+const HORDE_DEFAULT_STARTER_DNA = [
+    ...STARTER_DNA,
+    ...Array(HORDE_STARTER_DNA_LENGTH - STARTER_DNA.length).fill(0.5),
+];
+
 export const defaultHordeSettings: HordeSettings = {
-    starterDna:        [...STARTER_DNA],
+    starterDna:        [...HORDE_DEFAULT_STARTER_DNA],
     waveSize:          20,
     wavePauseDuration: 3,
     mutationRate:       0.15,
@@ -78,6 +88,7 @@ export const defaultHordeSettings: HordeSettings = {
     customObstacles:    [],
     customSpawnSides:   ['top', 'right', 'bottom', 'left'],
     modChoiceEnabled:   true,
+    killsPerUpgrade:    100,
     customPlayerSpawn:  { x: ARENA.WIDTH / 2, y: ARENA.HEIGHT / 2 },
 };
 
@@ -122,5 +133,5 @@ export const resetShooterSettings = (): ShooterSettings => ({
 });
 export const resetHordeSettings   = (): HordeSettings   => ({
     ...defaultHordeSettings,
-    starterDna: Array(DNA_LENGTH).fill(0.1),
+    starterDna: Array(HORDE_STARTER_DNA_LENGTH).fill(0.1),
 });

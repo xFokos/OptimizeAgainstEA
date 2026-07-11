@@ -12,5 +12,6 @@ export { HintLayer } from './HintLayer';
 export { HintToggle } from './HintToggle';
 export { HintPopover } from './HintPopover';
 export { CompiBubble } from './CompiBubble';
+export { TourSpotlight } from './TourSpotlight';
 export { HINTS, COMPI_MODE } from './hintContent';
 export type { HintId, HintDef } from './hintContent';

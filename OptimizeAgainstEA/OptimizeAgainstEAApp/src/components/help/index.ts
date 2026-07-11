@@ -9,4 +9,4 @@ import './help.css';
 export { HelpButton } from './HelpButton';
 export { HelpModal } from './HelpModal';
 export { HELP_TOPICS } from './helpContent';
-export type { HelpTopicId, HelpTopic, HelpSection } from './helpContent';
+export type { HelpTopicId, HelpTopic } from './helpContent';

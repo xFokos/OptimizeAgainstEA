@@ -1,23 +1,27 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { RefObject } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import PageContainer from '../../../components/layout/PageContainer';
 import { GameModeSelectorLayout } from '../../../components/layout/GameModeSelectorLayout';
-import { HintsProvider, HintToggle, HintLayer, useHints } from '../../../components/hints';
+import { HintsProvider, HintToggle, HintLayer, useHints, HINTS, TourSpotlight } from '../../../components/hints';
+import type { HintId } from '../../../components/hints';
 import { HelpButton } from '../../../components/help';
 import { CompiTooltip } from '../../../components/ui/CompiTooltip';
-import { ShooterPlayerSection, ShooterRoundSection, ShooterDnaSection, HordeWaveSection } from '../settings/ShooterSettings';
+import { ShooterPlayerSection, ShooterRoundSection, ShooterDnaSection, HordeWaveSection, type DnaGeneDescriptor } from '../settings/ShooterSettings';
 import { useSettings, resetShooterSettings, defaultShooterSettings } from '../../../context/SettingsContext';
 import { EASettingsPanel, HordeEASettingsPanel } from '../../../components/settings/EASettings';
 import { makeInitialGameState } from '../game/makeGameState';
 import { vec } from '../game/core/vec';
 import { ARENA, DNA_INDEX, DNA_NAMES, DNA_GENE_INFO, GAME_CONFIG } from '../shooter.types';
 import { gameStore } from '../game/gameStore';
+import { initPopulation } from '../game/ga/population';
 import { analyticsStore } from '../game/analyticsStore';
 import { hordeRunStore } from '../horde/hordeRunStore';
 import { hordeGameStore } from '../horde/hordeGameStore';
 import { runModsStore } from '../mods/runModsStore';
 import { MOD_POOL } from '../mods/modTypes';
 import { HORDE_MAPS, CUSTOM_MAP_ID, resolveHordeMap } from '../horde/hordeMaps';
+import { LOOP_STEPS, LOOP_STEP_DURATION, LOOP_GENE_START, SIZE_GENE_INDEX, OPACITY_GENE_INDEX, loopOffsetRad } from '../horde/hordeDna';
 import type { HordeMap } from '../horde/hordeTypes';
 import { getRaidbossStatus, claimRaidbossSlot } from '../game/raidbossStore';
 import type { RaidbossDoc } from '../game/raidbossStore';
@@ -805,17 +809,17 @@ function DnaDeltaBadge({ delta }: { delta: number }) {
     );
 }
 
-function DnaGeneRow({ name, value, delta }: {
-    name:  keyof typeof DNA_GENE_INFO;
-    value: number;
-    delta: number;
+function DnaGeneRow({ label, tooltip, value, delta }: {
+    label:   string;
+    tooltip: string;
+    value:   number;
+    delta:   number;
 }) {
-    const info = DNA_GENE_INFO[name];
     return (
         <div style={ovStyles.geneRow}>
             <div style={ovStyles.geneHeader}>
-                <CompiTooltip text={info.tooltip}>
-                    <span style={ovStyles.geneName}>{info.label}</span>
+                <CompiTooltip text={tooltip}>
+                    <span style={ovStyles.geneName}>{label}</span>
                 </CompiTooltip>
                 <span style={{ display: 'flex', alignItems: 'baseline' }}>
                     <span style={ovStyles.geneValue}>{value.toFixed(2)}</span>
@@ -835,9 +839,12 @@ interface SoloPlayOverviewProps {
     selectedPreset:    PresetId;
     setSelectedPreset: (p: PresetId) => void;
     onNavigateTab:     (tab: LobbyTab) => void;
+    /** Anchors for the guided tour's spotlight (see NormalLobby's TOUR_STEPS). */
+    presetsRef?:  RefObject<HTMLDivElement | null>;
+    dnaPanelRef?: RefObject<HTMLDivElement | null>;
 }
 
-function SoloPlayOverview({ selectedPreset, setSelectedPreset, onNavigateTab }: SoloPlayOverviewProps) {
+function SoloPlayOverview({ selectedPreset, setSelectedPreset, onNavigateTab, presetsRef, dnaPanelRef }: SoloPlayOverviewProps) {
     const navigate = useNavigate();
     const isMobile = useMobile();
     const [round, setRound]     = useState(gameStore.state?.roundNumber ?? 0);
@@ -981,8 +988,8 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset, onNavigateTab }: 
                 Both stretch to the same width automatically; the Status box on the
                 left stretches to match this column's combined height. */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div className="panel panel--md" style={{ ...ovStyles.placeholder, flex: 'none' }}>
-                    <span style={ovStyles.placeholderHeading}>Difficulty</span>
+                <div ref={presetsRef} className="panel panel--md" style={{ ...ovStyles.placeholder, flex: 'none' }}>
+                    <span style={ovStyles.placeholderHeading}>Game</span>
                     <div style={ovStyles.presetBtns}>
                         {PRESETS.map(p => (
                             <button
@@ -1018,22 +1025,39 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset, onNavigateTab }: 
                             ? activePreset.desc
                             : 'Custom configuration — settings adjusted manually.'}
                     </p>
+                    <div style={ovStyles.divider} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={ovStyles.statsCompactRow}>
+                            <span style={ovStyles.statsCompactLabel}>Time Limit</span>
+                            <span style={ovStyles.statsCompactValue}>{shooterSettings.roundDuration}s</span>
+                        </div>
+                        <div style={ovStyles.statsCompactRow}>
+                            <span style={ovStyles.statsCompactLabel}>Hit to Win</span>
+                            <span style={ovStyles.statsCompactValue}>{shooterSettings.tugWinThreshold}</span>
+                        </div>
+                        <div style={ovStyles.statsCompactRow}>
+                            <span style={ovStyles.statsCompactLabel}>Powerups</span>
+                            <span style={ovStyles.statsCompactValue}>
+                                {shooterSettings.modChoiceEnabled ? `Every ${shooterSettings.modChoiceInterval} rounds` : 'Off'}
+                            </span>
+                        </div>
+                    </div>
                     <button
                         className="btn btn--ghost btn--sm"
-                        style={{ alignSelf: 'flex-start' }}
-                        onClick={() => onNavigateTab('Player')}
+                        style={{ alignSelf: 'flex-end' }}
+                        onClick={() => onNavigateTab('DnaRound')}
                     >
                         Round Settings →
                     </button>
                 </div>
 
-                {/* DNA-Sektion — read-only here; edited from the Algorithm tab */}
-                <div className="panel panel--md">
+                {/* DNA-Sektion — read-only here; edited from the DNA & Round tab.
+                    No separate "starter vs current" label — it's just DNA,
+                    whichever is currently true (live agent if a game exists). */}
+                <div ref={dnaPanelRef} className="panel panel--md">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <p style={{ ...tabStyles.sectionLabel, margin: 0 }}>
-                            {showActiveDna ? 'Current DNA' : 'Starter DNA'}
-                        </p>
-                        <button className="btn btn--ghost btn--sm" onClick={() => onNavigateTab('Algorithm')}>
+                        <p style={{ ...tabStyles.sectionLabel, margin: 0 }}>DNA</p>
+                        <button className="btn btn--ghost btn--sm" onClick={() => onNavigateTab('DnaRound')}>
                             Edit →
                         </button>
                     </div>
@@ -1041,7 +1065,8 @@ function SoloPlayOverview({ selectedPreset, setSelectedPreset, onNavigateTab }: 
                         {DNA_NAMES.map((name, i) => (
                             <DnaGeneRow
                                 key={i}
-                                name={name}
+                                label={DNA_GENE_INFO[name].label}
+                                tooltip={DNA_GENE_INFO[name].tooltip}
                                 value={displayedDna[i] ?? 0}
                                 delta={showActiveDna ? (displayedDna[i] ?? 0) - (prevDna[i] ?? 0) : 0}
                             />
@@ -1270,15 +1295,15 @@ const ovStyles: Record<string, React.CSSProperties> = {
 
 // ---- Settings Tabs ----
 
-const LOBBY_TABS = ['Overview', 'Algorithm', 'Performance', 'Player'] as const;
+const LOBBY_TABS = ['Overview', 'Algorithm', 'DnaRound', 'Player'] as const;
 type LobbyTab = typeof LOBBY_TABS[number];
 
 // Friendlier display text — internal ids stay stable so nothing else needs to change.
 const LOBBY_TAB_LABELS: Record<LobbyTab, string> = {
-    Overview:    'Overview',
-    Algorithm:   'AI Behavior',
-    Performance: 'Simulation',
-    Player:      'Round & Player',
+    Overview: 'Overview',
+    Algorithm: 'Algorithm',
+    DnaRound:  'DNA & Round',
+    Player:    'Player',
 };
 
 const tabStyles: Record<string, React.CSSProperties> = {
@@ -1347,59 +1372,18 @@ const tabStyles: Record<string, React.CSSProperties> = {
 
 };
 
-// ---- Performance Tab ----
-
-function PerformanceTab() {
-    const { eaSettings: s, setEaSettings } = useSettings();
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div className="panel panel--md">
-                <p style={tabStyles.sectionLabel}>Recording</p>
-                <div style={perfStyles.row}>
-                    <label style={perfStyles.label}>Round record limit</label>
-                    <input
-                        type="range" min={5} max={50} step={5}
-                        value={s.maxAnalyticsRounds}
-                        onChange={e => setEaSettings({ ...s, maxAnalyticsRounds: parseInt(e.target.value) })}
-                        className="slider"
-                        style={{ flex: 1, cursor: 'pointer' }}
-                    />
-                    <span style={perfStyles.value}>{s.maxAnalyticsRounds}</span>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-const perfStyles: Record<string, React.CSSProperties> = {
-    row: {
-        display:      'flex',
-        alignItems:   'center',
-        gap:          12,
-        marginBottom: 10,
-    },
-    label: {
-        width:      160,
-        fontSize:   14,
-        flexShrink: 0,
-        color:      'var(--text-dim)',
-    },
-    value: {
-        width:     36,
-        fontSize:  14,
-        textAlign: 'right' as const,
-        color:     'var(--accent)',
-    },
-};
-
 // ---- Normal Lobby ----
 
 function NormalLobby() {
     const navigate = useNavigate();
     const [tab, setTab] = useState<LobbyTab>('Overview');
     const [hasActiveGame, setHasActiveGame] = useState(!!gameStore.state);
+    // The live agent's DNA once a game exists — there's no separate "starter vs
+    // current" concept in the UI, just "DNA": this is it whenever a game is
+    // running, falling back to the starter setting otherwise (see dna={} below).
+    const [liveDna, setLiveDna] = useState<number[] | null>(gameStore.state?.agent?.dna ?? null);
     const { shooterSettings, eaSettings, setShooterSettings } = useSettings();
-    const { showHint } = useHints();
+    const { showHint, dismiss } = useHints();
     const [selectedPreset, setSelectedPreset] = useState<PresetId>(() => {
         const match = PRESETS.find(p =>
             p.dna.every((v, i) => Math.abs(v - shooterSettings.starterDna[i]) < 0.001) &&
@@ -1414,7 +1398,10 @@ function NormalLobby() {
     const zoom = useZoom();
 
     useEffect(() => {
-        const sync = () => setHasActiveGame(!!gameStore.state);
+        const sync = () => {
+            setHasActiveGame(!!gameStore.state);
+            setLiveDna(gameStore.state?.agent?.dna ?? null);
+        };
         sync();
         return gameStore.subscribe(sync);
     }, []);
@@ -1437,8 +1424,71 @@ function NormalLobby() {
 
     const warnIfMidRound = () => { if (hasActiveGame) showHint('shooter.dnaChangeDuringRound'); };
 
+    // Guided lobby tour: a spotlight dims the screen except the one real UI
+    // element each step is about (tab bar → difficulty presets → DNA panel →
+    // Play button) instead of a corner-pinned bubble — see TourSpotlight.
+    // Wording still comes from hintContent.ts; the Next/Skip chain lives here
+    // since HintDef has no action field and only the call site knows "next".
+    const tabBarRef   = useRef<HTMLDivElement>(null);
+    const presetsRef  = useRef<HTMLDivElement>(null);
+    const dnaPanelRef = useRef<HTMLDivElement>(null);
+    const playBtnRef  = useRef<HTMLButtonElement>(null);
+    const TOUR_STEPS: { id: HintId; ref: RefObject<HTMLElement | null> }[] = [
+        { id: 'shooter.tour.modes',      ref: tabBarRef },
+        { id: 'shooter.tour.difficulty', ref: presetsRef },
+        { id: 'shooter.tour.dna',        ref: dnaPanelRef },
+        { id: 'shooter.tour.start',      ref: playBtnRef },
+    ];
+    const [tourStep, setTourStep] = useState<number | null>(null);
+    const startTour = () => {
+        setTab('Overview'); // every step's target lives on this tab
+        setTourStep(0);
+    };
+    const stopTour = () => setTourStep(null);
+
+    const tourOverlay = tourStep !== null && (() => {
+        const step   = TOUR_STEPS[tourStep];
+        const def    = HINTS[step.id];
+        const isLast = tourStep === TOUR_STEPS.length - 1;
+        return (
+            <TourSpotlight
+                key={step.id}
+                targetRef={step.ref}
+                title={def.title}
+                body={def.body}
+                actions={[
+                    {
+                        label:   isLast ? 'Got it' : 'Next',
+                        onClick: () => (isLast ? stopTour() : setTourStep(tourStep + 1)),
+                        variant: 'primary',
+                    },
+                    ...(isLast ? [] : [{ label: 'Skip', onClick: stopTour, variant: 'ghost' as const }]),
+                ]}
+                onSkip={stopTour}
+            />
+        );
+    })();
+
+    // First visit to the Solo lobby this session → offer the tour once.
+    useEffect(() => {
+        showHint('shooter.tour.welcome', {
+            actions: [
+                { label: 'Show me around', onClick: startTour, variant: 'primary' },
+                { label: 'No thanks', onClick: dismiss, variant: 'ghost' },
+            ],
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const startPractice = async () => {
+        await enterGameFullscreen();
+        gameStore.state = null as unknown as typeof gameStore.state;
+        gameStore.notify();
+        navigate('/ShooterGame', { state: { tutorial: true } });
+    };
+
     const tabBar = (
-        <div style={{ ...tabStyles.bar, overflowX: 'auto', flexWrap: 'nowrap' as const, flexShrink: 0 }}>
+        <div ref={tabBarRef} style={{ ...tabStyles.bar, overflowX: 'auto', flexWrap: 'nowrap' as const, flexShrink: 0 }}>
             {LOBBY_TABS.map(t => (
                 <button key={t} onClick={() => setTab(t)}
                     style={{ ...(tab === t ? tabStyles.tabActive : tabStyles.tabInactive), flexShrink: 0 }}>
@@ -1455,35 +1505,51 @@ function NormalLobby() {
                     selectedPreset={selectedPreset}
                     setSelectedPreset={setSelectedPreset}
                     onNavigateTab={setTab}
+                    presetsRef={presetsRef}
+                    dnaPanelRef={dnaPanelRef}
                 />
             )}
-            {tab === 'Algorithm' && (
+            {tab === 'Algorithm' && <EASettingsPanel />}
+            {tab === 'DnaRound' && (
                 <>
                     <div className="panel panel--md" style={{ marginBottom: 12 }}>
-                        <p style={tabStyles.sectionLabel}>Starter DNA</p>
+                        <p style={tabStyles.sectionLabel}>DNA</p>
                         <ShooterDnaSection
-                            dna={shooterSettings.starterDna}
+                            dna={liveDna ?? shooterSettings.starterDna}
                             onChange={(i, v) => {
-                                const newDna = [...shooterSettings.starterDna];
+                                warnIfMidRound();
+                                // Not "starter vs current" — just DNA. This always updates
+                                // the setting (so it's what the next reset starts from),
+                                // and if a game is actually running right now, it also
+                                // patches the live agent so the edit takes effect immediately
+                                // instead of silently doing nothing until you reset.
+                                const newDna = [...(liveDna ?? shooterSettings.starterDna)];
                                 newDna[i] = v;
                                 setShooterSettings({ ...shooterSettings, starterDna: newDna });
+                                if (gameStore.state) {
+                                    const newPop  = initPopulation(newDna);
+                                    const prevGen = gameStore.state.population?.generation ?? 1;
+                                    gameStore.state = {
+                                        ...gameStore.state,
+                                        population: { ...newPop, generation: prevGen },
+                                        agent:      { ...gameStore.state.agent, dna: newDna },
+                                    };
+                                    gameStore.notify();
+                                }
                             }}
-                            onBeforeChange={warnIfMidRound}
                         />
                     </div>
-                    <EASettingsPanel />
-                </>
-            )}
-            {tab === 'Performance' && <PerformanceTab />}
-            {tab === 'Player' && (
-                <>
-                    <div className="panel panel--md" style={{ marginBottom: 12 }}>
+                    <div className="panel panel--md">
                         <p style={tabStyles.sectionLabel}>Round Settings</p>
                         <ShooterRoundSection
                             locked={selectedPreset !== 'custom'}
                             onBeforeChange={warnIfMidRound}
                         />
                     </div>
+                </>
+            )}
+            {tab === 'Player' && (
+                <>
                     <div className="panel panel--md">
                         <ShooterPlayerSection />
                     </div>
@@ -1502,11 +1568,13 @@ function NormalLobby() {
                     {tabContent}
                 </div>
                 <div style={mobileBtnsStyle}>
-                    <HelpButton topic="shooter.solo" />
-                    <button className="btn btn--primary btn--lg" style={{ flex: 1 }} onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
+                    <HelpButton topic="shooter.solo" onTakeTour={startTour} />
+                    <button className="btn btn--outline btn--sm" onClick={startPractice} title="Tutorial">🎓</button>
+                    <button ref={playBtnRef} className="btn btn--primary btn--lg" style={{ flex: 1 }} onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
                         {hasActiveGame ? 'Continue →' : 'Play →'}
                     </button>
                 </div>
+                {tourOverlay}
             </div>
         );
     }
@@ -1522,8 +1590,8 @@ function NormalLobby() {
                     <ShooterPreview />
                     <div style={lobbyStyles.previewLabel}>Live Preview</div>
                 </div>
-                <div style={lobbyStyles.leftTopHelpSlot}>
-                    <HelpButton topic="shooter.solo" className="btn btn--outline btn--block help-button" />
+                <div style={{ ...lobbyStyles.leftTopHelpSlot, flexDirection: 'column', gap: 8 }}>
+                    <HelpButton topic="shooter.solo" className="btn btn--outline btn--block help-button" onTakeTour={startTour} />
                 </div>
             </div>
 
@@ -1537,11 +1605,13 @@ function NormalLobby() {
                 </div>
             </div>
 
-            <div style={lobbyStyles.rightBottom}>
-                <button className="btn btn--primary btn--lg" onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
+            <div style={{ ...lobbyStyles.rightBottom, gap: 10 }}>
+                <button className="btn btn--outline btn--lg" onClick={startPractice}>🎓 Tutorial</button>
+                <button ref={playBtnRef} className="btn btn--primary btn--lg" onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
                     {hasActiveGame ? 'Continue →' : 'Play →'}
                 </button>
             </div>
+            {tourOverlay}
         </div>
     );
 }
@@ -1821,8 +1891,17 @@ const rbStyles: Record<string, React.CSSProperties> = {
 
 // ---- Horde Lobby ----
 
-const HORDE_TABS = ['Overview', 'Algorithm', 'Player', 'Map'] as const;
+const HORDE_TABS = ['Overview', 'Algorithm', 'DnaWave', 'Player', 'Map'] as const;
 type HordeTab = typeof HORDE_TABS[number];
+
+// Friendlier display text — internal ids stay stable so nothing else needs to change.
+const HORDE_TAB_LABELS: Record<HordeTab, string> = {
+    Overview:  'Overview',
+    Algorithm: 'Algorithm',
+    DnaWave:   'DNA & Wave',
+    Player:    'Player',
+    Map:       'Map',
+};
 
 // Horde-only difficulty presets — deliberately independent of the Solo Play PRESETS
 // above, since HordeSettings no longer shares state with the global EASettings.
@@ -1864,6 +1943,28 @@ const HORDE_PRESETS = [
 
 type HordePresetId = typeof HORDE_PRESETS[number]['id'] | 'custom';
 
+// Horde agents are melee-only (touch = death, they never shoot) — updateHorde()
+// only ever reads these three shared genes (not Fire Rate/Bullet Speed/Accuracy/
+// Range/Lead), plus its own Size/Opacity/Movement Loop genes, which have no
+// shared DNA_GENE_INFO entry since they're Horde-only concepts.
+const HORDE_BAR_GENES: DnaGeneDescriptor[] = [
+    { index: DNA_INDEX.AGGRESSION,     label: DNA_GENE_INFO.AGGRESSION.label,     tooltip: DNA_GENE_INFO.AGGRESSION.tooltip },
+    { index: DNA_INDEX.DODGE_WEIGHT,   label: DNA_GENE_INFO.DODGE_WEIGHT.label,   tooltip: DNA_GENE_INFO.DODGE_WEIGHT.tooltip },
+    { index: DNA_INDEX.MOVEMENT_SPEED, label: DNA_GENE_INFO.MOVEMENT_SPEED.label, tooltip: DNA_GENE_INFO.MOVEMENT_SPEED.tooltip },
+    { index: SIZE_GENE_INDEX,    label: 'Size',    tooltip: "How large the agent's hitbox is — smaller is genuinely harder to hit." },
+    { index: OPACITY_GENE_INDEX, label: 'Opacity', tooltip: 'How visible the agent is — fainter is harder to spot.' },
+];
+
+// Movement Loop gets its own degree-badge display in the read-only Overview
+// (see below), but as plain 0-1 sliders it's just 4 more editable rows here.
+const HORDE_LOOP_GENES: DnaGeneDescriptor[] = Array.from({ length: LOOP_STEPS }, (_, i) => ({
+    index:   LOOP_GENE_START + i,
+    label:   `Loop Step ${i + 1}`,
+    tooltip: 'One step of the evolved movement loop — a steering-rotation offset applied on top of the normal chase/dodge direction.',
+}));
+
+const HORDE_EDITABLE_GENES: DnaGeneDescriptor[] = [...HORDE_BAR_GENES, ...HORDE_LOOP_GENES];
+
 function HordeOverview({ onNavigateTab }: { onNavigateTab: (tab: HordeTab) => void }) {
     const isMobile = useMobile();
     const [lastRun, setLastRun]     = useState(hordeRunStore.lastRun);
@@ -1873,6 +1974,14 @@ function HordeOverview({ onNavigateTab }: { onNavigateTab: (tab: HordeTab) => vo
 
     useEffect(() => hordeRunStore.subscribe(() => setLastRun(hordeRunStore.lastRun)), []);
     useEffect(() => hordeGameStore.subscribe(() => setActiveRun(hordeGameStore.state)), []);
+
+    // Abandon the in-progress run without having to die first — mirrors Solo
+    // Play's Reset. Doesn't touch "Last Run": that's a separate, already-
+    // completed run's scoreboard, not part of what's being abandoned here.
+    const handleReset = () => {
+        hordeGameStore.state = null;
+        hordeGameStore.notify();
+    };
 
     const [selectedPreset, setSelectedPreset] = useState<HordePresetId>(() => {
         const match = HORDE_PRESETS.find(p =>
@@ -1917,8 +2026,7 @@ function HordeOverview({ onNavigateTab }: { onNavigateTab: (tab: HordeTab) => vo
     const bestIndividual = activeRun
         ? activeRun.population.individuals.reduce((a, b) => (b.fitness > a.fitness ? b : a))
         : null;
-    const showActiveDna = !!bestIndividual;
-    const displayDna     = bestIndividual ? bestIndividual.dna : hordeSettings.starterDna;
+    const displayDna = bestIndividual ? bestIndividual.dna : hordeSettings.starterDna;
 
     return (
         <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 16 }}>
@@ -1969,6 +2077,12 @@ function HordeOverview({ onNavigateTab }: { onNavigateTab: (tab: HordeTab) => vo
                                 </div>
                             </>
                         )}
+                        <div style={ovStyles.divider} />
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <button className="btn btn--outline btn--c-danger btn--sm" onClick={handleReset}>
+                                Reset
+                            </button>
+                        </div>
                     </div>
                 ) : lastRun ? (
                     <div className="panel panel--md" style={ovStyles.activeSlot}>
@@ -2005,7 +2119,7 @@ function HordeOverview({ onNavigateTab }: { onNavigateTab: (tab: HordeTab) => vo
                 same pattern as Solo's Overview. */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div className="panel panel--md" style={{ ...ovStyles.placeholder, flex: 'none' }}>
-                    <span style={ovStyles.placeholderHeading}>Difficulty</span>
+                    <span style={ovStyles.placeholderHeading}>Game</span>
                     <div style={ovStyles.presetBtns}>
                         {HORDE_PRESETS.map(p => (
                             <button
@@ -2037,31 +2151,78 @@ function HordeOverview({ onNavigateTab }: { onNavigateTab: (tab: HordeTab) => vo
                         {activePreset ? activePreset.desc : 'Custom configuration — wave size adjusted manually.'}
                     </p>
                     <div style={ovStyles.divider} />
-                    <span style={ovStyles.placeholderHeading}>Wave Settings</span>
-                    <HordeWaveSection />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={ovStyles.statsCompactRow}>
+                            <span style={ovStyles.statsCompactLabel}>Wave Size</span>
+                            <span style={ovStyles.statsCompactValue}>{hordeSettings.waveSize}</span>
+                        </div>
+                        <div style={ovStyles.statsCompactRow}>
+                            <span style={ovStyles.statsCompactLabel}>Powerups</span>
+                            <span style={ovStyles.statsCompactValue}>{hordeSettings.modChoiceEnabled ? 'On' : 'Off'}</span>
+                        </div>
+                    </div>
+                    <button
+                        className="btn btn--ghost btn--sm"
+                        style={{ alignSelf: 'flex-end' }}
+                        onClick={() => onNavigateTab('DnaWave')}
+                    >
+                        Wave Settings →
+                    </button>
                 </div>
 
-                {/* DNA-Sektion — read-only here; edited from the Algorithm tab.
-                    Shows the current run's best-performing individual while a
-                    run is active, otherwise falls back to the starter DNA. */}
+                {/* DNA-Sektion — read-only here; edited from the DNA & Wave tab.
+                    No separate "starter vs current" label — displayDna is
+                    either the current run's best agent, or (now that
+                    Size/Opacity/Movement Loop are real starter-DNA slots too)
+                    the starter DNA setting itself. Either way there's always
+                    a real value, so this never needs placeholders. */}
                 <div className="panel panel--md">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <p style={{ ...tabStyles.sectionLabel, margin: 0 }}>
-                            {showActiveDna ? 'Current DNA (Best Agent)' : 'Starter DNA'}
-                        </p>
-                        <button className="btn btn--ghost btn--sm" onClick={() => onNavigateTab('Algorithm')}>
+                        <p style={{ ...tabStyles.sectionLabel, margin: 0 }}>DNA</p>
+                        <button className="btn btn--ghost btn--sm" onClick={() => onNavigateTab('DnaWave')}>
                             Edit →
                         </button>
                     </div>
                     <div style={{ ...ovStyles.geneList, gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)' }}>
-                        {DNA_NAMES.map((name, i) => (
+                        {HORDE_BAR_GENES.map(g => (
                             <DnaGeneRow
-                                key={i}
-                                name={name}
-                                value={displayDna[i] ?? 0}
+                                key={g.index}
+                                label={g.label}
+                                tooltip={g.tooltip}
+                                value={displayDna[g.index] ?? 0}
                                 delta={0}
                             />
                         ))}
+                    </div>
+                    <div style={{ marginTop: 14 }}>
+                        <span style={ovStyles.placeholderHeading}>Movement Loop</span>
+                        <p style={{ ...ovStyles.presetDesc, marginTop: 4 }}>
+                            Evolved steering offsets, applied on top of the normal chase/dodge — repeats every {(LOOP_STEPS * LOOP_STEP_DURATION).toFixed(1)}s.
+                        </p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                            {Array.from({ length: LOOP_STEPS }, (_, i) => {
+                                const gene = displayDna[LOOP_GENE_START + i] ?? 0.5;
+                                const deg  = Math.round((loopOffsetRad(gene) * 180) / Math.PI);
+                                return (
+                                    <span
+                                        key={i}
+                                        style={{
+                                            display:      'inline-flex',
+                                            alignItems:   'center',
+                                            padding:      '4px 10px',
+                                            borderRadius: 999,
+                                            background:   'rgba(251,146,60,0.1)',
+                                            border:       '1px solid rgba(251,146,60,0.25)',
+                                            fontSize:     12,
+                                            fontFamily:   'var(--font-mono)',
+                                            color:        'rgba(255,255,255,0.75)',
+                                        }}
+                                    >
+                                        {deg > 0 ? `+${deg}°` : `${deg}°`}
+                                    </span>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2138,9 +2299,25 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
     // player may have changed the map setting since without restarting.
     const previewMap = activeRun?.map ?? selectedMap;
 
+    // No "starter vs current" distinction in the UI — just DNA. While a run is
+    // active this is the best-performing individual's actual genome (editing
+    // it patches that individual directly); otherwise it's the starter setting.
+    const bestIndex = activeRun
+        ? activeRun.population.individuals.reduce((bestI, cur, i, arr) => cur.fitness > arr[bestI].fitness ? i : bestI, 0)
+        : -1;
+    const bestIndividual = activeRun && bestIndex >= 0 ? activeRun.population.individuals[bestIndex] : null;
+    const displayDna = bestIndividual ? bestIndividual.dna : hordeSettings.starterDna;
+
     const handlePlay = async () => {
         await enterGameFullscreen();
         navigate('/HordeGame');
+    };
+
+    const startHordeTutorial = async () => {
+        await enterGameFullscreen();
+        hordeGameStore.state = null;
+        hordeGameStore.notify();
+        navigate('/HordeGame', { state: { tutorial: true } });
     };
 
     const playBtn = (
@@ -2158,7 +2335,7 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
             {HORDE_TABS.map(t => (
                 <button key={t} onClick={() => setTab(t)}
                     style={{ ...(tab === t ? tabStyles.tabActive : tabStyles.tabInactive), flexShrink: 0 }}>
-                    {t}
+                    {HORDE_TAB_LABELS[t]}
                 </button>
             ))}
         </div>
@@ -2167,20 +2344,48 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
     const tabContent = (
         <div style={{ ...tabStyles.panel, overflowY: isMobile ? 'visible' : 'auto' }}>
             {tab === 'Overview' && <HordeOverview onNavigateTab={setTab} />}
-            {tab === 'Algorithm' && (
+            {tab === 'Algorithm' && <HordeEASettingsPanel />}
+            {tab === 'DnaWave' && (
                 <>
                     <div className="panel panel--md" style={{ marginBottom: 12 }}>
-                        <p style={tabStyles.sectionLabel}>Starter DNA</p>
+                        <p style={tabStyles.sectionLabel}>DNA</p>
                         <ShooterDnaSection
-                            dna={hordeSettings.starterDna}
+                            dna={displayDna}
                             onChange={(i, v) => {
-                                const newDna = [...hordeSettings.starterDna];
+                                // Not "starter vs current" — just DNA. Always updates the
+                                // setting (so it's what the next run starts from). If a run
+                                // is active, broadcast just this one gene to the whole swarm
+                                // — every individual in the gene pool *and* every agent
+                                // currently alive — rather than only the single best agent.
+                                // Every other gene each of them already has stays untouched,
+                                // so this doesn't erase what's evolved so far.
+                                const newDna = [...displayDna];
                                 newDna[i] = v;
                                 setHordeSettings({ ...hordeSettings, starterDna: newDna });
+                                if (activeRun) {
+                                    const setGene = (dna: number[]) => {
+                                        const next = [...dna];
+                                        next[i] = v;
+                                        return next;
+                                    };
+                                    hordeGameStore.state = {
+                                        ...activeRun,
+                                        population: {
+                                            ...activeRun.population,
+                                            individuals: activeRun.population.individuals.map(ind => ({ ...ind, dna: setGene(ind.dna) })),
+                                        },
+                                        agents: activeRun.agents.map(a => ({ ...a, dna: setGene(a.dna) })),
+                                    };
+                                    hordeGameStore.notify();
+                                }
                             }}
+                            genes={HORDE_EDITABLE_GENES}
                         />
                     </div>
-                    <HordeEASettingsPanel />
+                    <div className="panel panel--md">
+                        <p style={tabStyles.sectionLabel}>Wave Settings</p>
+                        <HordeWaveSection />
+                    </div>
                 </>
             )}
             {tab === 'Map' && <HordeMapSection />}
@@ -2205,6 +2410,7 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
                 </div>
                 <div style={mobileBtnsStyle}>
                     <HelpButton topic="shooter.horde" />
+                    <button className="btn btn--outline btn--sm" style={{ '--btn-color': HO } as React.CSSProperties} onClick={startHordeTutorial} title="Tutorial">🎓</button>
                     <div style={{ flex: 1 }}>{playBtn}</div>
                 </div>
             </div>
@@ -2219,9 +2425,11 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
                         <div style={{ ...lobbyStyles.brandLogo, color: HO, background: 'rgba(251,146,60,0.1)', borderColor: 'rgba(251,146,60,0.25)' }}>SG</div>
                         <span style={lobbyStyles.brandName}>Shooter Game</span>
                     </div>
-                    {tab === 'Map' ? <HordeMapPreview map={previewMap} /> : <HordePreview />}
+                    {/* Show the real map layout — not the generic decorative demo —
+                        once a run is active, so this actually reflects the run. */}
+                    {(tab === 'Map' || activeRun) ? <HordeMapPreview map={previewMap} /> : <HordePreview />}
                     <div style={lobbyStyles.previewLabel}>
-                        {tab === 'Map' ? 'Map Preview' : 'Live Preview'} · {previewMap.label}
+                        {tab === 'Map' ? 'Map Preview' : activeRun ? 'Current Map' : 'Live Preview'} · {previewMap.label}
                     </div>
                 </div>
                 <div style={lobbyStyles.leftTopHelpSlot}>
@@ -2239,7 +2447,8 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
                 </div>
             </div>
 
-            <div style={lobbyStyles.rightBottom}>
+            <div style={{ ...lobbyStyles.rightBottom, gap: 10 }}>
+                <button className="btn btn--outline btn--lg" style={{ '--btn-color': HO } as React.CSSProperties} onClick={startHordeTutorial}>🎓 Tutorial</button>
                 {playBtn}
             </div>
         </div>

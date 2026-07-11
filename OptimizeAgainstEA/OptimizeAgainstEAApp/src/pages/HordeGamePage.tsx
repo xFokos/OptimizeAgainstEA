@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useScaledCanvas } from '../hooks/useScaledCanvas';
 import { useOrientationLock } from '../hooks/useOrientationLock';
 import { useViewport } from '../hooks/useViewport';
 import { ARENA } from '../modules/shooterGame/shooter.types';
 import { HordeCanvas } from '../modules/shooterGame/components/HordeCanvas';
+import { hordeGameStore } from '../modules/shooterGame/horde/hordeGameStore';
 import { MobileJoystickZone } from '../modules/shooterGame/components/MobileJoystickZone';
 import { MobileAimZone } from '../modules/shooterGame/components/MobileAimZone';
 import { useInput } from '../modules/shooterGame/hooks/useInput';
@@ -49,6 +50,8 @@ export default function HordeGamePage() {
 
 function HordeGameContent() {
     const navigate   = useNavigate();
+    const location   = useLocation();
+    const tutorial   = !!(location.state as { tutorial?: boolean } | null)?.tutorial;
     const inputRef   = useInput();
     useOrientationLock('landscape');
     const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
@@ -97,7 +100,7 @@ function HordeGameContent() {
                     ref={containerRef}
                     style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
-                    <HordeCanvas scale={scale} externalInputRef={inputRef} hideDnaPanel={isMobileLandscape} />
+                    <HordeCanvas scale={scale} externalInputRef={inputRef} hideDnaPanel={isMobileLandscape} tutorial={tutorial} />
                 </div>
 
                 {isMobileLandscape && (
@@ -110,6 +113,10 @@ function HordeGameContent() {
             <button
                 onClick={async () => {
                     if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+                    if (tutorial) {
+                        hordeGameStore.state = null;
+                        hordeGameStore.notify();
+                    }
                     navigate('/lobby/shooter', { state: { mode: 'horde' } });
                 }}
                 style={{

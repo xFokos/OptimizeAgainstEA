@@ -1,6 +1,6 @@
 import { useSyncExternalStore, type CSSProperties } from 'react';
 import { useSettings, resetShooterSettings } from '../../../context/SettingsContext';
-import { DNA_NAMES, DNA_GENE_INFO } from '../shooter.types';
+import { DNA_INDEX, DNA_NAMES, DNA_GENE_INFO } from '../shooter.types';
 import { MOD_POOL } from '../mods/modTypes';
 import { runModsStore } from '../mods/runModsStore';
 import { Switch } from '../../../components/ui/Switch';
@@ -73,24 +73,44 @@ function SwitchRow({ label, checked, onChange, tooltip }: SwitchRowProps) {
 // Controlled component (dna + onChange in) — Solo and Horde each keep their own
 // starterDna in separate settings slices, so this doesn't reach into context itself.
 
+/** One editable row: which DNA index it reads/writes, plus its label/tooltip.
+ *  Not every gene has a DNA_GENE_INFO entry — Horde's Size/Opacity/Movement
+ *  Loop genes are real, editable starter-DNA slots too, but they're Horde-only
+ *  concepts with no shared-schema name, so callers describe them ad hoc. */
+export interface DnaGeneDescriptor {
+    index:   number;
+    label:   string;
+    tooltip: string;
+}
+
+const ALL_SHARED_GENES: DnaGeneDescriptor[] = DNA_NAMES.map(name => ({
+    index:   DNA_INDEX[name],
+    label:   DNA_GENE_INFO[name].label,
+    tooltip: DNA_GENE_INFO[name].tooltip,
+}));
+
 interface ShooterDnaSectionProps {
     dna:             number[];
     onChange:        (index: number, value: number) => void;
     onBeforeChange?: () => void;
+    /** Which rows to show. Defaults to every shared gene (Solo Play). Horde
+     *  passes its own descriptor list — a subset of the shared genes it
+     *  actually uses, plus its Horde-only genes (see ShooterLobbyPage.tsx). */
+    genes?: DnaGeneDescriptor[];
 }
 
-export function ShooterDnaSection({ dna, onChange, onBeforeChange }: ShooterDnaSectionProps) {
+export function ShooterDnaSection({ dna, onChange, onBeforeChange, genes = ALL_SHARED_GENES }: ShooterDnaSectionProps) {
     const updateDna = (index: number, value: number) => {
         onBeforeChange?.();
         onChange(index, value);
     };
     return (
         <div style={dnaStyles.grid}>
-            {DNA_NAMES.map((name, i) => (
+            {genes.map(({ index: i, label, tooltip }) => (
                 <div key={i} style={dnaStyles.item}>
                     <div style={dnaStyles.itemHeader}>
-                        <CompiTooltip text={DNA_GENE_INFO[name].tooltip}>
-                            <span style={dnaStyles.itemLabel}>{DNA_GENE_INFO[name].label}</span>
+                        <CompiTooltip text={tooltip}>
+                            <span style={dnaStyles.itemLabel}>{label}</span>
                         </CompiTooltip>
                         <span style={dnaStyles.itemValue}>{dna[i].toFixed(2)}</span>
                     </div>
@@ -329,6 +349,16 @@ export function HordeWaveSection() {
                         label="Offer powerups during play"
                     />
                 </CompiTooltip>
+            </div>
+            <div style={{ marginTop: '16px', opacity: s.modChoiceEnabled ? 1 : 0.4, pointerEvents: s.modChoiceEnabled ? 'auto' : 'none' }}>
+                <SliderRow
+                    label="Kills per Upgrade"
+                    min={10} max={300} step={10}
+                    value={s.killsPerUpgrade}
+                    display={String(s.killsPerUpgrade)}
+                    onChange={v => setHordeSettings({ ...s, killsPerUpgrade: Math.round(v) })}
+                    tooltip="How many kills between offered powerup choices."
+                />
             </div>
         </div>
     );

@@ -5,6 +5,7 @@ import {
     GAME_CONFIG,
     DNA_LENGTH,
     DNA_NAMES,
+    TUTORIAL_DNA,
     type GameState,
     type GamePhase,
     type InputState,
@@ -14,6 +15,7 @@ import {
     type Population,
     type CrossoverExample,
 } from '../shooter.types';
+import { CompiBubble } from '../../../components/hints';
 import { makeInitialGameState } from '../game/makeGameState';
 
 import { evolve, getNextAgent } from '../game/ga/evolution';
@@ -85,6 +87,20 @@ function TugOfWarBar({ score, threshold, modProgress }: { score: number; thresho
 const RAIDBOSS_ROUND_DURATION = 30;
 const RAIDBOSS_TUG_THRESHOLD  = 15;
 
+// ---- Tutorial-feste Spielkonfiguration ----
+// Einzige Runde, keine Evolution danach — läuft etwas länger als eine normale
+// Runde, damit genug Zeit für alle drei Schritte (Bewegen/Zielen/Schießen) bleibt.
+const TUTORIAL_ROUND_DURATION = 40;
+
+type TutorialStep = 'move' | 'aim' | 'shoot' | 'done';
+
+const TUTORIAL_STEP_CONTENT: Record<TutorialStep, { title: string; body: string }> = {
+    move:  { title: 'Step 1 — Move',  body: 'Use WASD or the arrow keys to move around the arena.' },
+    aim:   { title: 'Step 2 — Aim',   body: 'Move your mouse — your reticle follows it wherever it goes.' },
+    shoot: { title: 'Step 3 — Shoot', body: 'Left-click or press Space to fire at the dummy.' },
+    done:  { title: "You've got it!", body: 'Land a few hits on the dummy, then let the round finish whenever you\'re ready.' },
+};
+
 // Wie viele Mods pro Auswahl-Overlay angeboten werden. Das Intervall selbst
 // (alle N Runden) ist konfigurierbar via ShooterSettings.modChoiceInterval —
 // siehe difficulty presets in ShooterLobbyPage.tsx (Easy 4 / Medium 5 / Hard 6).
@@ -96,9 +112,10 @@ interface ShooterCanvasProps {
     scale?:            number;
     externalInputRef?: RefObject<InputState>;           // von ShooterGamePage; wenn gesetzt → Zone-Touch-Modus
     leaveHandlerRef?:  RefObject<(() => Promise<void>) | undefined>;  // ShooterGamePage registriert sich hier für sauberes Verlassen
+    tutorial?:         boolean;  // Practice round: passive Zielscheibe statt echter GA-Gegner, einzige Runde
 }
 
-export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: ShooterCanvasProps) => {
+export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tutorial = false }: ShooterCanvasProps) => {
     const { eaSettings, shooterSettings } = useSettings();
     const navigate = useNavigate();
 
@@ -152,7 +169,21 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                 shootCooldown: GAME_CONFIG.SHOOT_COOLDOWN,
             },
         }
-        : shooterSettings;
+        : tutorial
+            ? { ...shooterSettings, roundDuration: TUTORIAL_ROUND_DURATION, modChoiceEnabled: false }
+            : shooterSettings;
+
+    // Tutorial step coachmarks — advanced live from `onUpdate` (refs, since that
+    // callback is memoized and must not go stale), mirrored into state to render.
+    const tutorialStepRef       = useRef<TutorialStep>('move');
+    const tutorialAimOriginRef  = useRef<{ x: number; y: number } | null>(null);
+    const [tutorialStep, setTutorialStep]             = useState<TutorialStep>('move');
+    const [tutorialBubbleClosed, setTutorialBubbleClosed] = useState(false);
+    const advanceTutorialStep = (next: TutorialStep) => {
+        tutorialStepRef.current = next;
+        setTutorialStep(next);
+        setTutorialBubbleClosed(false);
+    };
 
     useEffect(() => {
         const slot = consumePendingSlot();
@@ -336,6 +367,23 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
         const activeModIds = isRaidbossRound ? [] : runModsStore.activeModIds;
         const next = update(state, dt, input, effectivePlayerStats, activeModIds);
 
+        if (tutorial && state.phase === 'playing') {
+            const step = tutorialStepRef.current;
+            if (step === 'move' && (input.up || input.down || input.left || input.right)) {
+                advanceTutorialStep('aim');
+            } else if (step === 'aim') {
+                if (tutorialAimOriginRef.current === null) {
+                    tutorialAimOriginRef.current = { x: input.mouseX, y: input.mouseY };
+                } else {
+                    const dx = input.mouseX - tutorialAimOriginRef.current.x;
+                    const dy = input.mouseY - tutorialAimOriginRef.current.y;
+                    if (dx * dx + dy * dy > 40 * 40) advanceTutorialStep('shoot');
+                }
+            } else if (step === 'shoot' && input.shoot) {
+                advanceTutorialStep('done');
+            }
+        }
+
         if (next.lastPlayerFrame) playerFramesRef.current.push(next.lastPlayerFrame);
         if (next.lastAgentFrame)  agentFramesRef.current.push(next.lastAgentFrame);
 
@@ -410,6 +458,15 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
     // leaveHandlerRef immer aktuell halten damit ShooterGamePage awaiten kann
     if (leaveHandlerRef) leaveHandlerRef.current = submitCurrentRaidbossFitness;
 
+    // Tutorial ist eine einzige Runde ohne Evolution/Fortsetzung — Store leeren
+    // damit ein späteres echtes "Play" nicht in dieser Runde landet.
+    const finishTutorial = async () => {
+        if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+        gameStore.state = null as unknown as typeof gameStore.state;
+        gameStore.notify();
+        navigate('/lobby/shooter', { state: { mode: 'normal' } });
+    };
+
     const handleTrainNext = async () => {
         if (trainNextLoading) return;
         setTrainNextLoading(true);
@@ -451,6 +508,11 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
         prevHitsRef.current   = { landed: 0, received: 0 };
         matchScoreRef.current = 0;
         setMatchScore(0);
+
+        if (tutorial) {
+            tutorialAimOriginRef.current = null;
+            advanceTutorialStep('move');
+        }
 
         const currentState = gameStateRef.current!;
         const nextRound    = currentState.roundNumber + 1;
@@ -497,7 +559,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
             overrideDna: useRaidbossDna
                 ? slot!.dna
                 : currentState.roundNumber === 0
-                    ? [...shooterSettings.starterDna]
+                    ? [...(tutorial ? TUTORIAL_DNA : shooterSettings.starterDna)]
                     : null,
             settings: gameShooterSettings,
         };
@@ -681,7 +743,13 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                     </div>
                 ) : phase === 'idle' ? (
                     <div className={styles.overlay}>
-                        {isRaidbossRound && raidbossInfoRef.current ? (
+                        {tutorial ? (
+                            <>
+                                <h2 className={styles.title} style={{ color: '#34d399' }}>Tutorial</h2>
+                                <p className={styles.subtitle}>Learn to move, aim and shoot — the dummy barely fights back.</p>
+                                <p className={styles.subtitle}>WASD to move · Mouse to aim · Left-click to shoot</p>
+                            </>
+                        ) : isRaidbossRound && raidbossInfoRef.current ? (
                             <>
                                 <h2 className={styles.title} style={{ color: '#a855f7' }}>Community Raidboss</h2>
                                 <p className={styles.subtitle} style={{ color: 'rgba(168,85,247,0.7)' }}>
@@ -696,7 +764,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                             </>
                         )}
                         <button className="btn btn--primary" onClick={() => startRound()}>
-                            Start Round
+                            {tutorial ? 'Start Tutorial' : 'Start Round'}
                         </button>
                     </div>
                 ) : phase === 'roundEnd' ? (
@@ -719,7 +787,11 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                                 <span className={styles.roundStatSub}>Hits</span>
                             </div>
                         </div>
-                        {isRaidbossRound ? (
+                        {tutorial ? (
+                            <button className="btn btn--primary" style={{ fontSize: 16, padding: '14px 32px' }} onClick={finishTutorial}>
+                                Finish Tutorial → Lobby
+                            </button>
+                        ) : isRaidbossRound ? (
                             <div style={{ display: 'flex', gap: 10 }}>
                                 <button
                                     className="btn btn--soft"
@@ -757,6 +829,17 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef }: 
                         </p>
                     </div>
                 ) : null}
+
+                {tutorial && phase === 'playing' && !tutorialBubbleClosed && (
+                    <CompiBubble
+                        title={TUTORIAL_STEP_CONTENT[tutorialStep].title}
+                        body={TUTORIAL_STEP_CONTENT[tutorialStep].body}
+                        actions={tutorialStep === 'done'
+                            ? [{ label: 'Got it', onClick: () => setTutorialBubbleClosed(true), variant: 'primary' }]
+                            : []}
+                        onClose={() => setTutorialBubbleClosed(true)}
+                    />
+                )}
             </div>
         </div>
     );
