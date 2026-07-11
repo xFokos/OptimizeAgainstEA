@@ -31,7 +31,13 @@
 //  This is a developer switch, not a user-facing toggle.
 export const COMPI_MODE = true;
 
-export type HintId =
+// A game with many hints may keep them in its own module and be merged into the
+// registry at the bottom of this file — see MAZE_HINTS ('maze.*').
+import { MAZE_HINTS } from '../../modules/mazeGame/hints/mazeHintContent';
+import type { MazeHintId } from '../../modules/mazeGame/hints/mazeHintContent';
+
+/** Ids defined in this file. The full site-wide union is `HintId` below. */
+type CoreHintId =
   | 'selector.welcome'
   | 'create.start'
   | 'create.place'
@@ -56,6 +62,8 @@ export type HintId =
   | 'horde.mobileNotOptimized'
   | 'functions.intro';
 
+export type HintId = CoreHintId | MazeHintId;
+
 export interface HintDef {
   title?: string;
   body: string;
@@ -65,7 +73,7 @@ export interface HintDef {
   sticky?: boolean;
 }
 
-export const HINTS: Record<HintId, HintDef> = {
+const CORE_HINTS: Record<CoreHintId, HintDef> = {
   'selector.welcome': {
     title: 'Welcome to Peak Finder',
     body:
@@ -322,4 +330,10 @@ export const HINTS: Record<HintId, HintDef> = {
     once: true,
     pauses: true,
   },
+};
+
+/** The site-wide registry the hint system reads: core hints + every game's own. */
+export const HINTS: Record<HintId, HintDef> = {
+  ...CORE_HINTS,
+  ...MAZE_HINTS,
 };

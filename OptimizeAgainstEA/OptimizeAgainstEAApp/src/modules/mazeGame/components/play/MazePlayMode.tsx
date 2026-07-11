@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { createMazeProblem } from '../../engine/mazeProblem';
 import { walkPath } from '../../engine/ea/individual';
@@ -6,7 +6,7 @@ import type { Cell, FitnessFnId, Move, Path, SerializedMaze, WalkResult } from '
 import { MOVE_ARROWS, cellIndex } from '../../types/maze';
 import { sampleGradientRgb } from '../../../BattleShips/engine/colorScale';
 import { MazeCanvas, type MazeAgent, type MazeTrail } from '../shared/MazeCanvas';
-import { HintToggle } from '../../../../components/hints';
+import { HintToggle, TourSpotlight, useHints, fillTemplate, HINTS } from '../../../../components/hints';
 
 interface MazePlayModeProps {
   /** The maze to solve (from the setup screen or the creator). */
@@ -80,6 +80,37 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
   );
   const [generation, setGeneration] = useState(0);
   const [won, setWon] = useState(false);
+
+  // ── Hints ──────────────────────────────────────────────────────────────────
+  // 1. A blocking intro modal as soon as a maze is loaded here (the setup screen
+  //    has already handed one over by the time this mounts).
+  // 2. Then a spotlight on the Submit button: the screen dims except a cutout
+  //    around it, until the player submits their first string.
+  const { showHint, active, enabled, isSeen, markSeen } = useHints();
+  const [introDone, setIntroDone] = useState(false);
+  const introOpen = useRef(false);
+  const submitBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    // Read `seen` BEFORE showing — showHint marks it synchronously. If the modal
+    // won't appear at all (hints off, or already seen), the spotlight is free.
+    const skipped = !enabled || isSeen('maze.play.start');
+    showHint('maze.play.start');
+    if (skipped) setIntroDone(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The spotlight queues behind the modal: it may only open once the intro hint
+  // is no longer the active one, so the two never talk over each other.
+  useEffect(() => {
+    if (active?.id === 'maze.play.start') { introOpen.current = true; return; }
+    if (introOpen.current) { introOpen.current = false; setIntroDone(true); }
+  }, [active]);
+
+  const submitHint = HINTS['maze.play.submit'];
+  const showSubmitSpotlight =
+    introDone && enabled && !submission && !isSeen('maze.play.submit');
+  const closeSubmitSpotlight = () => markSeen('maze.play.submit');
 
   const cols = maze.cols;
   const rows = maze.rows;
@@ -371,6 +402,15 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
 
   return (
     <div className="maze-app maze-app--menu">
+      {showSubmitSpotlight && (
+        <TourSpotlight
+          targetRef={submitBtnRef}
+          title={submitHint.title}
+          body={fillTemplate(submitHint.body, { moves: String(requiredLen) })}
+          actions={[{ label: 'Got it', onClick: closeSubmitSpotlight, variant: 'primary' }]}
+          onSkip={closeSubmitSpotlight}
+        />
+      )}
       <header className="maze-topbar maze-topbar--bar">
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
         <span className="maze-topbar__title">🕹️<span className="maze-topbar__title-label"> Solve — You are the EA</span></span>
@@ -388,6 +428,7 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
               <button className="btn btn--ghost btn--sm" onClick={clearDraft} disabled={draftLen === 0} title="Clear the draft">Clear</button>
             </div>
             <button
+              ref={submitBtnRef}
               className="btn btn--primary btn--block"
               onClick={submit}
               disabled={!draftComplete}
