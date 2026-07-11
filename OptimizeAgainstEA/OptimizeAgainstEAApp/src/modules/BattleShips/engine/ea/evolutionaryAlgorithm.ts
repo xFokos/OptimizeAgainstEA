@@ -1,6 +1,7 @@
 import type { ProblemInstance } from '../../types/map';
 import { buildReplayFrames, type ReplayFrame, type BreedingRecord } from './eaReplayLog';
 import type { EAConfig, Generation, Individual, RNG } from '../../types/ea';
+import { makeLCG } from '../../../../utils/rng';
 import { createRandom, evaluate, clamp } from './individual';
 import {
   SELECTION_STRATEGIES,
@@ -44,14 +45,6 @@ export interface EAStepper {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-
-function makeLCG(seed?: number): RNG {
-  let s = seed ?? Math.floor(Math.random() * 2 ** 32);
-  return () => {
-    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-    return s / 2 ** 32;
-  };
-}
 
 function summarise(individuals: Individual[], index: number): Generation {
   const sorted = [...individuals].sort((a, b) => a.fitness - b.fitness);

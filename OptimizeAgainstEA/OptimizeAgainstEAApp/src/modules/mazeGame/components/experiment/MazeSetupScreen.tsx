@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { SerializedMaze } from '../../types/maze';
 import { generateMaze, pickRandomStartGoal } from '../../engine/mazeGen';
 import { DEFAULT_BRAID, DEFAULT_OPENNESS } from '../../engine/mazeProblem';
-import { makeLCG } from '../../engine/rng';
+import { makeLCG } from '../../../../utils/rng';
 import { decodeMaze } from '../../engine/mazeCodec';
 import { useSavedMazes } from '../../hooks/useSavedMazes';
 import { SliderRow } from '../../../../components/settings/eaControls';
@@ -13,6 +13,9 @@ interface MazeSetupScreenProps {
   onBack: () => void;
   /** Start the experiment on the chosen / generated maze. */
   onStart: (maze: SerializedMaze) => void;
+  /** Top-bar icon + label — defaults to the EA Experiment branding. */
+  icon?: string;
+  title?: string;
 }
 
 const MIN_SIZE = 4;
@@ -29,13 +32,13 @@ const fmtDate = (ts: number): string =>
  * Experiment entry screen: pick a maze — a fresh random one (at a size of
  * your choosing) or one of your saved creations — then press Play.
  */
-export function MazeSetupScreen({ onBack, onStart }: MazeSetupScreenProps) {
+export function MazeSetupScreen({ onBack, onStart, icon = '🧬', title = 'EA Experiment' }: MazeSetupScreenProps) {
   const { savedMazes, removeMaze, renameMaze } = useSavedMazes();
   const [selected, setSelected] = useState<string>(RANDOM);
   const [genCols, setGenCols] = useState(DEFAULT_SIZE);
   const [genRows, setGenRows] = useState(DEFAULT_SIZE);
   const [openness, setOpenness] = useState(DEFAULT_OPENNESS);
-  const [randomEndpoints, setRandomEndpoints] = useState(false);
+  const [randomEndpoints, setRandomEndpoints] = useState(true);
   const [error, setError] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -80,7 +83,7 @@ export function MazeSetupScreen({ onBack, onStart }: MazeSetupScreenProps) {
     <div className="maze-app maze-app--menu">
       <header className="maze-topbar maze-topbar--bar">
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
-        <span className="maze-topbar__title">🧬<span className="maze-topbar__title-label"> EA Experiment</span></span>
+        <span className="maze-topbar__title">{icon}<span className="maze-topbar__title-label"> {title}</span></span>
         <HintToggle />
       </header>
 

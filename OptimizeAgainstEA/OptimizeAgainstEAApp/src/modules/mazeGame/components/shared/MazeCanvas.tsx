@@ -6,6 +6,10 @@ export interface MazeTrail {
   color: string;
   opacity?: number;
   width?: number;
+  /** Per-segment colours (length = points.length - 1). When set, each segment
+   * is stroked with its own colour instead of the single `color` — used to
+   * paint the trail by a fitness field (warm = far, cool = near the goal). */
+  segColors?: string[];
 }
 
 export interface MazeMarker {
@@ -41,6 +45,10 @@ export interface MazeAgent {
   r?: number;
   /** Outline + glow for the highlighted agent. */
   emphasis?: boolean;
+  /** Extra CSS transition appended to the position glide — e.g. an `opacity …`
+   * rule so the dot fades in/out in step with its move (used to fade a probe
+   * out mid-step as it crosses into the fog of war). */
+  opacityTransition?: string;
 }
 
 interface MazeCanvasProps {
@@ -61,11 +69,19 @@ interface MazeCanvasProps {
   previewWall?: MazeWallPreview | null;
   /** Faint interior grid lines (creator) so the clickable cell borders are visible. */
   showGrid?: boolean;
+  /** Fog of war: cell indices to hide. Their walls are not drawn and an opaque
+   * tile covers them — used by Solve mode so the maze is revealed as it is
+   * explored. By default the goal marker stays visible even under fog. */
+  fogCells?: Set<number>;
+  /** When true, a fogged goal is NOT re-drawn on top of the fog, so its location
+   * stays hidden until the cell is explored. */
+  hideGoalUnderFog?: boolean;
 }
 
 const WALL_COLOR = 'rgba(255, 255, 255, 0.55)';
 const WALL_W = 0.12;
 const SOLID_FILL = 'rgba(255, 255, 255, 0.09)';
+const FOG_FILL = 'rgba(8, 10, 16, 0.96)';
 const START_COLOR = '#4af0a0';
 
 /** Cell centre in viewBox units. */
@@ -86,8 +102,27 @@ function trailPath(points: Cell[]): string {
  */
 export function MazeCanvas({
   cols, rows, walls, start, goal, trails = [], solidCells, markers = [], agents = [],
-  previewWall = null, showGrid = false,
+  previewWall = null, showGrid = false, fogCells, hideGoalUnderFog = false,
 }: MazeCanvasProps) {
+  const renderAgent = (a: MazeAgent) => (
+    <g
+      key={a.id}
+      style={{
+        transform: `translate(${cx(a.cell)}px, ${cy(a.cell)}px)`,
+        transition: `transform 0.12s linear${a.opacityTransition ? `, ${a.opacityTransition}` : ''}`,
+        opacity: a.opacity ?? 1,
+      }}
+    >
+      <circle
+        r={a.r ?? 0.28}
+        fill={a.color}
+        stroke={a.emphasis ? '#ffffff' : 'none'}
+        strokeWidth={a.emphasis ? 0.08 : 0}
+        style={a.emphasis ? { filter: `drop-shadow(0 0 0.3px ${a.color})` } : undefined}
+      />
+    </g>
+  );
+
   // Build wall segments (closed edges only).
   const segs: { x1: number; y1: number; x2: number; y2: number }[] = [];
   for (let y = 0; y < rows; y++) {
@@ -96,6 +131,9 @@ export function MazeCanvas({
       // Solid blocks are drawn as filled cells; skip their edge strokes so the
       // editor view stays clean (adjacent blocks would double-stroke anyway).
       if (solidCells?.has(i)) continue;
+      // Fogged cells hide their walls until explored; a revealed neighbour still
+      // draws the shared edge, so corridors stay outlined at the fog boundary.
+      if (fogCells?.has(i)) continue;
       const w = walls[i];
       if (!(w & MOVE_WALL_BIT[0])) segs.push({ x1: x, y1: y, x2: x + 1, y2: y });         // N
       if (!(w & MOVE_WALL_BIT[1])) segs.push({ x1: x + 1, y1: y, x2: x + 1, y2: y + 1 }); // E
@@ -134,27 +172,45 @@ export function MazeCanvas({
           </g>
         )}
 
-        {/* Start & goal markers */}
+        {/* Start & goal markers. A fogged goal isn't drawn here at all (the fog
+            is only ~opaque, so it would bleed through) — it is re-drawn on top of
+            the fog below unless `hideGoalUnderFog` keeps it hidden. */}
         <rect
           x={start.x + 0.18} y={start.y + 0.18} width={0.64} height={0.64} rx={0.12}
           fill={START_COLOR} opacity={0.85}
         />
-        <rect
-          x={goal.x + 0.12} y={goal.y + 0.12} width={0.76} height={0.76} rx={0.14}
-          fill="var(--accent-global)" opacity={0.95}
-        />
+        {!fogCells?.has(cellIndex(goal.x, goal.y, cols)) && (
+          <rect
+            x={goal.x + 0.12} y={goal.y + 0.12} width={0.76} height={0.76} rx={0.14}
+            fill="var(--accent-global)" opacity={0.95}
+          />
+        )}
 
-        {/* Trails */}
+        {/* Trails — a single stroked path, unless per-segment colours are given
+            (fitness-painted), in which case each segment is stroked on its own. */}
         <g fill="none" strokeLinejoin="round" strokeLinecap="round">
-          {trails.map((t, idx) => (
-            <path
-              key={idx}
-              d={trailPath(t.points)}
-              stroke={t.color}
-              strokeWidth={t.width ?? 0.12}
-              opacity={t.opacity ?? 1}
-            />
-          ))}
+          {trails.map((t, idx) =>
+            t.segColors
+              ? t.points.slice(1).map((p, i) => (
+                  <line
+                    key={`${idx}-${i}`}
+                    x1={cx(t.points[i])} y1={cy(t.points[i])}
+                    x2={cx(p)} y2={cy(p)}
+                    stroke={t.segColors![i] ?? t.color}
+                    strokeWidth={t.width ?? 0.12}
+                    opacity={t.opacity ?? 1}
+                  />
+                ))
+              : (
+                <path
+                  key={idx}
+                  d={trailPath(t.points)}
+                  stroke={t.color}
+                  strokeWidth={t.width ?? 0.12}
+                  opacity={t.opacity ?? 1}
+                />
+              ),
+          )}
         </g>
 
         {/* Cell markers (splice / mutated cells) */}
@@ -169,6 +225,25 @@ export function MazeCanvas({
             strokeWidth={m.ring ? 0.1 : 0.04}
           />
         ))}
+
+        {/* Fog of war (Solve mode): opaque tiles over unexplored cells, drawn
+            above trails/markers. Unless `hideGoalUnderFog` is set, the goal is
+            re-drawn on top so its location stays visible even while fogged. */}
+        {fogCells && fogCells.size > 0 && (
+          <>
+            <g fill={FOG_FILL}>
+              {Array.from(fogCells, (i) => (
+                <rect key={`fog${i}`} x={i % cols} y={Math.floor(i / cols)} width={1} height={1} />
+              ))}
+            </g>
+            {!hideGoalUnderFog && fogCells.has(cellIndex(goal.x, goal.y, cols)) && (
+              <rect
+                x={goal.x + 0.12} y={goal.y + 0.12} width={0.76} height={0.76} rx={0.14}
+                fill="var(--accent-global)" opacity={0.95}
+              />
+            )}
+          </>
+        )}
 
         {/* Walls (drawn on top so trails read as "inside" corridors) */}
         <g stroke={WALL_COLOR} strokeWidth={WALL_W} strokeLinecap="round">
@@ -190,27 +265,8 @@ export function MazeCanvas({
           />
         )}
 
-        {/* Animated agents — a transform transition glides them between cells. */}
-        <g>
-          {agents.map((a) => (
-            <g
-              key={a.id}
-              style={{
-                transform: `translate(${cx(a.cell)}px, ${cy(a.cell)}px)`,
-                transition: 'transform 0.12s linear',
-              }}
-              opacity={a.opacity ?? 1}
-            >
-              <circle
-                r={a.r ?? 0.28}
-                fill={a.color}
-                stroke={a.emphasis ? '#ffffff' : 'none'}
-                strokeWidth={a.emphasis ? 0.08 : 0}
-                style={a.emphasis ? { filter: `drop-shadow(0 0 0.3px ${a.color})` } : undefined}
-              />
-            </g>
-          ))}
-        </g>
+        {/* Animated agents (above fog) — a transform transition glides them. */}
+        <g>{agents.map(renderAgent)}</g>
       </svg>
     </div>
   );

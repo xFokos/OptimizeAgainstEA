@@ -4,7 +4,7 @@ import type { Cell, SerializedMaze } from '../../types/maze';
 import { MOVE_WALL_BIT, cellIndex } from '../../types/maze';
 import { generateMaze, gridFromEdgeWalls, pickRandomStartGoal } from '../../engine/mazeGen';
 import { computeGeodesic } from '../../engine/geodesic';
-import { makeLCG } from '../../engine/rng';
+import { makeLCG } from '../../../../utils/rng';
 import { DEFAULT_BRAID, DEFAULT_OPENNESS, MAX_PATH_LENGTH } from '../../engine/mazeProblem';
 import { useSavedMazes } from '../../hooks/useSavedMazes';
 import type { MazeWallPreview } from '../shared/MazeCanvas';
@@ -133,7 +133,7 @@ export function MazeCreateMode({ initialMaze, onBack, onExperiment }: MazeCreate
   const [confirmingRandom, setConfirmingRandom] = useState(false);
   // Random-generation settings (mirrored in the experiment setup screen).
   const [openness, setOpenness] = useState(DEFAULT_OPENNESS);
-  const [randomEndpoints, setRandomEndpoints] = useState(false);
+  const [randomEndpoints, setRandomEndpoints] = useState(true);
 
   // Edge walls → engine grid → live reachability check.
   const grid = useMemo(

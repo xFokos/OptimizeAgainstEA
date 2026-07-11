@@ -25,6 +25,13 @@ export function ProblemSelection({ value, onChange }: ProblemSelectionProps) {
                     active={value === "shooter"}
                     onClick={() => onChange("shooter")}
                 />
+                <ProblemCard
+                  title="Maze Explorer"
+                  description="Experiment with EAs in a Maze environment"
+                  image="/game-peakfinder.png"
+                  active={value === "mazeExplorer"}
+                  onClick={() => onChange("mazeExplorer")}
+                />
             </div>
         </>
     );

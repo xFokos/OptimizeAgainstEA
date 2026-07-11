@@ -5,7 +5,7 @@ import { ProblemSelection } from "../modules/selectProblemPage/page/ProblemSelec
 
 type Section = "gameSelect" | "settings" | "eaExplained";
 
-export type ProblemId = "battleShips" | "shooter";
+export type ProblemId = "battleShips" | "shooter" | "mazeExplorer";
 export type GameConfig = {
     problem?: ProblemId;
 };
@@ -13,6 +13,7 @@ export type GameConfig = {
 const ROUTES: Record<ProblemId, string> = {
     battleShips: "/PeakFinder",
     shooter:     "/lobby/shooter",
+    mazeExplorer: "/mazeExplorer",
 };
 
 export default function DashboardPage() {

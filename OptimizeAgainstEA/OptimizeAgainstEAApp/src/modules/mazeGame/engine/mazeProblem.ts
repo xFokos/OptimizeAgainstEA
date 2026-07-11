@@ -114,7 +114,7 @@ export const DEFAULT_BRAID = 0.5;
  * it and the whole population files down one path; this breaks them up.
  * Too high and the deceptive Manhattan fitness stops being deceptive.
  */
-export const DEFAULT_OPENNESS = 0.15;
+export const DEFAULT_OPENNESS = 0.25;
 
 /**
  * Builds a complete maze problem from a seed: generates the maze, floods the
