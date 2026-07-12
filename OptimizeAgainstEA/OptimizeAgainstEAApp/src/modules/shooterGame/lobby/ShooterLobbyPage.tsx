@@ -1433,23 +1433,33 @@ function NormalLobby() {
     const presetsRef  = useRef<HTMLDivElement>(null);
     const dnaPanelRef = useRef<HTMLDivElement>(null);
     const playBtnRef  = useRef<HTMLButtonElement>(null);
-    const TOUR_STEPS: { id: HintId; ref: RefObject<HTMLElement | null> }[] = [
+    // `tab` = which tab must be active for this step's target to actually be
+    // mounted. Steps advance by clicking straight through the highlight (see
+    // TourSpotlight) — if that click (or any other settings change) left a
+    // different tab active, the next step re-selects whatever it needs.
+    const TOUR_STEPS: { id: HintId; ref: RefObject<HTMLElement | null>; tab?: LobbyTab }[] = [
         { id: 'shooter.tour.modes',      ref: tabBarRef },
-        { id: 'shooter.tour.difficulty', ref: presetsRef },
-        { id: 'shooter.tour.dna',        ref: dnaPanelRef },
+        { id: 'shooter.tour.difficulty', ref: presetsRef,  tab: 'Overview' },
+        { id: 'shooter.tour.dna',        ref: dnaPanelRef, tab: 'Overview' },
         { id: 'shooter.tour.start',      ref: playBtnRef },
     ];
     const [tourStep, setTourStep] = useState<number | null>(null);
-    const startTour = () => {
-        setTab('Overview'); // every step's target lives on this tab
-        setTourStep(0);
+    const goToTourStep = (i: number) => {
+        const step = TOUR_STEPS[i];
+        if (step.tab) setTab(step.tab);
+        setTourStep(i);
     };
-    const stopTour = () => setTourStep(null);
+    const startTour = () => {
+        dismiss(); // close the "New here?" welcome bubble — it'd otherwise stay
+        goToTourStep(0);
+    };
+    const stopTour  = () => setTourStep(null);
 
     const tourOverlay = tourStep !== null && (() => {
-        const step   = TOUR_STEPS[tourStep];
-        const def    = HINTS[step.id];
-        const isLast = tourStep === TOUR_STEPS.length - 1;
+        const step    = TOUR_STEPS[tourStep];
+        const def     = HINTS[step.id];
+        const isLast  = tourStep === TOUR_STEPS.length - 1;
+        const goNext  = () => (isLast ? stopTour() : goToTourStep(tourStep + 1));
         return (
             <TourSpotlight
                 key={step.id}
@@ -1457,13 +1467,10 @@ function NormalLobby() {
                 title={def.title}
                 body={def.body}
                 actions={[
-                    {
-                        label:   isLast ? 'Got it' : 'Next',
-                        onClick: () => (isLast ? stopTour() : setTourStep(tourStep + 1)),
-                        variant: 'primary',
-                    },
+                    { label: isLast ? 'Got it' : 'Next', onClick: goNext, variant: 'primary' },
                     ...(isLast ? [] : [{ label: 'Skip', onClick: stopTour, variant: 'ghost' as const }]),
                 ]}
+                onAdvance={goNext}
                 onSkip={stopTour}
             />
         );
@@ -1569,7 +1576,7 @@ function NormalLobby() {
                 </div>
                 <div style={mobileBtnsStyle}>
                     <HelpButton topic="shooter.solo" onTakeTour={startTour} />
-                    <button className="btn btn--outline btn--sm" onClick={startPractice} title="Tutorial">🎓</button>
+                    <button className="btn btn--outline btn--sm" onClick={startPractice}>Tutorial</button>
                     <button ref={playBtnRef} className="btn btn--primary btn--lg" style={{ flex: 1 }} onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
                         {hasActiveGame ? 'Continue →' : 'Play →'}
                     </button>
@@ -1606,7 +1613,7 @@ function NormalLobby() {
             </div>
 
             <div style={{ ...lobbyStyles.rightBottom, gap: 10 }}>
-                <button className="btn btn--outline btn--lg" onClick={startPractice}>🎓 Tutorial</button>
+                <button className="btn btn--outline btn--lg" onClick={startPractice}>Tutorial</button>
                 <button ref={playBtnRef} className="btn btn--primary btn--lg" onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
                     {hasActiveGame ? 'Continue →' : 'Play →'}
                 </button>
@@ -1947,8 +1954,15 @@ type HordePresetId = typeof HORDE_PRESETS[number]['id'] | 'custom';
 // only ever reads these three shared genes (not Fire Rate/Bullet Speed/Accuracy/
 // Range/Lead), plus its own Size/Opacity/Movement Loop genes, which have no
 // shared DNA_GENE_INFO entry since they're Horde-only concepts.
+//
+// AGGRESSION is labeled explicitly here instead of via DNA_GENE_INFO.AGGRESSION —
+// that shared entry was renamed to 'Pursuit' because the 1v1 Shooter's own
+// updateAgent() zeroes the gene out once in range (see shooter.types.ts's comment).
+// Horde's wander/chase blend (HordeCanvas.tsx) has no such cutoff and "Aggression"
+// genuinely fits it, so it keeps its own label/tooltip here rather than inheriting
+// the Shooter-specific rename.
 const HORDE_BAR_GENES: DnaGeneDescriptor[] = [
-    { index: DNA_INDEX.AGGRESSION,     label: DNA_GENE_INFO.AGGRESSION.label,     tooltip: DNA_GENE_INFO.AGGRESSION.tooltip },
+    { index: DNA_INDEX.AGGRESSION,     label: 'Aggression', tooltip: 'How much the agent overrides careful pathing to rush straight at you instead of wandering.' },
     { index: DNA_INDEX.DODGE_WEIGHT,   label: DNA_GENE_INFO.DODGE_WEIGHT.label,   tooltip: DNA_GENE_INFO.DODGE_WEIGHT.tooltip },
     { index: DNA_INDEX.MOVEMENT_SPEED, label: DNA_GENE_INFO.MOVEMENT_SPEED.label, tooltip: DNA_GENE_INFO.MOVEMENT_SPEED.tooltip },
     { index: SIZE_GENE_INDEX,    label: 'Size',    tooltip: "How large the agent's hitbox is — smaller is genuinely harder to hit." },
@@ -1965,7 +1979,14 @@ const HORDE_LOOP_GENES: DnaGeneDescriptor[] = Array.from({ length: LOOP_STEPS },
 
 const HORDE_EDITABLE_GENES: DnaGeneDescriptor[] = [...HORDE_BAR_GENES, ...HORDE_LOOP_GENES];
 
-function HordeOverview({ onNavigateTab }: { onNavigateTab: (tab: HordeTab) => void }) {
+interface HordeOverviewProps {
+    onNavigateTab: (tab: HordeTab) => void;
+    /** Anchors for the guided tour's spotlight (see HordeLobby's TOUR_STEPS). */
+    presetsRef?:  RefObject<HTMLDivElement | null>;
+    dnaPanelRef?: RefObject<HTMLDivElement | null>;
+}
+
+function HordeOverview({ onNavigateTab, presetsRef, dnaPanelRef }: HordeOverviewProps) {
     const isMobile = useMobile();
     const [lastRun, setLastRun]     = useState(hordeRunStore.lastRun);
     const [activeRun, setActiveRun] = useState(hordeGameStore.state);
@@ -2118,7 +2139,7 @@ function HordeOverview({ onNavigateTab }: { onNavigateTab: (tab: HordeTab) => vo
             {/* Right column: Difficulty stacked above the (read-only) DNA display —
                 same pattern as Solo's Overview. */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div className="panel panel--md" style={{ ...ovStyles.placeholder, flex: 'none' }}>
+                <div ref={presetsRef} className="panel panel--md" style={{ ...ovStyles.placeholder, flex: 'none' }}>
                     <span style={ovStyles.placeholderHeading}>Game</span>
                     <div style={ovStyles.presetBtns}>
                         {HORDE_PRESETS.map(p => (
@@ -2176,7 +2197,7 @@ function HordeOverview({ onNavigateTab }: { onNavigateTab: (tab: HordeTab) => vo
                     Size/Opacity/Movement Loop are real starter-DNA slots too)
                     the starter DNA setting itself. Either way there's always
                     a real value, so this never needs placeholders. */}
-                <div className="panel panel--md">
+                <div ref={dnaPanelRef} className="panel panel--md">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                         <p style={{ ...tabStyles.sectionLabel, margin: 0 }}>DNA</p>
                         <button className="btn btn--ghost btn--sm" onClick={() => onNavigateTab('DnaWave')}>
@@ -2290,6 +2311,7 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
     const HO       = '#fb923c';
     const [tab, setTab] = useState<HordeTab>(initialTab ?? 'Overview');
     const { hordeSettings, setHordeSettings, setShooterSettings } = useSettings();
+    const { showHint, dismiss } = useHints();
     const selectedMap = resolveHordeMap(hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn);
 
     const [activeRun, setActiveRun] = useState(hordeGameStore.state);
@@ -2320,8 +2342,73 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
         navigate('/HordeGame', { state: { tutorial: true } });
     };
 
+    // Guided lobby tour — same spotlight mechanism as Solo's (see NormalLobby):
+    // highlights one real element per step instead of a corner-pinned bubble.
+    const tabBarRef      = useRef<HTMLDivElement>(null);
+    const presetsRef     = useRef<HTMLDivElement>(null);
+    const dnaPanelRef    = useRef<HTMLDivElement>(null);
+    const mapPreviewRef  = useRef<HTMLDivElement>(null);
+    const playBtnRef     = useRef<HTMLButtonElement>(null);
+    // `tab` = which tab must be active for this step's target to actually be
+    // mounted. Steps advance by clicking straight through the highlight (see
+    // TourSpotlight) — if that click (or any other settings change) left a
+    // different tab active, the next step re-selects whatever it needs.
+    const TOUR_STEPS: { id: HintId; ref: RefObject<HTMLElement | null>; tab?: HordeTab }[] = [
+        { id: 'horde.tour.modes',      ref: tabBarRef },
+        { id: 'horde.tour.difficulty', ref: presetsRef,  tab: 'Overview' },
+        { id: 'horde.tour.dna',        ref: dnaPanelRef, tab: 'Overview' },
+        // Map preview panel only exists in the desktop layout — skip this
+        // step on mobile rather than pointing at an element that isn't there.
+        ...(isMobile ? [] : [{ id: 'horde.tour.map' as HintId, ref: mapPreviewRef }]),
+        { id: 'horde.tour.start',      ref: playBtnRef },
+    ];
+    const [tourStep, setTourStep] = useState<number | null>(null);
+    const goToTourStep = (i: number) => {
+        const step = TOUR_STEPS[i];
+        if (step.tab) setTab(step.tab);
+        setTourStep(i);
+    };
+    const startTour = () => {
+        dismiss(); // close the "New here?" welcome bubble — it'd otherwise stay
+        goToTourStep(0);
+    };
+    const stopTour  = () => setTourStep(null);
+
+    const tourOverlay = tourStep !== null && (() => {
+        const step    = TOUR_STEPS[tourStep];
+        const def     = HINTS[step.id];
+        const isLast  = tourStep === TOUR_STEPS.length - 1;
+        const goNext  = () => (isLast ? stopTour() : goToTourStep(tourStep + 1));
+        return (
+            <TourSpotlight
+                key={step.id}
+                targetRef={step.ref}
+                title={def.title}
+                body={def.body}
+                actions={[
+                    { label: isLast ? 'Got it' : 'Next', onClick: goNext, variant: 'primary' },
+                    ...(isLast ? [] : [{ label: 'Skip', onClick: stopTour, variant: 'ghost' as const }]),
+                ]}
+                onAdvance={goNext}
+                onSkip={stopTour}
+            />
+        );
+    })();
+
+    // First visit to the Horde lobby this session → offer the tour once.
+    useEffect(() => {
+        showHint('horde.tour.welcome', {
+            actions: [
+                { label: 'Show me around', onClick: startTour, variant: 'primary' },
+                { label: 'No thanks', onClick: dismiss, variant: 'ghost' },
+            ],
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const playBtn = (
         <button
+            ref={playBtnRef}
             className="btn btn--outline btn--lg"
             style={{ '--btn-color': HO } as React.CSSProperties}
             onClick={handlePlay}
@@ -2331,7 +2418,7 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
     );
 
     const tabBar = (
-        <div style={{ ...tabStyles.bar, overflowX: 'auto', flexWrap: 'nowrap' as const, flexShrink: 0 }}>
+        <div ref={tabBarRef} style={{ ...tabStyles.bar, overflowX: 'auto', flexWrap: 'nowrap' as const, flexShrink: 0 }}>
             {HORDE_TABS.map(t => (
                 <button key={t} onClick={() => setTab(t)}
                     style={{ ...(tab === t ? tabStyles.tabActive : tabStyles.tabInactive), flexShrink: 0 }}>
@@ -2343,7 +2430,7 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
 
     const tabContent = (
         <div style={{ ...tabStyles.panel, overflowY: isMobile ? 'visible' : 'auto' }}>
-            {tab === 'Overview' && <HordeOverview onNavigateTab={setTab} />}
+            {tab === 'Overview' && <HordeOverview onNavigateTab={setTab} presetsRef={presetsRef} dnaPanelRef={dnaPanelRef} />}
             {tab === 'Algorithm' && <HordeEASettingsPanel />}
             {tab === 'DnaWave' && (
                 <>
@@ -2409,10 +2496,11 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
                     {tabContent}
                 </div>
                 <div style={mobileBtnsStyle}>
-                    <HelpButton topic="shooter.horde" />
-                    <button className="btn btn--outline btn--sm" style={{ '--btn-color': HO } as React.CSSProperties} onClick={startHordeTutorial} title="Tutorial">🎓</button>
+                    <HelpButton topic="shooter.horde" onTakeTour={startTour} />
+                    <button className="btn btn--outline btn--sm" style={{ '--btn-color': HO } as React.CSSProperties} onClick={startHordeTutorial}>Tutorial</button>
                     <div style={{ flex: 1 }}>{playBtn}</div>
                 </div>
+                {tourOverlay}
             </div>
         );
     }
@@ -2420,7 +2508,7 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
     return (
         <div style={{ ...lobbyStyles.page, zoom }}>
             <div style={lobbyStyles.leftTop}>
-                <div style={lobbyStyles.leftTopPreview}>
+                <div ref={mapPreviewRef} style={lobbyStyles.leftTopPreview}>
                     <div style={lobbyStyles.brand}>
                         <div style={{ ...lobbyStyles.brandLogo, color: HO, background: 'rgba(251,146,60,0.1)', borderColor: 'rgba(251,146,60,0.25)' }}>SG</div>
                         <span style={lobbyStyles.brandName}>Shooter Game</span>
@@ -2433,7 +2521,7 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
                     </div>
                 </div>
                 <div style={lobbyStyles.leftTopHelpSlot}>
-                    <HelpButton topic="shooter.horde" className="btn btn--outline btn--block help-button" />
+                    <HelpButton topic="shooter.horde" className="btn btn--outline btn--block help-button" onTakeTour={startTour} />
                 </div>
             </div>
 
@@ -2448,9 +2536,10 @@ function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
             </div>
 
             <div style={{ ...lobbyStyles.rightBottom, gap: 10 }}>
-                <button className="btn btn--outline btn--lg" style={{ '--btn-color': HO } as React.CSSProperties} onClick={startHordeTutorial}>🎓 Tutorial</button>
+                <button className="btn btn--outline btn--lg" style={{ '--btn-color': HO } as React.CSSProperties} onClick={startHordeTutorial}>Tutorial</button>
                 {playBtn}
             </div>
+            {tourOverlay}
         </div>
     );
 }
@@ -2655,6 +2744,19 @@ function ShooterLobbyContent() {
     const [mode, setMode] = useState<LobbyMode | null>(initialMode);
     const navigate = useNavigate();
     const isMobile = useMobile();
+
+    // react-router's history.state is the browser's, not React's — it survives
+    // a hard reload of this same entry (F5 replays whatever `state` a past
+    // navigate(..., { state }) call attached to it). Without this, reloading
+    // the page while state={mode:'horde'} is attached to the current entry
+    // silently re-opens Horde (or whatever mode was last navigated to) again,
+    // instead of showing the mode picker a fresh visit to this URL should
+    // show. Clearing it via a replace (once, after consuming it into `mode`
+    // above) leaves the picker as what a subsequent reload actually sees.
+    useEffect(() => {
+        if (locationState) navigate(location.pathname, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     if (mode === null) {
         return (

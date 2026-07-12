@@ -1,4 +1,5 @@
 import { useRef, useCallback, useState, useEffect, type CSSProperties, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
     ARENA,
@@ -16,6 +17,8 @@ import {
     type CrossoverExample,
 } from '../shooter.types';
 import { CompiBubble } from '../../../components/hints';
+import { TutorialEvolutionExplainer } from './tutorialEvolutionContent';
+import { useTutorialStep } from '../hooks/useTutorialStep';
 import { makeInitialGameState } from '../game/makeGameState';
 
 import { evolve, getNextAgent } from '../game/ga/evolution';
@@ -98,8 +101,29 @@ const TUTORIAL_STEP_CONTENT: Record<TutorialStep, { title: string; body: string 
     move:  { title: 'Step 1 — Move',  body: 'Use WASD or the arrow keys to move around the arena.' },
     aim:   { title: 'Step 2 — Aim',   body: 'Move your mouse — your reticle follows it wherever it goes.' },
     shoot: { title: 'Step 3 — Shoot', body: 'Left-click or press Space to fire at the dummy.' },
-    done:  { title: "You've got it!", body: 'Land a few hits on the dummy, then let the round finish whenever you\'re ready.' },
+    done:  { title: "You've got it!", body: "Land a few hits on the dummy, then let the round finish — we'll show you what happens next." },
 };
+
+// Fires once, on the first hit landed or taken — see scoreCoachmarkShownRef.
+const TUTORIAL_SCORE_CONTENT = {
+    title: 'The score bar',
+    body:  "See the bar at the top? Hits you land push it toward you (blue); hits you take push it toward the EA (orange). Push it all the way to your side to win the round.",
+};
+
+// Shown once the practice round ends, pointing the player at the "Learn the
+// DNA" button rather than leaving them to guess what to click next.
+const TUTORIAL_ROUND_END_CONTENT = {
+    title: 'Round complete!',
+    body: "That's it for the practice round. Next, let's break down what those DNA numbers actually mean — hit the button below.",
+};
+
+// ---- Tutorial: DNA-meaning + "how the EA evolves" explainer ----
+// The practice round is a single round with no real population, so there's
+// nothing to actually evolve — this walks through the shooter's DNA genes
+// (grounded in the dummy the player just fought) and then a mocked,
+// illustrative Selection -> Crossover -> Mutation story, built on the same
+// shared ExplainerFlow used by the Dashboard's "EA Explained" tab. See
+// tutorialEvolutionContent.tsx.
 
 // Wie viele Mods pro Auswahl-Overlay angeboten werden. Das Intervall selbst
 // (alle N Runden) ist konfigurierbar via ShooterSettings.modChoiceInterval —
@@ -150,6 +174,20 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
     const [displayedRevealDna, setDisplayedRevealDna]     = useState<number[]>([]);
     const [revealGeneration, setRevealGeneration]         = useState<number | null>(null);
     const [revealCrossoverExample, setRevealCrossoverExample] = useState<CrossoverExample | null>(null);
+    // Tutorial's DNA/evolution explainer — decoupled from `revealDna` (which
+    // stays purely for real gameplay's DNA reveal) since the tutorial's
+    // content is a fixed step list, not an animated bar reveal.
+    const [tutorialEvolutionVisible, setTutorialEvolutionVisible] = useState(false);
+    const [roundEndBubbleClosed, setRoundEndBubbleClosed]  = useState(false);
+    // Tug-of-war score coachmark — fires once on the first hit either way
+    // (landing one is far more likely than the near-passive dummy landing
+    // one on the player), explains both directions so it teaches the whole
+    // mechanic regardless of which happened first. scoreCoachmarkShownRef
+    // gates the one-shot trigger inside onUpdate (a memoized callback that
+    // never sees fresh state — see tutorialStepRef for the same pattern).
+    const scoreCoachmarkShownRef = useRef(false);
+    const [showScoreCoachmark, setShowScoreCoachmark]     = useState(false);
+    const [scoreCoachmarkClosed, setScoreCoachmarkClosed] = useState(false);
     const [pendingModChoices, setPendingModChoices]       = useState<ModDefinition[] | null>(null);
     const raidbossSlotRef    = useRef<RaidbossSlot | null>(null);
     const raidbossInfoRef    = useRef<{ generation: number; index: number; total: number } | null>(null);
@@ -174,16 +212,19 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
             : shooterSettings;
 
     // Tutorial step coachmarks — advanced live from `onUpdate` (refs, since that
-    // callback is memoized and must not go stale), mirrored into state to render.
-    const tutorialStepRef       = useRef<TutorialStep>('move');
-    const tutorialAimOriginRef  = useRef<{ x: number; y: number } | null>(null);
-    const [tutorialStep, setTutorialStep]             = useState<TutorialStep>('move');
-    const [tutorialBubbleClosed, setTutorialBubbleClosed] = useState(false);
-    const advanceTutorialStep = (next: TutorialStep) => {
-        tutorialStepRef.current = next;
-        setTutorialStep(next);
-        setTutorialBubbleClosed(false);
-    };
+    // callback is memoized and must not go stale), mirrored into state to
+    // render. useTutorialStep also enforces a minimum time each step stays
+    // visible, so a step a player satisfies instantly doesn't flash by unread.
+    const tutorialAimOriginRef = useRef<{ x: number; y: number } | null>(null);
+    const {
+        stepRef: tutorialStepRef,
+        step: tutorialStep,
+        bubbleClosed: tutorialBubbleClosed,
+        setBubbleClosed: setTutorialBubbleClosed,
+        advance: advanceTutorialStep,
+        request: requestTutorialStep,
+        tick: tickTutorialStep,
+    } = useTutorialStep<TutorialStep>('move');
 
     useEffect(() => {
         const slot = consumePendingSlot();
@@ -370,18 +411,19 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
         if (tutorial && state.phase === 'playing') {
             const step = tutorialStepRef.current;
             if (step === 'move' && (input.up || input.down || input.left || input.right)) {
-                advanceTutorialStep('aim');
+                requestTutorialStep('aim');
             } else if (step === 'aim') {
                 if (tutorialAimOriginRef.current === null) {
                     tutorialAimOriginRef.current = { x: input.mouseX, y: input.mouseY };
                 } else {
                     const dx = input.mouseX - tutorialAimOriginRef.current.x;
                     const dy = input.mouseY - tutorialAimOriginRef.current.y;
-                    if (dx * dx + dy * dy > 40 * 40) advanceTutorialStep('shoot');
+                    if (dx * dx + dy * dy > 40 * 40) requestTutorialStep('shoot');
                 }
             } else if (step === 'shoot' && input.shoot) {
-                advanceTutorialStep('done');
+                requestTutorialStep('done');
             }
+            tickTutorialStep();
         }
 
         if (next.lastPlayerFrame) playerFramesRef.current.push(next.lastPlayerFrame);
@@ -405,6 +447,10 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                 Math.min(threshold, matchScoreRef.current + receivedDelta - landedDelta));
             matchScoreRef.current = newScore;
             setMatchScore(newScore);
+            if (tutorial && !scoreCoachmarkShownRef.current) {
+                scoreCoachmarkShownRef.current = true;
+                setShowScoreCoachmark(true);
+            }
             if (Math.abs(newScore) >= threshold) {
                 setPhase('roundEnd');
                 pushRoundAnalytics(next);
@@ -466,6 +512,8 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
         gameStore.notify();
         navigate('/lobby/shooter', { state: { mode: 'normal' } });
     };
+
+    const showTutorialEvolutionExplainer = () => setTutorialEvolutionVisible(true);
 
     const handleTrainNext = async () => {
         if (trainNextLoading) return;
@@ -661,6 +709,30 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
         setPhase('playing');
     };
 
+    // Only ever one Compi bubble on screen at a time — the score coachmark
+    // waits its turn until the move/aim/shoot chain is dismissed, rather
+    // than stacking on top of it.
+    const tutorialCoachmark = (tutorial && phase === 'playing')
+        ? (!tutorialBubbleClosed ? (
+            <CompiBubble
+                title={TUTORIAL_STEP_CONTENT[tutorialStep].title}
+                body={TUTORIAL_STEP_CONTENT[tutorialStep].body}
+                actions={tutorialStep === 'done'
+                    ? [{ label: 'Got it', onClick: () => setTutorialBubbleClosed(true), variant: 'primary' }]
+                    : []}
+                onClose={() => setTutorialBubbleClosed(true)}
+            />
+        ) : (showScoreCoachmark && !scoreCoachmarkClosed) ? (
+            <CompiBubble
+                title={TUTORIAL_SCORE_CONTENT.title}
+                body={TUTORIAL_SCORE_CONTENT.body}
+                actions={[{ label: 'Got it', onClick: () => setScoreCoachmarkClosed(true), variant: 'primary' }]}
+                position="top-right"
+                onClose={() => setScoreCoachmarkClosed(true)}
+            />
+        ) : null)
+        : null;
+
     return (
         <div style={{
             width:    ARENA.WIDTH  * scale,
@@ -787,9 +859,20 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                                 <span className={styles.roundStatSub}>Hits</span>
                             </div>
                         </div>
+
+                        {tutorial && !roundEndBubbleClosed && (
+                            <CompiBubble
+                                inline
+                                title={TUTORIAL_ROUND_END_CONTENT.title}
+                                body={TUTORIAL_ROUND_END_CONTENT.body}
+                                actions={[]}
+                                onClose={() => setRoundEndBubbleClosed(true)}
+                            />
+                        )}
+
                         {tutorial ? (
-                            <button className="btn btn--primary" style={{ fontSize: 16, padding: '14px 32px' }} onClick={finishTutorial}>
-                                Finish Tutorial → Lobby
+                            <button className="btn btn--primary" style={{ fontSize: 16, padding: '14px 32px' }} onClick={showTutorialEvolutionExplainer}>
+                                Learn the DNA →
                             </button>
                         ) : isRaidbossRound ? (
                             <div style={{ display: 'flex', gap: 10 }}>
@@ -830,16 +913,27 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                     </div>
                 ) : null}
 
-                {tutorial && phase === 'playing' && !tutorialBubbleClosed && (
-                    <CompiBubble
-                        title={TUTORIAL_STEP_CONTENT[tutorialStep].title}
-                        body={TUTORIAL_STEP_CONTENT[tutorialStep].body}
-                        actions={tutorialStep === 'done'
-                            ? [{ label: 'Got it', onClick: () => setTutorialBubbleClosed(true), variant: 'primary' }]
-                            : []}
-                        onClose={() => setTutorialBubbleClosed(true)}
-                    />
+                {/* Portalled to document.body: `.wrapper` above has `transform:
+                 * scale(...)`, which per spec makes it the containing block for
+                 * `position: fixed` descendants — without the portal, Compi's
+                 * "fixed to viewport corner" is actually fixed *inside the
+                 * canvas's own box*, sitting on top of the arena instead of in
+                 * the real page space beside it (see HintPopover for the same
+                 * fix applied elsewhere on the site). */}
+                {tutorialCoachmark && createPortal(tutorialCoachmark, document.body)}
+
+                {/* Same reasoning as above — a full walkthrough deserves the
+                 * whole screen, not the cramped 800px canvas. */}
+                {tutorial && tutorialEvolutionVisible && createPortal(
+                    <div className={styles.fullscreenOverlay}>
+                        <TutorialEvolutionExplainer
+                            onFinish={finishTutorial}
+                            finishLabel="Finish Tutorial → Lobby"
+                        />
+                    </div>,
+                    document.body,
                 )}
+
             </div>
         </div>
     );

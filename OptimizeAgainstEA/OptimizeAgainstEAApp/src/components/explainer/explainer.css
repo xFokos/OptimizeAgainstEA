@@ -1,0 +1,257 @@
+/* ============================================================
+   EXPLAINER FLOW — shared step-by-step walkthrough, "cinematic" layout
+   (Dashboard "EA Explained" tab, reused inside in-game tutorials)
+
+   The visual is the focal point (large, centered); Compi's narration is a
+   slim caption bar underneath instead of a floating speech bubble. Compi
+   himself is a persistent companion anchored bottom-left of the whole
+   tutorial area (next to the sidebar/nav, not tied to one caption).
+
+   Token aliases mirror hints.css's pattern: resolve to the site's tokens
+   where available, sensible fallback otherwise, so this looks right both on
+   the Dashboard (Inter, blue accent) and inside a game canvas.
+
+   NOTE: `.explainer` fills whatever box its caller gives it (`height: 100%`)
+   so "bottom-left" means the bottom-left of that host area, not just the
+   card's own content height — the caller needs a sized, positioned
+   ancestor (e.g. EAExplainedTab's flex wrapper, or ShooterCanvas's
+   `.overlay` which is already `position: absolute; inset: 0`).
+   ============================================================ */
+
+.explainer {
+	--e-text:      var(--text, #e8eaf0);
+	--e-text-dim:  var(--text-dim, #7a8099);
+	--e-accent:    var(--accent, #4fc3f7);
+	--e-accent-dim: var(--accent-dim, rgba(79, 195, 247, 0.12));
+	--e-border:    var(--border-strong, #353c52);
+
+	position: relative;
+	width:    100%;
+	height:   100%;
+	display:  flex;
+}
+
+/* ── Compi — persistent left-side companion, not per-step ─────────────────── */
+.explainer__mascot {
+	position:        absolute;
+	left:            var(--sp-4, 16px);
+	/* ~3/4 down the page — roughly level with the "EA Explained" sidebar nav
+	   item (the sidebar centers its menu, so this is an eyeballed match, not
+	   a measured one). translateY(-50%) centers Compi on that point instead
+	   of starting his top edge there. */
+	top:             75%;
+	transform:       scaleX(-1) translateY(-50%);
+	width:           220px;
+	height:          auto;
+	image-rendering: pixelated;
+	filter:          drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45));
+	/* Mirrored to face into the content instead of out toward the sidebar;
+	   kept inside the keyframes below since animating `transform` overrides
+	   any static value otherwise. */
+	animation:       explainerMascotBob 3.2s ease-in-out infinite;
+	pointer-events:  none;
+	z-index:         1;
+}
+
+/* ── Body: progress + stage, centered in the remaining space ─────────────── */
+.explainer__body {
+	display:         flex;
+	flex-direction:  column;
+	align-items:     center;
+	justify-content: center;
+	gap:             var(--sp-6, 24px);
+	width:           100%;
+	margin:          0 auto;
+	padding:         0 var(--sp-4, 16px);
+}
+
+/* ── Progress dots — also the jump-to-step control ────────────────────────── */
+.explainer__progress {
+	display: flex;
+	gap: 10px;
+}
+
+.explainer__dot {
+	width:         10px;
+	height:        10px;
+	border-radius: 50%;
+	border:        none;
+	background:    rgba(255, 255, 255, 0.15);
+	cursor:        pointer;
+	padding:       0;
+	transition:    background 0.15s ease, transform 0.15s ease;
+}
+
+.explainer__dot:disabled { cursor: default; }
+
+.explainer__dot--done   { background: var(--e-accent); opacity: 0.5; }
+.explainer__dot--active { background: var(--e-accent); opacity: 1; transform: scale(1.35); }
+
+/* ── Stage: visual + caption, re-animated on every step change ────────────── */
+.explainer__stage {
+	display:        flex;
+	flex-direction: column;
+	align-items:    center;
+	gap:            var(--sp-5, 20px);
+	width:          100%;
+	max-width:      640px;
+	animation: explainerEnterForward 0.32s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.explainer__stage--back { animation-name: explainerEnterBack; }
+
+/* Split: a step's sideVisual sits beside the text instead of stacked below
+   it — for a live demo that belongs next to the explanation, not under it. */
+.explainer__stage--split {
+	flex-direction:  row;
+	align-items:     flex-start;
+	justify-content: center;
+	gap:             var(--sp-7, 48px);
+	max-width:       960px;
+}
+
+.explainer__main {
+	display:        flex;
+	flex-direction: column;
+	align-items:    center;
+	gap:            var(--sp-5, 20px);
+	width:          100%;
+	flex:           1;
+	min-width:      0;
+}
+
+/* Only constrain the text column once there's a sideVisual competing for
+   space — otherwise it should fill the (already capped) stage width. */
+.explainer__stage--split .explainer__main {
+	max-width: 480px;
+}
+
+.explainer__side {
+	flex-shrink: 0;
+	/* Arrives a beat after the main column — "content settles, then the live
+	   demo appears" rather than everything landing at once. */
+	animation: explainerSideIn 0.45s 0.18s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+@keyframes explainerSideIn {
+	from { opacity: 0; transform: translateX(36px); }
+	to   { opacity: 1; transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.explainer__side { animation: none; }
+}
+
+@media (max-width: 860px) {
+	.explainer__stage--split {
+		flex-direction: column;
+		align-items:    center;
+	}
+	.explainer__main { max-width: 100%; }
+}
+
+/* ── Visual: the hero — big, centered, the one thing framed with a border ── */
+.explainer__visual {
+	display:         flex;
+	justify-content: center;
+	align-items:     center;
+	width:           100%;
+	padding:         var(--sp-6, 24px);
+	box-sizing:      border-box;
+	background:      rgba(255, 255, 255, 0.03);
+	border:          1px solid var(--e-border);
+	border-radius:   var(--r-lg, 12px);
+	box-shadow:      0 0 0 1px var(--e-accent-dim) inset, 0 20px 44px rgba(0, 0, 0, 0.35);
+}
+
+/* ── Caption: slim text block under the visual — no bubble chrome ─────────── */
+.explainer__caption {
+	display:        flex;
+	flex-direction: column;
+	align-items:    center;
+	gap:            var(--sp-2, 8px);
+	width:          100%;
+	text-align:     center;
+}
+
+.explainer__captionTitle {
+	font-size:   1.05rem;
+	font-weight: 700;
+	color:       var(--e-accent);
+}
+
+.explainer__captionBody {
+	font-size:   0.92rem;
+	color:       var(--e-text-dim);
+	line-height: 1.55;
+	max-width:   52ch;
+}
+
+.explainer__captionActions {
+	display:   flex;
+	gap:       var(--sp-2, 8px);
+	flex-wrap: wrap;
+	justify-content: center;
+	margin-top: var(--sp-1, 4px);
+}
+
+@keyframes explainerEnterForward {
+	from { opacity: 0; transform: translateX(24px); }
+	to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes explainerEnterBack {
+	from { opacity: 0; transform: translateX(-24px); }
+	to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes explainerMascotBob {
+	0%, 100% { transform: scaleX(-1) translateY(-50%); }
+	50%      { transform: scaleX(-1) translateY(calc(-50% - 6px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.explainer__stage, .explainer__mascot { animation: none; }
+}
+
+/* Narrow screens: no room for a corner mascot without covering the card —
+   drop it back into flow, above the progress dots, smaller. */
+@media (max-width: 640px) {
+	.explainer__mascot {
+		position:  static;
+		order:     -1;
+		width:     72px;
+		margin-bottom: var(--sp-2, 8px);
+		/* Drop the -50% vertical centering trick — in normal flow it would
+		   just shift Compi up into whatever comes before him. */
+		transform: scaleX(-1);
+		animation: explainerMascotBobMobile 3.2s ease-in-out infinite;
+	}
+	.explainer { flex-direction: column; align-items: center; }
+	.explainer__body { padding: 0; }
+}
+
+@keyframes explainerMascotBobMobile {
+	0%, 100% { transform: scaleX(-1) translateY(0); }
+	50%      { transform: scaleX(-1) translateY(-6px); }
+}
+
+/* Compact: much smaller host (e.g. an 800px game canvas overlay) — the
+   Dashboard-tuned 220px top-left companion would dominate the space and
+   collide with the centered stage, so it shrinks back into a corner. */
+.explainer--compact .explainer__mascot {
+	width: 92px;
+	top:   auto;
+	bottom: var(--sp-3, 12px);
+	left:   var(--sp-3, 12px);
+	transform: scaleX(-1);
+	animation: explainerMascotBobMobile 3.2s ease-in-out infinite;
+}
+
+.explainer--compact .explainer__body {
+	padding: 0 var(--sp-3, 12px);
+}
+
+.explainer--compact .explainer__stage {
+	max-width: 100%;
+}

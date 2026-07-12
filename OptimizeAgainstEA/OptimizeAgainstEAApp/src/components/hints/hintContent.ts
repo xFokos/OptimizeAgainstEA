@@ -59,10 +59,21 @@ type CoreHintId =
   | 'shooter.tour.difficulty'
   | 'shooter.tour.dna'
   | 'shooter.tour.start'
+  | 'horde.tour.welcome'
+  | 'horde.tour.modes'
+  | 'horde.tour.difficulty'
+  | 'horde.tour.dna'
+  | 'horde.tour.map'
+  | 'horde.tour.start'
   | 'horde.mobileNotOptimized'
   | 'functions.intro';
 
 export type HintId = CoreHintId | MazeHintId;
+
+/** Which screen corner an ambient (non-anchored) Compi bubble appears in.
+ * Ignored for blocking modals (always centered) and for HintPopover-anchored
+ * hints (positioned near their control instead — see HintPopover.tsx). */
+export type CompiPosition = 'bottom-right' | 'top-right' | 'bottom-left' | 'top-left';
 
 export interface HintDef {
   title?: string;
@@ -71,6 +82,9 @@ export interface HintDef {
   once?: boolean;
   pauses?: boolean;
   sticky?: boolean;
+  /** Default 'bottom-right' — set per hint if it should appear somewhere else
+   * (e.g. it would otherwise sit on top of other fixed UI in a corner). */
+  position?: CompiPosition;
 }
 
 const CORE_HINTS: Record<CoreHintId, HintDef> = {
@@ -292,7 +306,7 @@ const CORE_HINTS: Record<CoreHintId, HintDef> = {
     title: 'Step 3 — DNA',
     body:
       'Those bars in the preview are the opponent\'s entire behavior — ' +
-      'aggression, dodge, accuracy and more. No hidden neural net, just 8 ' +
+      'pursuit, dodge, accuracy and more. No hidden neural net, just 8 ' +
       'numbers that evolve a little more after every round you play.',
     style: 'toast',
   },
@@ -303,6 +317,64 @@ const CORE_HINTS: Record<CoreHintId, HintDef> = {
       'When you\'re ready, hit "Play" to start round one. Land more hits ' +
       'than you take in 20 seconds to win — the opponent evolves to counter ' +
       'you a little more each round after that.',
+    style: 'toast',
+  },
+
+  // ── Horde lobby guided tour: same spotlight mechanism as the Solo tour
+  //    (see startTour in ShooterLobbyPage.tsx's HordeLobby). 'welcome' fires
+  //    once on first visit; the rest are re-triggerable via "Take the Tour",
+  //    so they deliberately don't set `once`. ────────────────────────────────
+  'horde.tour.welcome': {
+    title: 'New here?',
+    body:
+      'Want a quick walkthrough of the Horde lobby before you jump in? ' +
+      'It only takes a few seconds.',
+    style: 'modal',
+    once: true,
+  },
+
+  'horde.tour.modes': {
+    title: 'Step 1 — Tabs',
+    body:
+      'Overview, Algorithm, DNA & Wave, Map and Player — each tab controls a ' +
+      'different part of the swarm. Overview has quick difficulty presets; ' +
+      'the others let you fine-tune everything by hand.',
+    style: 'toast',
+  },
+
+  'horde.tour.difficulty': {
+    title: 'Step 2 — Difficulty',
+    body:
+      'Each preset sets the wave size and how aggressively the swarm ' +
+      'mutates and crosses over between deaths. Bigger waves and faster ' +
+      'mutation mean the horde adapts to you quicker.',
+    style: 'toast',
+  },
+
+  'horde.tour.dna': {
+    title: 'Step 3 — DNA',
+    body:
+      'These bars are every agent\'s starting behavior — aggression, dodge, ' +
+      'speed and more. There\'s no round reset here: every kill evolves the ' +
+      'next spawn, forever, for as long as you survive.',
+    style: 'toast',
+  },
+
+  'horde.tour.map': {
+    title: 'Step 4 — The Map',
+    body:
+      'Solid-bordered obstacles block bullets — duck behind one for cover. ' +
+      'Dashed ones only block movement, so you can still shoot straight over ' +
+      'them. Switch maps (or build your own) in the Map tab.',
+    style: 'toast',
+  },
+
+  'horde.tour.start': {
+    title: 'Step 5 — Play',
+    body:
+      'When you\'re ready, hit "Play Horde". One touch from an agent ends the ' +
+      'run — but every couple of kills you\'ll get to pick a powerup to help ' +
+      'you survive a little longer.',
     style: 'toast',
   },
 

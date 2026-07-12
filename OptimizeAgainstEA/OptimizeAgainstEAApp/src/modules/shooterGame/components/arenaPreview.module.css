@@ -1,0 +1,33 @@
+/* Shared look for every small "arena-style" canvas preview in the tutorial
+   (DnaPreviewCanvas, GhostArenaVisual, ...) — one visual system the player
+   learns to read once, instead of a different look per concept. */
+
+.preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.canvas {
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.legendDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 8px;
+}
+.legendDot:first-child { margin-left: 0; }

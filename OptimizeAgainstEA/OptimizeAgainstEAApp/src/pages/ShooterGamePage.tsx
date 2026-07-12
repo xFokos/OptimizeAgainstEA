@@ -117,6 +117,7 @@ export default function ShooterGamePage() {
             <GameLayout
                 canvasRef={containerRef}
                 touchLayout={isMobileLandscape}
+                focusMode={tutorial && !isMobileLandscape}
                 leftBar={
                     isMobileLandscape
                         ? <MobileJoystickZone inputRef={inputRef} />
@@ -139,8 +140,9 @@ export default function ShooterGamePage() {
                 />
             </GameLayout>
 
-            {/* Zurück zur Lobby – nur auf Mobile sichtbar (Desktop hat die linke Nav-Bar) */}
-            {isMobileLandscape && (
+            {/* Zurück zur Lobby – auf Mobile immer sichtbar; auf Desktop nur im Tutorial,
+                da die linke Nav-Bar (mit ihrem eigenen Lobby-Button) dort im Fokusmodus fehlt. */}
+            {(isMobileLandscape || tutorial) && (
                 <button
                     onClick={async () => {
                         await leaveHandlerRef.current?.();

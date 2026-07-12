@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { HintId } from './hintContent';
+import type { HintId, CompiPosition } from './hintContent';
 import { HINTS } from './hintContent';
 
 // ── Persistence keys ──────────────────────────────────────────────────────
@@ -23,6 +23,7 @@ export interface ActiveHint {
   pauses: boolean;
   sticky: boolean;
   actions: HintAction[];
+  position: CompiPosition;
 }
 
 interface ShowHintOptions {
@@ -121,6 +122,7 @@ export function HintsProvider({ children }: { children: ReactNode }) {
       pauses: def.pauses ?? false,
       sticky: def.sticky ?? false,
       actions: opts?.actions ?? [],
+      position: def.position ?? 'bottom-right',
     });
   }, [enabled, seen, markSeen]);
 

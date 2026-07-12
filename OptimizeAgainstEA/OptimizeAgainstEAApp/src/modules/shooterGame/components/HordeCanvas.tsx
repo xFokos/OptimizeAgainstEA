@@ -13,6 +13,7 @@ import { resolveHordeMap, getHordeMap } from '../horde/hordeMaps';
 import { circleIntersectsObstacle, pushOutOfObstacles } from '../horde/hordeCollision';
 import { computeFlowField, sampleFlowField } from '../horde/hordePathfinding';
 import { useInput }       from '../hooks/useInput';
+import { useTutorialStep } from '../hooks/useTutorialStep';
 import { useSettings }    from '../../../context/SettingsContext';
 import type { HordeSettings } from '../../../context/SettingsContext';
 import type { PlayerStats } from '../shooter.types';
@@ -100,13 +101,18 @@ const MOD_CHOICE_COUNT  = 3;
 const TUTORIAL_WAVE_SIZE           = 8;
 const TUTORIAL_KILLS_PER_UPGRADE   = 2;
 
-type HordeTutorialStep = 'move' | 'aim' | 'shoot' | 'obstacles' | 'mods' | 'done';
+type HordeTutorialStep = 'move' | 'aim' | 'shoot' | 'obstacles' | 'evolution' | 'mods' | 'done';
 
 const HORDE_TUTORIAL_STEP_CONTENT: Record<HordeTutorialStep, { title: string; body: string }> = {
     move:      { title: 'Step 1 — Move',      body: 'Use WASD or the arrow keys to move around the arena.' },
     aim:       { title: 'Step 2 — Aim',       body: 'Move your mouse — your reticle follows it wherever it goes.' },
     shoot:     { title: 'Step 3 — Shoot',     body: 'Left-click or press Space to fire at the dummies.' },
     obstacles: { title: 'Cover',              body: "Those pillars block bullets — yours and theirs. Duck behind one to break line of sight." },
+    // Real, not a mockup — the DNA panel really did just update: the killed
+    // agent's slot in the population got a fresh genome (a mix of two good
+    // survivors, plus a small random tweak) and respawned. Unlike Solo's
+    // round-based reveal, here it happens live, on every single death.
+    evolution: { title: 'That panel just evolved', body: "Look at the DNA panel on the right — it just updated. This dummy's replacement is a mix of two survivors' genes (crossover) with a small random tweak (mutation). That's the whole algorithm, happening live, every time one of them dies." },
     mods:      { title: 'Powerups',           body: 'Every couple of kills you get to pick a powerup that boosts your stats for the rest of the run.' },
     done:      { title: "You've got it!",     body: 'Try the powerup choice below, then finish whenever you\'re ready.' },
 };
@@ -796,16 +802,20 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false,
     const [pendingModChoices, setPendingModChoices] = useState<ModDefinition[] | null>(null);
 
     // Tutorial step coachmarks — advanced live from the game loop (refs, since
-    // that callback is created once and must not go stale). Mirrors ShooterCanvas.
-    const tutorialStepRef      = useRef<HordeTutorialStep>('move');
+    // that callback is created once and must not go stale). Mirrors
+    // ShooterCanvas. useTutorialStep also enforces a minimum time each step
+    // stays visible, so a step a player satisfies instantly (e.g. already
+    // moving) doesn't flash by unread.
     const tutorialAimOriginRef = useRef<{ x: number; y: number } | null>(null);
-    const [tutorialStep, setTutorialStep]                 = useState<HordeTutorialStep>('move');
-    const [tutorialBubbleClosed, setTutorialBubbleClosed] = useState(false);
-    const advanceTutorialStep = (next: HordeTutorialStep) => {
-        tutorialStepRef.current = next;
-        setTutorialStep(next);
-        setTutorialBubbleClosed(false);
-    };
+    const {
+        stepRef: tutorialStepRef,
+        step: tutorialStep,
+        bubbleClosed: tutorialBubbleClosed,
+        setBubbleClosed: setTutorialBubbleClosed,
+        advance: advanceTutorialStep,
+        request: requestTutorialStep,
+        tick: tickTutorialStep,
+    } = useTutorialStep<HordeTutorialStep>('move');
 
     const finishTutorial = async () => {
         if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
@@ -909,22 +919,28 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false,
                     const step = tutorialStepRef.current;
                     const inp  = inputRef.current;
                     if (step === 'move' && (inp.up || inp.down || inp.left || inp.right)) {
-                        advanceTutorialStep('aim');
+                        requestTutorialStep('aim');
                     } else if (step === 'aim') {
                         if (tutorialAimOriginRef.current === null) {
                             tutorialAimOriginRef.current = { x: inp.mouseX, y: inp.mouseY };
                         } else {
                             const dx = inp.mouseX - tutorialAimOriginRef.current.x;
                             const dy = inp.mouseY - tutorialAimOriginRef.current.y;
-                            if (dx * dx + dy * dy > 40 * 40) advanceTutorialStep('shoot');
+                            if (dx * dx + dy * dy > 40 * 40) requestTutorialStep('shoot');
                         }
                     } else if (step === 'shoot' && inp.shoot) {
-                        advanceTutorialStep('obstacles');
+                        requestTutorialStep('obstacles');
                     } else if (step === 'obstacles' && next.score >= 1) {
-                        advanceTutorialStep('mods');
+                        // The DNA panel only renders when !hideDnaPanel (mobile
+                        // landscape hides it for the touch zones) — skip the
+                        // step pointing at it rather than reference nothing.
+                        requestTutorialStep(hideDnaPanel ? 'mods' : 'evolution');
+                    } else if (step === 'evolution') {
+                        requestTutorialStep('mods');
                     } else if (step === 'mods' && next.phase === 'choosing') {
-                        advanceTutorialStep('done');
+                        requestTutorialStep('done');
                     }
+                    tickTutorialStep();
                 }
 
                 stateRef.current = next;

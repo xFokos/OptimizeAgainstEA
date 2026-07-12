@@ -439,7 +439,7 @@ function ReplayCanvas({ record }: { record: RoundRecord }) {
                 <div style={{ marginTop: 'auto' }}>
                     <div className="eyebrow">Agent DNA dieser Runde</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 }}>
-                        {['Aggression','Dodge','Accuracy','Range','Speed','Lead','Fire Rate'].map((name, i) => (
+                        {['Pursuit','Dodge','Accuracy','Range','Speed','Lead','Fire Rate'].map((name, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <span style={{ width: 72, fontSize: 11, color: C.textMuted }}>{name}</span>
                                 <div style={{ flex: 1, height: 5, background: C.panel, borderRadius: 3, overflow: 'hidden' }}>

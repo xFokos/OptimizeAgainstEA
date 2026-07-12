@@ -28,8 +28,17 @@ export const DNA_NAMES = Object.keys(DNA_INDEX) as (keyof typeof DNA_INDEX)[];
 export const DNA_LENGTH = Object.keys(DNA_INDEX).length; // = 7
 
 // Display label + hover explanation for each gene — shared by every DNA slider/readout in the UI.
+// NOTE: AGGRESSION's *label* here is 'Pursuit', not 'Aggression' — in this game's updateAgent()
+// (game/core/gameLoop.ts) the gene is zeroed out entirely once the agent is within
+// PREFERRED_RANGE, so it only ever affects how eagerly it closes distance from farther away, not
+// how aggressively it presses an attack once in range. 'Aggression' as a label overpromised. The
+// internal key/index stays AGGRESSION (renaming it would ripple through gameLoop.ts, evolution,
+// and every DNA array comment) — only the player-facing copy changed. Horde's own AGGRESSION
+// mechanic (see HordeCanvas.tsx's wander/chase blend) is a genuinely good fit for the word
+// "Aggression" and deliberately keeps that label via its own override in
+// ShooterLobbyPage.tsx's HORDE_BAR_GENES — don't "fix" that back to Pursuit.
 export const DNA_GENE_INFO: Record<keyof typeof DNA_INDEX, { label: string; tooltip: string }> = {
-    AGGRESSION:      { label: 'Aggression',   tooltip: 'How strongly the agent chases you instead of keeping its distance.' },
+    AGGRESSION:      { label: 'Pursuit',       tooltip: "How eagerly the agent closes the distance once you're farther than its preferred range — it stops pulling once it gets there." },
     DODGE_WEIGHT:    { label: 'Dodge',        tooltip: "How likely the agent is to dodge your incoming bullets." },
     SHOOT_ACCURACY:  { label: 'Accuracy',     tooltip: 'How precisely the agent aims — 1 means it never misses.' },
     PREFERRED_RANGE: { label: 'Range',        tooltip: 'The distance the agent tries to keep between itself and you.' },

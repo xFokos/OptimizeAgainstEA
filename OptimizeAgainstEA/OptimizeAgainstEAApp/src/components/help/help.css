@@ -120,13 +120,6 @@ button.help-button {
     padding-right:  4px;
 }
 
-.help-modal__footer {
-    display:         flex;
-    justify-content: flex-end;
-    padding-top:     14px;
-    border-top:      1px solid rgba(255,255,255,0.08);
-}
-
 .help-modal__section {
     display:        flex;
     flex-direction: column;

@@ -21,7 +21,7 @@ export function Gameplay() {
                 heading="Evolution across rounds"
                 visual={
                     <HelpDnaBars genes={[
-                        { label: 'Aggression', value: 0.45, delta: 0.25 },
+                        { label: 'Pursuit',    value: 0.45, delta: 0.25 },
                         { label: 'Dodge',      value: 0.30, delta: 0.15 },
                     ]} />
                 }
@@ -40,14 +40,14 @@ export function Technical() {
                 heading="DNA — what makes an agent"
                 visual={
                     <HelpDnaBars genes={[
-                        { label: 'Aggression', value: 0.62 },
+                        { label: 'Pursuit',    value: 0.62 },
                         { label: 'Dodge',      value: 0.40 },
                         { label: 'Speed',      value: 0.75 },
                         { label: 'Fire Rate',  value: 0.50 },
                     ]} />
                 }
             >
-                8 numbers between 0 and 1 — aggression, dodge, accuracy, range, speed,
+                8 numbers between 0 and 1 — pursuit, dodge, accuracy, range, speed,
                 aim-lead, fire rate, bullet speed. These numbers <em>are</em> the
                 behavior — no hidden neural network.
             </HelpConceptCard>

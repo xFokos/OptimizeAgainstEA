@@ -41,6 +41,7 @@ export function HintLayer() {
         actions={active.style === 'toast' && active.actions.length === 0 ? [] : actions}
         onClose={dismiss}
         blocking={blocking}
+        position={active.position}
       />
     );
   }

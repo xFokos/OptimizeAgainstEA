@@ -18,6 +18,11 @@
     overflow-y: auto;
 }
 
+/* focusMode: no side columns at all — canvas alone fills the grid */
+.focusMode {
+    grid-template-columns: 1fr;
+}
+
 /* Portrait phone: single column, panels hidden */
 @media (max-width: 600px) and (orientation: portrait) {
     .root {

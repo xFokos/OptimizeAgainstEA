@@ -408,6 +408,7 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
           title={submitHint.title}
           body={fillTemplate(submitHint.body, { moves: String(requiredLen) })}
           actions={[{ label: 'Got it', onClick: closeSubmitSpotlight, variant: 'primary' }]}
+          onAdvance={closeSubmitSpotlight}
           onSkip={closeSubmitSpotlight}
         />
       )}

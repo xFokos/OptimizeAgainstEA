@@ -17,20 +17,26 @@ interface GameLayoutProps {
     sidebar?:    ReactNode;
     canvasRef?:  RefObject<HTMLDivElement | null>;  // wird direkt an das Canvas-Area-Div gehängt
     touchLayout?: boolean;  // true → Seitenpanels ohne Padding (für Touch-Zonen)
+    /** Drops both side columns entirely so the canvas fills the width — used
+     * by the shooter tutorial so nothing competes for attention with Compi's
+     * guidance while the player is still learning the basics. */
+    focusMode?: boolean;
 }
 
 // ---- Component ----
-export function GameLayout({ children, leftBar, sidebar, canvasRef, touchLayout }: GameLayoutProps) {
+export function GameLayout({ children, leftBar, sidebar, canvasRef, touchLayout, focusMode }: GameLayoutProps) {
     const leftStyle  = touchLayout ? { ...panelStyles.leftBar,  padding: 0 } : panelStyles.leftBar;
     const rightStyle = touchLayout ? { ...panelStyles.sidebar,  padding: 0 } : panelStyles.sidebar;
 
     return (
-        <div className={`${styles.root}${touchLayout ? ` ${styles.touchLayout}` : ''}`}>
+        <div className={`${styles.root}${touchLayout ? ` ${styles.touchLayout}` : ''}${focusMode ? ` ${styles.focusMode}` : ''}`}>
 
             {/* Linke Icon-Bar */}
-            <div className={styles.leftBar} style={leftStyle}>
-                {leftBar}
-            </div>
+            {!focusMode && (
+                <div className={styles.leftBar} style={leftStyle}>
+                    {leftBar}
+                </div>
+            )}
 
             {/* Canvas Bereich – zentriert */}
             <div style={panelStyles.canvasArea} ref={canvasRef}>
@@ -38,7 +44,7 @@ export function GameLayout({ children, leftBar, sidebar, canvasRef, touchLayout 
             </div>
 
             {/* Rechtes Stats Panel */}
-            {sidebar && (
+            {!focusMode && sidebar && (
                 <div className={styles.sidebar} style={rightStyle}>
                     {sidebar}
                 </div>

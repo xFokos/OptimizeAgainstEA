@@ -227,16 +227,48 @@
 
 .compi {
 	position: fixed;
-	right: var(--sp-5, 20px);
-	bottom: var(--sp-4, 16px);
 	z-index: 320;
-	width: min(360px, 92vw);
+	width: min(420px, 94vw);
 	display: flex;
 	flex-direction: column;
-	align-items: flex-end;     /* mascot hugs the right edge */
+	align-items: flex-end;     /* mascot hugs the right edge of the bubble */
 	pointer-events: none;      /* re-enabled on the interactive children */
 	animation: compiPop 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.35);
 }
+
+/* Screen-corner presets (ambient hints — see hintContent.ts's per-hint
+ * `position`). An explicit pixel offset (anchored HintPopover hints) is
+ * applied inline instead and skips these. */
+.compi--bottom-right { right: var(--sp-5, 20px); bottom: var(--sp-4, 16px); }
+.compi--top-right    { right: var(--sp-5, 20px); top:    var(--sp-4, 16px); }
+.compi--bottom-left  { left:  var(--sp-5, 20px); bottom: var(--sp-4, 16px); }
+.compi--top-left     { left:  var(--sp-5, 20px); top:    var(--sp-4, 16px); }
+
+/* Embedded in a caller's own layout instead of floating over it — see the
+ * `inline` prop on CompiBubble. Higher specificity than `.compi` alone so it
+ * wins regardless of source order. */
+.compi.compi--inline {
+	position: static;
+	width: 100%;
+	max-width: 480px;
+	z-index: auto;
+}
+
+/* Compact — see the `compact` prop on CompiBubble. Higher specificity than
+ * `.compi` alone so it wins regardless of source order. */
+.compi.compi--compact {
+	width: min(240px, 70vw);
+}
+.compi--compact .compi__bubble {
+	padding: var(--sp-3, 12px) var(--sp-4, 16px) var(--sp-3, 12px);
+	border-radius: 10px;
+	gap: var(--sp-1, 4px);
+}
+.compi--compact .compi__title { font-size: 0.85rem; padding-right: var(--sp-4, 16px); }
+.compi--compact .compi__body  { font-size: 0.78rem; line-height: 1.4; }
+.compi--compact .compi__actions { margin-top: var(--sp-1, 4px); }
+.compi--compact .compi__mascot { width: 72px; }
+.compi--compact .compi__tail   { right: 30px; width: 12px; height: 12px; bottom: -6px; }
 
 .compi__bubble {
 	pointer-events: auto;
@@ -244,22 +276,22 @@
 	width: 100%;
 	background: var(--h-bg);
 	border: 2px solid var(--h-accent);
-	border-radius: 14px;
-	padding: var(--sp-4, 16px) var(--sp-5, 20px) var(--sp-4, 16px);
+	border-radius: 16px;
+	padding: var(--sp-5, 20px) var(--sp-6, 24px) var(--sp-4, 16px);
 	display: flex;
 	flex-direction: column;
 	gap: var(--sp-2, 8px);
-	box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+	box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
 }
 
 /* Tail: a rotated square whose down-pointing corner shows two borders,
    making it read as a speech-bubble tail aimed at Compi below-right. */
 .compi__tail {
 	position: absolute;
-	right: 46px;
-	bottom: -10px;
-	width: 18px;
-	height: 18px;
+	right: 56px;
+	bottom: -11px;
+	width: 20px;
+	height: 20px;
 	background: var(--h-bg);
 	border-right: 2px solid var(--h-accent);
 	border-bottom: 2px solid var(--h-accent);
@@ -268,13 +300,13 @@
 
 .compi__title {
 	font-family: var(--h-mono);
-	font-size: 0.95rem;
+	font-size: 1.1rem;
 	font-weight: 700;
 	color: var(--h-accent);
 	padding-right: var(--sp-5, 20px);
 }
-.compi__body { font-size: 0.88rem; color: var(--h-text-dim); line-height: 1.55; }
-.compi__actions { display: flex; gap: var(--sp-2, 8px); flex-wrap: wrap; margin-top: var(--sp-1, 4px); }
+.compi__body { font-size: 1rem; color: var(--h-text-dim); line-height: 1.6; }
+.compi__actions { display: flex; gap: var(--sp-2, 8px); flex-wrap: wrap; margin-top: var(--sp-2, 8px); }
 
 .compi__close {
 	position: absolute;
@@ -291,8 +323,8 @@
 
 .compi__mascot {
 	pointer-events: auto;
-	width: 132px;
-	max-width: 40%;
+	width: 156px;
+	max-width: 42%;
 	height: auto;
 	margin: -4px 6px 0 0;       /* tuck up under the bubble, hug the right */
 	image-rendering: pixelated; /* keep the pixel-art mascot crisp */
@@ -323,9 +355,9 @@
    at a time (see TourSpotlight.tsx) instead of a corner-pinned bubble.
    ════════════════════════════════════════════════════════════════════════ */
 
-/* Full-screen click target — clicking the dimmed area skips the tour. The
-   dimming itself lives on .tour-spotlight__hole's box-shadow (below), not
-   here, so the "hole" stays genuinely clear. */
+/* Full-screen click target — look-only coachmark, so any click (dimmed area
+   or the highlight itself) just advances the tour. The dimming itself lives
+   on .tour-spotlight__hole's box-shadow (below), not here. */
 .tour-spotlight__catcher {
 	position: fixed;
 	inset: 0;

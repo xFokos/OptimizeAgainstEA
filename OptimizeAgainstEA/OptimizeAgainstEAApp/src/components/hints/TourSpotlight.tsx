@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { RefObject, CSSProperties } from 'react';
 import type { HintAction } from './HintContext';
+import { clampToViewport, type FixedOffset } from './viewportFit';
 
 interface TourSpotlightProps {
   /** The real UI element to highlight — everything else dims. */
@@ -9,12 +10,20 @@ interface TourSpotlightProps {
   title?: string;
   body: string;
   actions: HintAction[];
-  /** Backdrop click / × button — ends the whole tour, same as a "Skip". */
+  /** Clicking anywhere — including the highlighted area itself — advances the
+      tour (same as the primary button). Look-only: nothing underneath is
+      actually clickable while a step is showing, so there's no split
+      behavior to reason about between "inside" and "outside" the highlight. */
+  onAdvance: () => void;
+  /** × button only — ends the whole tour. */
   onSkip: () => void;
 }
 
 const PAD = 10;
 const TOOLTIP_WIDTH = 320;
+// No live measurement of the tooltip's own height — this is a generous
+// over-estimate purely for clamping purposes (see clampToViewport).
+const TOOLTIP_EST_HEIGHT = 220;
 const GAP = 14;
 
 /**
@@ -32,7 +41,7 @@ const GAP = 14;
  * coordinates — the portal keeps both in the same coordinate space, so this
  * lines up correctly at any zoom level, window size, or device.
  */
-export function TourSpotlight({ targetRef, title, body, actions, onSkip }: TourSpotlightProps) {
+export function TourSpotlight({ targetRef, title, body, actions, onAdvance, onSkip }: TourSpotlightProps) {
   const [rect, setRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
@@ -62,22 +71,22 @@ export function TourSpotlight({ targetRef, title, body, actions, onSkip }: TourS
   };
 
   // Prefer below the target; flip above if there isn't room.
-  const spaceBelow  = window.innerHeight - rect.bottom;
-  const placeBelow  = spaceBelow > 180;
-  const clampedLeft = Math.min(
-    Math.max(rect.left + rect.width / 2 - TOOLTIP_WIDTH / 2, 16),
-    window.innerWidth - TOOLTIP_WIDTH - 16,
-  );
-  const tooltipStyle: CSSProperties = {
-    left: clampedLeft,
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const placeBelow = spaceBelow > 180;
+  const naive: FixedOffset = {
+    left: rect.left + rect.width / 2 - TOOLTIP_WIDTH / 2,
     ...(placeBelow
       ? { top: rect.bottom + PAD + GAP }
       : { bottom: window.innerHeight - rect.top + PAD + GAP }),
   };
+  const tooltipStyle = clampToViewport(naive, { width: TOOLTIP_WIDTH, height: TOOLTIP_EST_HEIGHT }, 16);
 
   return createPortal(
     <>
-      <div className="tour-spotlight__catcher" onClick={onSkip} />
+      {/* Full-screen click target, on top of the hole too — this is a look-only
+          coachmark, so any click (including on the highlighted element) just
+          advances the tour rather than reaching the real page underneath. */}
+      <div className="tour-spotlight__catcher" onClick={onAdvance} />
       <div className="tour-spotlight__hole" style={holeStyle} />
       <div className="tour-spotlight__tooltip" style={tooltipStyle} role="status">
         <button className="tour-spotlight__close" onClick={onSkip} aria-label="Skip tour">×</button>

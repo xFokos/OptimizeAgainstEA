@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/specific/dashboard.css";
 import { ProblemSelection } from "../modules/selectProblemPage/page/ProblemSelection.tsx";
+import { EAExplainedTab } from "./EAExplainedTab.tsx";
 
 type Section = "gameSelect" | "settings" | "eaExplained";
 
@@ -79,7 +80,7 @@ export default function DashboardPage() {
                 )}
 
                 {active === "settings"    && <EmptyTab title="Settings" />}
-                {active === "eaExplained" && <EmptyTab title="EA Explained" />}
+                {active === "eaExplained" && <EAExplainedTab />}
             </main>
         </div>
     );
