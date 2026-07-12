@@ -1,6 +1,7 @@
 import type { Transaction } from 'firebase/firestore';
 import { doc, getDoc, setDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { createListenable } from '../../../utils/listenable';
 import { GAME_CONFIG, STARTER_DNA } from '../shooter.types';
 import { initPopulation } from './ga/population';
 import { evolve } from './ga/evolution';
@@ -30,18 +31,14 @@ export interface RaidbossSlot {
 let pendingSlot: RaidbossSlot | null = null;
 
 // Reaktiver Store für Raidboss-Modus — DNADisplay subscribed darauf
-let _raidbossActive = false;
-const _raidbossListeners = new Set<() => void>();
+const raidbossActive = { value: false, ...createListenable() };
 
-export function getRaidbossActive(): boolean { return _raidbossActive; }
+export function getRaidbossActive(): boolean { return raidbossActive.value; }
 export function setRaidbossActive(v: boolean) {
-    _raidbossActive = v;
-    _raidbossListeners.forEach(fn => fn());
+    raidbossActive.value = v;
+    raidbossActive.notify();
 }
-export function subscribeRaidbossActive(fn: () => void): () => void {
-    _raidbossListeners.add(fn);
-    return () => { _raidbossListeners.delete(fn); };
-}
+export const subscribeRaidbossActive = raidbossActive.subscribe;
 
 export function consumePendingSlot(): RaidbossSlot | null {
     const s = pendingSlot;

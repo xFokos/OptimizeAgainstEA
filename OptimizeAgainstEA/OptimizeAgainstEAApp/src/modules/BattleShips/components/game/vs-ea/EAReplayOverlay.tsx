@@ -1,5 +1,5 @@
 import type { ReplayFrame } from '../../../engine/ea/eaReplayLog';
-import { useEAReplay } from '../../../hooks/useEAReplay';
+import { useReplayPlayer } from '../../../../../hooks/useReplayPlayer';
 import { ReplayMap } from './replay/ReplayMap';
 import { IndividualList, type IndividualRole } from './replay/IndividualList';
 
@@ -9,7 +9,7 @@ interface EAReplayOverlayProps {
 }
 
 export function EAReplayOverlay({ frames, onClose }: EAReplayOverlayProps) {
-  const replay = useEAReplay(frames);
+  const replay = useReplayPlayer(frames);
   const { currentFrame, frameIndex, totalFrames,
     isFirst, isLast, next, prev, goTo } = replay;
 

@@ -1,19 +1,16 @@
+import { createListenable } from '../../../utils/listenable';
+
 export interface HordeRunRecord {
     score:      number;
     generation: number;
 }
 
 export const hordeRunStore = {
-    lastRun:   null as HordeRunRecord | null,
-    listeners: new Set<() => void>(),
+    lastRun: null as HordeRunRecord | null,
+    ...createListenable(),
 
     record(run: HordeRunRecord) {
         this.lastRun = run;
-        this.listeners.forEach(fn => fn());
-    },
-
-    subscribe(fn: () => void) {
-        this.listeners.add(fn);
-        return () => { this.listeners.delete(fn); };
+        this.notify();
     },
 };

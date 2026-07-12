@@ -17,15 +17,20 @@ npm run preview   # preview production build
 
 ## Project overview
 
-A React + TypeScript educational web app that teaches optimization concepts through games. Multiple mini-games each visualize a different algorithm:
+A React + TypeScript educational web app that teaches optimization concepts through games (frontend-only, hosted on Firebase; only the Raidboss mode writes to Firestore). Multiple mini-games each visualize a different algorithm:
 
 | Route | Module | Concept |
 |---|---|---|
-| `/BattleShips` | `modules/BattleShips/` | Search-space exploration vs EA |
-| `/ShooterGame` | `modules/shooterGame/` | Genetic algorithm evolving shooter agents |
-| `/TravelingSalesman` | `modules/tspGame/` | TSP game |
-| `/MapGame` | `modules/mapGame/` | Map-based analytics game |
-| `/lobby/shooter` | `pages/lobby/` | Shooter lobby |
+| `/PeakFinder` | `modules/BattleShips/` | Search-space exploration vs EA ("PeakFinder") |
+| `/MazeExplorer` | `modules/mazeGame/` | EA evolving paths through a maze |
+| `/ShooterGame` | `modules/shooterGame/` | GA evolving shooter agents (Solo + Community Raidboss) |
+| `/HordeGame` | `modules/shooterGame/horde/` | Steady-state EA: horde survival, evolution per death |
+| `/HordeMapEditor` | `pages/HordeMapEditorPage.tsx` | Custom horde map editor |
+| `/lobby/shooter` | `modules/shooterGame/lobby/` | Shooter lobby (mode picker + Solo/Raidboss/Horde lobbies) |
+| `/Analytics` | `pages/AnalyticsPage.tsx` | Solo-Play round analytics |
+| `/Dashboard` | `modules/selectProblemPage/` | Game picker |
+
+Dev-/legacy-only routes (not linked from the UI, keep them): `/Buttons` (button style gallery), `/FunctionTuner` (function problem tuner), `/Game` ("secret" legacy page).
 
 Global state: `SettingsProvider` wraps all routes in `App.tsx` (`src/context/SettingsContext.tsx`).
 
@@ -45,7 +50,7 @@ Global state: `SettingsProvider` wraps all routes in `App.tsx` (`src/context/Set
 
 ## Actual file structure
 
-Each game lives in its own module under `src/modules/`. The BattleShips and ShooterGame modules are the most developed.
+Each game lives in its own module under `src/modules/`.
 
 ```
 src/
@@ -56,21 +61,39 @@ src/
 │   │   ├── GameLayout.tsx         # Three-column shell (leftBar | canvas | sidebar); exports LAYOUT tokens
 │   │   ├── ShooterLeftBar.tsx     # Left nav bar for shooter game
 │   │   ├── PageContainer.tsx      # Full-viewport wrapper
+│   │   ├── GameModeSelectorLayout.tsx  # Fullscreen mode picker (used by the shooter lobby)
 │   │   └── SidePanel.tsx
-│   ├── ui/                        # Shared UI primitives
-│   └── settings/EASettings.tsx
+│   ├── ui/                        # Shared UI primitives (CompiTooltip, Switch, NavigatePageButton)
+│   ├── help/                      # Help button + modal with Compi mascot (topics per game)
+│   ├── hints/                     # Shared hint/coachmark system — see "Hint system" section
+│   ├── explainer/                 # Reusable step-by-step explainer flow
+│   └── settings/EASettings.tsx    # EASettingsPanel + HordeEASettingsPanel
 │
-├── hooks/useScaledCanvas.ts       # Scales a canvas to fit available space given sidebar widths
+├── hooks/                         # Shared hooks — see "Shared building blocks"
+├── utils/                         # rng.ts (seeded LCG), listenable.ts (store observer plumbing)
+├── lib/firebase.ts                # Firebase app + Firestore handle (used only by raidbossStore)
 │
 ├── modules/
-│   ├── BattleShips/               # BattleShips game — see "BattleShips module" section
+│   ├── BattleShips/               # PeakFinder game — see "BattleShips module" section
+│   ├── mazeGame/                  # Maze game — structurally mirrors BattleShips (types/engine/hooks/components)
 │   ├── shooterGame/               # Shooter game — see "ShooterGame module" section
-│   ├── tspGame/
-│   ├── mapGame/
-│   └── selectProblemPage/
+│   └── selectProblemPage/         # Dashboard game picker
 │
 └── pages/                         # Thin page components — assemble modules into layouts
 ```
+
+---
+
+## Shared building blocks (`src/hooks/`, `src/utils/`)
+
+Reusable, game-agnostic pieces — prefer these over per-module copies:
+
+- **`hooks/useReplayPlayer.ts`** — `useReplayPlayer<Frame>(frames, autoplayIntervalMs?)`: playback state machine for any recorded frame list (frameIndex, currentFrame, isPlaying, next/prev/goTo/play/pause). Used by the PeakFinder EA replay, the Maze EA replay, and the generation replay.
+- **`hooks/useSavedLibrary.ts`** — `useSavedLibrary<Input, Entry>(storageKey, toEntry)`: localStorage-persisted library of player creations (save de-dupes by `entry.id`, remove, rename). `useSavedMaps` (BattleShips) and `useSavedMazes` (maze) are thin domain wrappers around it.
+- **`utils/listenable.ts`** — `createListenable()`: the `notify`/`subscribe` observer trio shared by every module-level singleton store (`gameStore`, `analyticsStore`, `hordeGameStore`, `hordeRunStore`, `runModsStore`, raidboss-active flag). Spread it into a store object literal; domain methods call `this.notify()`. Components subscribe directly or via `useSyncExternalStore`.
+- **`utils/rng.ts`** — `makeLCG(seed?)`: seeded deterministic RNG shared by the PeakFinder/Maze EAs and maze generation.
+- **`hooks/useScaledCanvas.ts`** — scales a canvas to fit available space given sidebar widths.
+- **`hooks/useViewport.ts`**, **`hooks/useOrientationLock.ts`** — viewport size / mobile orientation helpers.
 
 ---
 
@@ -106,7 +129,8 @@ BattleShips/
 │   ├── useGameMap.ts      # Create mode map state (minima, addMinimum, getCode, etc.)
 │   ├── usePlaySession.ts  # Play session (probes, status, bestProbe, probe, reset)
 │   ├── useEARunner.ts     # Worker interface (init, step, stop, reset, latestReplay)
-│   └── useEAReplay.ts     # Replay playback state machine (next, prev, play, pause)
+│   └── useSavedMaps.ts    # Saved-map library (wraps shared useSavedLibrary)
+│   # Replay playback uses the shared src/hooks/useReplayPlayer.ts
 │
 ├── components/game/
 │   ├── shared/            # GameMap, ContourLayer, HeatmapLayer, FitnessChart, ModeSelector, CodeModal
@@ -207,14 +231,39 @@ shooterGame/
 │   │   ├── fitness.ts         # calculateFitness(stats) → number
 │   │   ├── population.ts      # initPopulation, updatePopulationStats
 │   │   └── evolution.ts       # evolve, getNextAgent, presimulate, presimulateAgainstGhost
-│   └── gameStore.ts           # Custom observable store — holds GameState outside React
+│   ├── gameStore.ts           # Observable store (createListenable) — holds GameState outside React
+│   ├── analyticsStore.ts      # Round records for /Analytics
+│   └── raidbossStore.ts       # Firestore-backed community population (Raidboss mode)
+├── horde/
+│   ├── hordeEngine.ts    # Pure Horde update + per-death mini-GA (updateHorde, makeInitialState, resetHordeEngine)
+│   ├── hordeRender.ts    # Canvas render for Horde (exports HC accent color)
+│   ├── hordeDna.ts       # Horde-only gene layout (loop steps, size, opacity)
+│   ├── hordeMaps.ts      # Built-in maps + custom map resolution
+│   ├── hordePathfinding.ts  # Flow-field BFS from the player's cell
+│   ├── hordeCollision.ts # Obstacle collision helpers
+│   ├── hordeGameStore.ts / hordeRunStore.ts  # Run state / last-run record stores
+│   └── hordeTypes.ts
+├── mods/                 # Run mods (powerups): modTypes, shotEngine, runModsStore
 ├── hooks/
 │   ├── useGameLoop.ts    # requestAnimationFrame loop, calls update(), drives gameStore
-│   └── useInput.ts       # Keyboard + mouse → InputState
+│   ├── useInput.ts       # Keyboard + mouse → InputState
+│   ├── useTouchControls.ts / useTutorialStep.ts
 ├── components/
-│   ├── ShooterCanvas.tsx # Main canvas component; reads gameStore
-│   └── dnaDisplay.tsx    # DNADisplay — subscribes to gameStore, shows current agent DNA
-├── lobby/                # Lobby-related components
+│   ├── ShooterCanvas.tsx # Main canvas component (Solo/Raidboss); reads gameStore
+│   ├── HordeCanvas.tsx   # React wiring for Horde (game loop + overlays + tutorial)
+│   ├── HordeDnaPanel.tsx # "Best DNA" side panel next to the horde canvas
+│   ├── dnaDisplay.tsx    # DNADisplay — subscribes to gameStore, shows current agent DNA
+│   ├── arenaAgentSim.ts  # Shared small-arena physics for tutorial preview canvases
+│   └── DnaPreviewCanvas.tsx / GhostArenaVisual.tsx  # Tutorial explainer visuals
+├── lobby/                # Lobby, split by concern:
+│   ├── ShooterLobbyPage.tsx  # Root: mode picker + mounts the three lobbies
+│   ├── NormalLobby.tsx / RaidbossLobby.tsx / HordeLobby.tsx / HordeOverview.tsx / SoloPlayOverview.tsx
+│   ├── previews/         # ShooterPreview, RaidbossPreview, HordePreview, HordeMapPreview (+ previewShared)
+│   ├── lobbyConstants.ts # Modes, difficulty presets, tab definitions, horde gene descriptors
+│   ├── lobbyStyles.ts    # Shared inline-style objects (lobbyStyles/tabStyles/ovStyles/mobile*)
+│   ├── lobbyHooks.ts     # useMobile, useZoom, enterGameFullscreen
+│   ├── DnaGeneRow.tsx    # Read-only gene stat bar (Solo + Horde overviews)
+│   └── TopBar.tsx
 └── settings/ShooterSettings.tsx
 ```
 
@@ -264,17 +313,20 @@ useScaledCanvas({ baseWidth: ARENA.WIDTH, baseHeight: ARENA.HEIGHT,
 
 ---
 
-## Hint system (`src/modules/BattleShips/hints/`)
+## Hint system (`src/components/hints/`)
 
-Page-wide, toggleable contextual help. Wrapped around the BattleShips page via `<HintsProvider>`.
+Page-wide, toggleable contextual help — shared by all games. Wrap a page via `<HintsProvider>`.
 
 ```
-hints/
-├── hintContent.ts    # ★ ONLY file to edit for hint text/settings
+components/hints/
+├── hintContent.ts    # ★ Hint text/settings (maze adds modules/mazeGame/hints/mazeHintContent.ts)
 ├── HintContext.tsx   # HintsProvider + useHints() hook; localStorage/sessionStorage persistence
 ├── HintLayer.tsx     # Renders active global hint (modal or toast). Mount once at root.
 ├── HintToggle.tsx    # 💡 on/off button + ↻ Reset
-└── HintPopover.tsx   # Anchored coachmark — wraps any element to pin a hint to it
+├── HintPopover.tsx   # Anchored coachmark — wraps any element to pin a hint to it
+├── TourSpotlight.tsx # Guided-tour spotlight (dims everything except the target element)
+├── CompiBubble.tsx   # Compi mascot speech bubble (in-game tutorial steps)
+└── viewportFit.ts
 ```
 
 **HintDef** (in `hintContent.ts`):
@@ -312,9 +364,9 @@ Persistence: `enabled` → `localStorage bs.hints.enabled`; `seen` → `sessionS
 | `BattleShips/components/game/shared/ContourLayer.tsx` | `DEFAULT_CONTOUR_CONFIG` | see file | lineCount, spacingExponent, resolution |
 | `BattleShips/components/game/shared/HeatmapLayer.tsx` | `DEFAULT_HEATMAP_CONFIG` | see file | resolution, opacity, valueExponent |
 | `BattleShips/components/game/vs-ea/replay/ReplayMap.tsx` | `DOT_MOVE_DURATION` | `0.8s` | Replay dot glide speed |
-| `BattleShips/components/game/vs-ea/EAReplayOverlay.tsx` | `play(1200)` | `1200ms` | Dwell per frame during autoplay |
+| `src/hooks/useReplayPlayer.ts` | `autoplayIntervalMs` | `1200ms` | Dwell per frame during replay autoplay (maze overlay passes 1600) |
 | `BattleShips/hooks/useGameMap.ts` | `MAX_MINIMA`, `MIN_SPACING` | `12`, `0.12` | Create mode limits |
-| `BattleShips/hints/HintLayer.tsx` | `TOAST_DURATION` | `7000ms` | Toast auto-dismiss delay |
+| `components/hints/HintLayer.tsx` | `TOAST_DURATION` | `7000ms` | Toast auto-dismiss delay |
 | `BattleShips/types/ea.ts` | `DEFAULT_EA_CONFIG` | see file | BattleShips EA defaults |
 | `shooterGame/shooter.types.ts` | `GAME_CONFIG` | see file | Round duration, bullet speed, agent speeds, cooldowns |
 | `shooterGame/shooter.types.ts` | `ARENA` | `800×800` | Game canvas logical size |
@@ -325,5 +377,6 @@ Persistence: `enabled` → `localStorage bs.hints.enabled`; `seen` → `sessionS
 ## What's not built yet
 
 - **Shooter population overlay on canvas** — show all 20 individuals as dots during evolution phase
-- **Analytic function problems** (Rastrigin, Ackley, Rosenbrock) — `ProblemInstance` is already future-proof; just needs `createFunctionProblem(fn)` in `engine/functionProblem.ts`
 - **Mobile layout** — breakpoints exist but not tested below 640px
+
+(Analytic function problems — Sphere, Rastrigin, … — exist now in `BattleShips/engine/functionProblem.ts`, tunable via `/FunctionTuner`.)

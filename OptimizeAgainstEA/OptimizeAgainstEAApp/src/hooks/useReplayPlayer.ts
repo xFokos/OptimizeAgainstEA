@@ -1,23 +1,22 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { ReplayFrame } from '../engine/ea/eaReplayLog';
 
-export interface EAReplayState {
-  frames:       ReplayFrame[];
-  frameIndex:   number;
-  currentFrame: ReplayFrame | null;
-  isPlaying:    boolean;
-  isFirst:      boolean;
-  isLast:       boolean;
-}
-
-export function useEAReplay(frames: ReplayFrame[]) {
+/**
+ * Playback state machine for stepping through a recorded frame list — shared
+ * by every replay overlay (PeakFinder EA replay, Maze EA replay, generation
+ * replay). Generic over the frame type: the hook only navigates, it never
+ * looks inside a frame.
+ *
+ * `autoplayIntervalMs` is the dwell time per frame when `play()` is called
+ * without an argument; an explicit `play(ms)` overrides it.
+ */
+export function useReplayPlayer<Frame>(frames: Frame[], autoplayIntervalMs = 1200) {
   const [frameIndex, setFrameIndex] = useState(0);
-  const [isPlaying,  setIsPlaying]  = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentFrame = frames[frameIndex] ?? null;
-  const isFirst      = frameIndex === 0;
-  const isLast       = frameIndex === frames.length - 1;
+  const isFirst = frameIndex === 0;
+  const isLast = frameIndex === frames.length - 1;
 
   const stopInterval = useCallback(() => {
     if (intervalRef.current != null) {
@@ -38,7 +37,7 @@ export function useEAReplay(frames: ReplayFrame[]) {
     setFrameIndex(Math.max(0, Math.min(i, frames.length - 1)));
   }, [frames.length]);
 
-  const play = useCallback((intervalMs = 1200) => {
+  const play = useCallback((intervalMs = autoplayIntervalMs) => {
     stopInterval();
     setIsPlaying(true);
     intervalRef.current = setInterval(() => {
@@ -51,22 +50,15 @@ export function useEAReplay(frames: ReplayFrame[]) {
         return i + 1;
       });
     }, intervalMs);
-  }, [frames.length, stopInterval]);
+  }, [frames.length, autoplayIntervalMs, stopInterval]);
 
   const pause = useCallback(() => {
     stopInterval();
     setIsPlaying(false);
   }, [stopInterval]);
 
-  // Stop playback when last frame is reached
-  useEffect(() => {
-    if (isLast && isPlaying) {
-      stopInterval();
-      setIsPlaying(false);
-    }
-  }, [isLast, isPlaying, stopInterval]);
-
-  // Clean up on unmount
+  // Playback self-terminates inside the interval when the last frame is reached
+  // (see `play`); we only need to clear the interval on unmount.
   useEffect(() => () => stopInterval(), [stopInterval]);
 
   return {

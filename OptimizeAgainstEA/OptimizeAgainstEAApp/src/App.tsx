@@ -5,7 +5,6 @@ import HomePage from "./pages/HomePage.tsx";
 import SettingsPage from "./pages/SettingsPage.tsx";
 import GamePage from "./pages/GamePage.tsx";
 import AnalyticsPage from "./pages/AnalyticsPage.tsx";
-import ProblemPage from "./pages/ProblemPage.tsx";
 import DashboardPage from "./pages/DashboardPage.tsx";
 import ShooterGamePage from "./pages/ShooterGamePage.tsx";
 import BattleShipsPage from "./pages/BattleShipsPage.tsx";
@@ -26,7 +25,6 @@ export default function App() {
                 <Route path="/Analytics" element={<AnalyticsPage />} />
                 <Route path="/PeakFinder" element={<BattleShipsPage />} />
                 <Route path="/MazeExplorer" element={<MazeGamePage />} />
-                <Route path="Problem" element={<ProblemPage />}/>
                 <Route path="Dashboard" element={<DashboardPage />}/>
                 <Route path="ShooterGame" element={<ShooterGamePage/>}/>
                 <Route path="/lobby/shooter" element={<ShooterLobbyPage />} />

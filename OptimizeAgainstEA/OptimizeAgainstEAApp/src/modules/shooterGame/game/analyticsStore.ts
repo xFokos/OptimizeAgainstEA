@@ -1,4 +1,5 @@
 import type { PlayerGhostFrame, AgentGhostFrame } from '../shooter.types';
+import { createListenable } from '../../../utils/listenable';
 
 export interface RoundRecord {
     round:        number;
@@ -16,24 +17,19 @@ export interface RoundRecord {
 }
 
 export const analyticsStore = {
-    rounds:    [] as RoundRecord[],
-    listeners: new Set<() => void>(),
+    rounds: [] as RoundRecord[],
+    ...createListenable(),
 
     push(record: RoundRecord, maxRounds = 20) {
         const trimmed = this.rounds.length >= maxRounds
             ? this.rounds.slice(this.rounds.length - maxRounds + 1)
             : this.rounds;
         this.rounds = [...trimmed, record];
-        this.listeners.forEach(fn => fn());
+        this.notify();
     },
 
     clear() {
         this.rounds = [];
-        this.listeners.forEach(fn => fn());
-    },
-
-    subscribe(fn: () => void) {
-        this.listeners.add(fn);
-        return () => { this.listeners.delete(fn); };
+        this.notify();
     },
 };

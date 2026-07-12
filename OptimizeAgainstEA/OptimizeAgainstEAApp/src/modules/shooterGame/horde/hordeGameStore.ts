@@ -1,4 +1,5 @@
 import type { HordeGameState } from './hordeTypes';
+import { createListenable } from '../../../utils/listenable';
 
 // Mirrors game/gameStore.ts's pattern for Solo Play: a module-level singleton
 // survives route navigation (leaving /HordeGame and coming back), unlike a
@@ -7,14 +8,5 @@ import type { HordeGameState } from './hordeTypes';
 // always dropping the player back at a fresh "Start →" screen.
 export const hordeGameStore = {
     state: null as HordeGameState | null,
-    listeners: new Set<() => void>(),
-
-    notify() {
-        this.listeners.forEach(fn => fn());
-    },
-
-    subscribe(fn: () => void) {
-        this.listeners.add(fn);
-        return () => { this.listeners.delete(fn); };
-    },
+    ...createListenable(),
 };

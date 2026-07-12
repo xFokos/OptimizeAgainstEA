@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ReplayFrame, IndividualSnapshot } from '../../engine/ea/eaReplayLog';
 import type { Cell, MazeProblem, Path } from '../../types/maze';
 import { MOVE_DELTAS, MOVE_WALL_BIT, cellIndex } from '../../types/maze';
-import { useMazeEAReplay } from '../../hooks/useMazeEAReplay';
+import { useReplayPlayer } from '../../../../hooks/useReplayPlayer';
 import { walkPath } from '../../engine/ea/individual';
 import { MazePathMap } from './replay/MazePathMap';
 import {
@@ -25,7 +25,7 @@ interface MazeEAReplayOverlayProps {
  * port 1:1; only the map (paths, not dots) and list (arrows, not coords) differ.
  */
 export function MazeEAReplayOverlay({ frames, problem, onClose }: MazeEAReplayOverlayProps) {
-  const replay = useMazeEAReplay(frames);
+  const replay = useReplayPlayer(frames, 1600);
   const { currentFrame, frameIndex, totalFrames, isFirst, isLast, next, prev, goTo } = replay;
 
   // Path picked in the list to spotlight on the map. The selection remembers

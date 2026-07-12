@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { Generation } from '../../../types/ea';
+import { useReplayPlayer } from '../../../../../hooks/useReplayPlayer';
 import { sampleGradientRgb } from '../../../engine/colorScale';
 import { valueToHeight } from '../../../engine/height';
 import { DOT_MOVE_DURATION, DOT_MOVE_DURATION_MS } from './replay/ReplayMap';
@@ -59,59 +60,15 @@ interface GenerationReplayOverlayProps {
 }
 
 export function GenerationReplayOverlay({ generations, label, isWin, revealWin, onClose }: GenerationReplayOverlayProps) {
-  const [index,     setIndex]     = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const total   = generations.length;
-  const isFirst = index === 0;
-  const isLast  = index === total - 1;
-
-  const stopInterval = useCallback(() => {
-    if (intervalRef.current != null) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
-
-  const next = useCallback(() => setIndex((i) => Math.min(i + 1, total - 1)), [total]);
-  const prev = useCallback(() => setIndex((i) => Math.max(i - 1, 0)),         []);
-  const goTo = useCallback((i: number) => setIndex(Math.max(0, Math.min(i, total - 1))), [total]);
-
-  const play = useCallback(() => {
-    stopInterval();
-    setIsPlaying(true);
-    intervalRef.current = setInterval(() => {
-      setIndex((i) => {
-        if (i >= total - 1) {
-          stopInterval();
-          setIsPlaying(false);
-          return i;
-        }
-        return i + 1;
-      });
-    }, AUTOPLAY_FRAME_MS);
-  }, [total, stopInterval]);
-
-  const pause = useCallback(() => {
-    stopInterval();
-    setIsPlaying(false);
-  }, [stopInterval]);
-
-  useEffect(() => {
-    if (isLast && isPlaying) {
-      stopInterval();
-      setIsPlaying(false);
-    }
-  }, [isLast, isPlaying, stopInterval]);
-
-  useEffect(() => () => stopInterval(), [stopInterval]);
+  const {
+    currentFrame: gen, frameIndex: index, totalFrames: total,
+    isPlaying, isFirst, isLast, next, prev, goTo, play, pause,
+  } = useReplayPlayer(generations, AUTOPLAY_FRAME_MS);
 
   // The win area only depends on the problem, so rasterize it once — and only
   // when it's actually going to be shown (after someone wins).
   const winRuns = useMemo(() => (revealWin ? computeWinRuns(isWin) : []), [revealWin, isWin]);
 
-  const gen = generations[index];
   if (!gen) return null;
 
   const best  = gen.best;
