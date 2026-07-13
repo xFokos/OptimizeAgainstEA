@@ -5,13 +5,14 @@ import { useSettings } from '../../../context/SettingsContext.tsx';
 import {
     ExplainerFlow,
     type ExplainerStep,
-    type PopulationMember,
-    PopulationVisual,
     CrossoverVisual,
     MutationVisual,
+    FitnessVisual,
+    type FitnessRow,
 } from '../../../components/explainer';
 import { DnaPreviewCanvas } from './DnaPreviewCanvas';
 import { GhostArenaVisual } from './GhostArenaVisual';
+import { FitnessArenaVisual } from './FitnessArenaVisual';
 
 // ─────────────────────────────────────────────────────────────────────────
 //  Practice-round tutorial, part 2: "what do these DNA numbers actually do,
@@ -58,18 +59,14 @@ function useSliderDna(initial: DNA) {
 // evolution.ts's presimulateAgainstGhost for the real implementation this
 // illustrates.
 
-// Deterministic (not Math.random(), which would re-roll on every re-render),
-// but spread out enough to look like a real fitness distribution. Golden-angle
-// step avoids an obviously repeating pattern for any population size. Used by
-// the Selection step, which highlights the top two as the chosen parents.
-function makeIllustrativePopulation(size: number): PopulationMember[] {
-    const values = Array.from({ length: size }, (_, i) => 0.28 + 0.6 * Math.abs(Math.sin(i * 2.399913)));
-    const [best, second] = [...values].sort((a, b) => b - a);
-    return values.map(fitness => ({
-        fitness,
-        color: fitness === best ? COL_A : fitness === second ? COL_B : undefined,
-    }));
-}
+// Illustrative round for the Fitness step — mirrors the real formula in
+// game/ga/fitness.ts's calculateFitness exactly (hits × ±100 + win/lose
+// bonus), so the numbers shown are checkable against actual play.
+const FITNESS_EXAMPLE: FitnessRow[] = [
+    { label: 'Hits landed on you', detail: '3 × +100', value:  300 },
+    { label: 'Hits taken from you', detail: '1 × −100', value: -100 },
+    { label: 'Won the round',       detail: 'bonus',    value:  120 },
+];
 
 const PARENT_A: DNA = [0.60, 0.75, 0.50, 0.65, 0.55, 0.70, 0.50, 0.60];
 const PARENT_B: DNA = [0.35, 0.30, 0.70, 0.50, 0.35, 0.60, 0.30, 0.50];
@@ -98,26 +95,29 @@ function buildEvolutionSteps(populationSize: number, presimGenerations: number):
         {
             id:    'population',
             title: 'The Population',
-            body:  `Each of the ${populationSize} candidates on the right is its own individual with its own full DNA. All of them together are one population — the agent you fought was simply its current best. Replace that whole population with a new one, and that's the next generation.`,
+            body:  `One agent per generation would be fragile — a single lucky or unlucky round could steer evolution into a dead end. That's why there are ${populationSize} candidates at once — watch them fill in on the right. Each is its own individual with its own DNA; together they form one population, and swapping the whole roster out makes the next generation.`,
             // Same split layout (text left, arena canvas right) as the DNA
-            // steps and the next "Ghost Replay" step — introducing the swarm
-            // here already, before explaining the mechanism, so it isn't a
-            // new element popping in out of nowhere on the next step.
-            // canShoot=false: they just exist here — actually firing at the
-            // ghost is what the *next* step explains.
-            sideVisual: <GhostArenaVisual canShoot={false} />,
+            // steps and the next "Ghost Replay" step. The roster grid fills
+            // in one candidate at a time — a lone agent stands there first,
+            // visualizing the "one alone would be fragile" argument — and
+            // then stands still; the replay action is what the *next* step
+            // introduces.
+            sideVisual: <GhostArenaVisual variant="lineup" count={populationSize} />,
         },
         {
             id:    'ghost-replay',
             title: 'The Ghost Replay',
-            body:  `Your run gets recorded once. Every candidate — the translucent EAs on the right — replays that exact recording at the same time, instantly, ${presimGenerations}× before your next round.`,
+            body:  `But fighting all ${populationSize} candidates yourself would take ${populationSize} rounds — far too long. Instead, your one round gets recorded — watch on the right — and every candidate replays that exact recording at once, each earning its own fitness, ${presimGenerations}× before your next round.`,
             sideVisual: <GhostArenaVisual />,
         },
         {
             id:    'selection',
             title: 'Selection',
-            body:  "The two candidates that scored best against your ghost — not just the one you fought live — become the parents for the next generation.",
-            visual: <PopulationVisual population={makeIllustrativePopulation(populationSize)} />,
+            body:  "The two candidates with the best fitness against your ghost — not just the one you fought live — become the parents for the next generation. Watch them get picked on the right.",
+            // Same roster grid the Population step introduced, now standing
+            // still while the two parents get highlighted — in the exact
+            // blue/orange the Crossover step's table uses next.
+            sideVisual: <GhostArenaVisual variant="selection" count={populationSize} />,
         },
         {
             id:    'crossover',
@@ -128,8 +128,14 @@ function buildEvolutionSteps(populationSize: number, presimGenerations: number):
         {
             id:    'mutation',
             title: 'Mutation',
-            body:  `Finally it nudges a couple of genes by a small random amount. Repeat that ${presimGenerations === 1 ? 'once' : `${presimGenerations}×`} every real round, and the whole roster gets sharper at handling your exact playstyle — no hidden neural net, just this, over and over.`,
+            body:  'Finally it nudges a couple of genes by a small random amount — little random tweaks that keep the population discovering new tricks.',
             visual: <MutationVisual changes={MUTATION_CHANGES} />,
+        },
+        {
+            id:    'next-generation',
+            title: 'The Next Generation',
+            body:  `Selection, crossover and mutation fill a brand-new population of ${populationSize} — and its best candidate is your next opponent. That cycle repeats after every round: no hidden neural net, just an opponent that keeps adapting to how you play.`,
+            sideVisual: <GhostArenaVisual variant="nextgen" count={populationSize} />,
         },
     ];
 }
@@ -158,6 +164,16 @@ export function TutorialEvolutionExplainer({ onFinish, finishLabel }: TutorialEv
             body:  "All 8 genes work together like this, all the time — there's no hidden neural net, just these numbers. Try dragging a few and watch the EA's whole personality shift on the right.",
             visual: <ShooterDnaSection dna={fullDna} onChange={setFullGene} genes={ALL_GENES} />,
             sideVisual: <DnaPreviewCanvas dna={fullDna} />,
+        },
+        // Fitness comes here — after the player has played with *one* EA, but
+        // before the population steps: "one EA gets a grade" is concrete;
+        // "20 of them get graded at once" builds on it two steps later.
+        {
+            id:    'fitness',
+            title: 'Fitness — Grading an EA',
+            body:  "After every round, the EA gets one score for how well it did — its fitness. Every hit it lands on you counts +100, every hit it takes counts −100, and winning the round adds a bonus on top. The higher the fitness, the better it did against you — it's exactly what the bar at the top of your round was counting.",
+            visual: <FitnessVisual rows={FITNESS_EXAMPLE} />,
+            sideVisual: <FitnessArenaVisual />,
         },
         // Math.max(1, ...): if the player already set presim generations to 0
         // (a valid setting — see evolution.worker.ts), describing "0

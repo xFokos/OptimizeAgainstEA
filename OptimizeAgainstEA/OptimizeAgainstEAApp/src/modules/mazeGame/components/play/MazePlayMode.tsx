@@ -516,6 +516,7 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
           title={filmstripHint.title}
           body={filmstripHint.body}
           actions={[{ label: 'Got it', onClick: closeFilmstripSpotlight, variant: 'primary' }]}
+          onAdvance={closeFilmstripSpotlight}
           onSkip={closeFilmstripSpotlight}
         />
       )}
@@ -525,6 +526,7 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
           title={readyHint.title}
           body={readyHint.body}
           actions={[{ label: 'Got it', onClick: closeReadySpotlight, variant: 'primary' }]}
+          onAdvance={closeReadySpotlight}
           onSkip={closeReadySpotlight}
         />
       )}
@@ -534,6 +536,7 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
           title={firstRunHint.title}
           body={firstRunHint.body}
           actions={[{ label: 'Run it', onClick: releaseRun, variant: 'primary' }]}
+          onAdvance={releaseRun}
           onSkip={releaseRun}
         />
       )}
@@ -543,6 +546,7 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
           title={fitnessHint.title}
           body={fitnessHint.body}
           actions={[{ label: 'Got it', onClick: closeFitnessSpotlight, variant: 'primary' }]}
+          onAdvance={closeFitnessSpotlight}
           onSkip={closeFitnessSpotlight}
         />
       )}

@@ -81,7 +81,13 @@ function RotateOverlay() {
 export default function ShooterGamePage() {
     const navigate             = useNavigate();
     const location             = useLocation();
-    const tutorial             = !!(location.state as { tutorial?: boolean } | null)?.tutorial;
+    const locState             = location.state as { tutorial?: boolean; tutorialMode?: 'solo' | 'raidboss' } | null;
+    const tutorial             = !!locState?.tutorial;
+    // Raidboss-Lobby schickt ihre Übungsrunde ebenfalls hierher (gleiches
+    // Gameplay) — der Modus steuert nur, welcher Explainer am Rundenende
+    // kommt und in welche Lobby es zurückgeht.
+    const tutorialMode         = locState?.tutorialMode ?? 'solo';
+    const lobbyMode            = tutorial && tutorialMode === 'raidboss' ? 'raidboss' : 'normal';
     const { W, H }             = useViewport();
     const isMobileDevice       = Math.min(W, H) < 550;   // kleines Gerät?
     const isPortrait           = H > W;                   // hochkant?
@@ -100,7 +106,7 @@ export default function ShooterGamePage() {
             gameStore.state = null as unknown as typeof gameStore.state;
             gameStore.notify();
         }
-        navigate('/lobby/shooter', { state: { mode: 'normal' } });
+        navigate('/lobby/shooter', { state: { mode: lobbyMode } });
     };
 
     const { containerRef, scale } = useScaledCanvas({
@@ -137,6 +143,7 @@ export default function ShooterGamePage() {
                     externalInputRef={isMobileLandscape ? inputRef : undefined}
                     leaveHandlerRef={leaveHandlerRef}
                     tutorial={tutorial}
+                    tutorialMode={tutorialMode}
                 />
             </GameLayout>
 
@@ -151,7 +158,7 @@ export default function ShooterGamePage() {
                             gameStore.state = null as unknown as typeof gameStore.state;
                             gameStore.notify();
                         }
-                        navigate('/lobby/shooter', { state: { mode: 'normal' } });
+                        navigate('/lobby/shooter', { state: { mode: lobbyMode } });
                     }}
                     style={{
                         position:      'fixed',

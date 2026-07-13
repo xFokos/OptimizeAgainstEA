@@ -124,6 +124,41 @@ export function MutationVisual({ changes, unchangedNote = 'No changes this time 
     );
 }
 
+// ── Fitness: a score breakdown — how one individual's round becomes a grade ──
+
+export interface FitnessRow {
+    label:   string;
+    /** Optional calculation shown between label and value, e.g. "3 × +100". */
+    detail?: string;
+    value:   number;
+}
+
+function signed(v: number): string {
+    return v > 0 ? `+${v}` : `${v}`;
+}
+
+export function FitnessVisual({ rows, totalLabel = 'Fitness' }: { rows: FitnessRow[]; totalLabel?: string }) {
+    const total = rows.reduce((sum, r) => sum + r.value, 0);
+    return (
+        <div className="eaviz">
+            {rows.map(row => (
+                <div key={row.label} className="eaviz__fitnessRow">
+                    <span className="eaviz__geneName">{row.label}</span>
+                    <span className="eaviz__fitnessDetail">{row.detail ?? ''}</span>
+                    <span className={`eaviz__fitnessValue ${row.value >= 0 ? 'eaviz__fitnessValue--pos' : 'eaviz__fitnessValue--neg'}`}>
+                        {signed(row.value)}
+                    </span>
+                </div>
+            ))}
+            <div className="eaviz__fitnessRow eaviz__fitnessRow--total">
+                <span className="eaviz__fitnessTotalLabel">{totalLabel}</span>
+                <span />
+                <span className="eaviz__fitnessTotalValue">{total}</span>
+            </div>
+        </div>
+    );
+}
+
 // ── Generations: the same population, early vs. many generations later ───
 
 export function GenerationsVisual({ early, later, earlyLabel = 'Generation 1', laterLabel = 'Generation 50' }: {

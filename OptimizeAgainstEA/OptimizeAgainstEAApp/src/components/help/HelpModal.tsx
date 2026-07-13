@@ -26,12 +26,12 @@ export function HelpModal({ topic, onClose, onTakeTour }: HelpModalProps) {
     return (
         <div className="overlay" onClick={onClose}>
             <div className="modal modal--wide help-modal" onClick={e => e.stopPropagation()}>
+                <button className="help-modal__close" onClick={onClose} aria-label="Close">×</button>
                 <img className="help-modal__compi" src={compiImg} alt="" />
 
                 <div className="help-modal__content">
                     <div className="help-modal__header">
                         <h2 className="help-modal__title">{def.title}</h2>
-                        <button className="help-modal__close" onClick={onClose} aria-label="Close">×</button>
                     </div>
 
                     <div className="help-modal__tabs">

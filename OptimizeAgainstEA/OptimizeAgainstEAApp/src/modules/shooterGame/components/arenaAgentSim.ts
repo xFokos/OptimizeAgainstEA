@@ -79,10 +79,66 @@ export function stepArenaAgent(
     return { cooldown: nextCooldown, bullet };
 }
 
-/** Draws the standard orange EA triangle, facing `agent.rot`, at `agent`'s
- * current position — shared so every preview canvas's agent looks identical. */
-export function drawArenaAgentTriangle(ctx: CanvasRenderingContext2D, agent: ArenaAgentState, opacity = 1) {
+// ---- Shared staging helpers for the explainer preview canvases ----
+// (GhostArenaVisual, RaidbossArenaVisual, HordeArenaVisual). Live here — a
+// plain .ts module — instead of one of the component files, since exporting
+// helpers from a .tsx component file trips react-refresh's
+// only-export-components rule.
+
+export const clamp01 = (v: number) => Math.min(Math.max(v, 0), 1);
+
+export const bulletHits = (b: ArenaBullet, x: number, y: number, r: number) =>
+    (b.x - x) ** 2 + (b.y - y) ** 2 < (r + BULLET_RADIUS) ** 2;
+
+/** Deterministic circular patrol path around the arena center — the standard
+ * "recorded player run" every preview canvas uses as its moving target. */
+export function patrol(time: number, angSpeed: number, orbitR: number): ArenaTarget {
+    const cx = ARENA_SIZE / 2, cy = ARENA_SIZE / 2;
+    const ang = time * angSpeed;
+    return {
+        x:  cx + Math.cos(ang) * orbitR,
+        y:  cy + Math.sin(ang) * orbitR,
+        vx: -Math.sin(ang) * orbitR * angSpeed,
+        vy:  Math.cos(ang) * orbitR * angSpeed,
+    };
+}
+
+/** Centered roster grid (short last row centered) with a tiny deterministic
+ * per-candidate tilt/opacity spread so they read as individuals. */
+export function lineupSpots(count: number) {
+    const cols   = Math.ceil(Math.sqrt(count));
+    const rows   = Math.ceil(count / cols);
+    const margin = ARENA_SIZE * 0.16;
+    const stepX  = cols > 1 ? (ARENA_SIZE - margin * 2) / (cols - 1) : 0;
+    const stepY  = rows > 1 ? (ARENA_SIZE - margin * 2) / (rows - 1) : 0;
+
+    return Array.from({ length: count }, (_, i) => {
+        const row   = Math.floor(i / cols);
+        const col   = i % cols;
+        const inRow = row === rows - 1 ? count - row * cols : cols;
+        return {
+            x: cols > 1 ? margin + ((cols - inRow) * stepX) / 2 + col * stepX : ARENA_SIZE / 2,
+            y: rows > 1 ? margin + row * stepY : ARENA_SIZE / 2,
+            rot:     -Math.PI / 2 + Math.sin(i * 2.7) * 0.14,
+            opacity: 0.5 + 0.45 * Math.abs(Math.sin(i * 3.3)),
+        };
+    });
+}
+
+export function drawGenLabel(ctx: CanvasRenderingContext2D, label: string, color = 'rgba(255,255,255,0.6)') {
+    ctx.font         = "700 12px 'JetBrains Mono', monospace";
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle    = color;
+    ctx.fillText(label, ARENA_SIZE / 2, 16);
+}
+
+/** Draws the standard EA triangle (orange unless overridden), facing
+ * `agent.rot`, at `agent`'s current position — shared so every preview
+ * canvas's agent looks identical. */
+export function drawArenaAgentTriangle(ctx: CanvasRenderingContext2D, agent: ArenaAgentState, opacity = 1, color = '#f97316') {
     ctx.save();
+    ctx.globalAlpha *= opacity;
     ctx.translate(agent.x, agent.y);
     ctx.rotate(agent.rot);
     ctx.beginPath();
@@ -90,7 +146,7 @@ export function drawArenaAgentTriangle(ctx: CanvasRenderingContext2D, agent: Are
     ctx.lineTo(-7, 6);
     ctx.lineTo(-7, -6);
     ctx.closePath();
-    ctx.fillStyle = opacity >= 1 ? '#f97316' : `rgba(249, 115, 22, ${opacity})`;
+    ctx.fillStyle = color;
     ctx.fill();
     ctx.restore();
 }

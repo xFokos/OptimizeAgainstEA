@@ -7,6 +7,7 @@ import {
     DNA_LENGTH,
     DNA_NAMES,
     TUTORIAL_DNA,
+    TUTORIAL_COMPLETED_KEY,
     type GameState,
     type GamePhase,
     type InputState,
@@ -451,6 +452,12 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                 scoreCoachmarkShownRef.current = true;
                 setShowScoreCoachmark(true);
             }
+            // Getting close to actually winning → the "You've got it" step has
+            // clearly served its purpose; move on to the score-bar coachmark
+            // automatically instead of making the player dismiss it by hand.
+            if (tutorial && tutorialStepRef.current === 'done' && newScore >= Math.max(1, threshold - 5)) {
+                setTutorialBubbleClosed(true);
+            }
             if (Math.abs(newScore) >= threshold) {
                 setPhase('roundEnd');
                 pushRoundAnalytics(next);
@@ -507,6 +514,9 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
     // Tutorial ist eine einzige Runde ohne Evolution/Fortsetzung — Store leeren
     // damit ein späteres echtes "Play" nicht in dieser Runde landet.
     const finishTutorial = async () => {
+        // Ab jetzt bietet der Tutorial-Button in der Lobby das Auswahlfenster
+        // (Übungsrunde / Explainer einzeln) statt des kompletten Durchlaufs an.
+        localStorage.setItem(TUTORIAL_COMPLETED_KEY, '1');
         if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
         gameStore.state = null as unknown as typeof gameStore.state;
         gameStore.notify();
@@ -712,9 +722,14 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
     // Only ever one Compi bubble on screen at a time — the score coachmark
     // waits its turn until the move/aim/shoot chain is dismissed, rather
     // than stacking on top of it.
+    // Distinct keys: both branches are a CompiBubble at the same tree
+    // position, so without them React reuses the mounted DOM node across the
+    // swap — the old bubble visibly teleports bottom-right → top-right with
+    // hard-swapped text instead of leaving and letting the new one pop in.
     const tutorialCoachmark = (tutorial && phase === 'playing')
         ? (!tutorialBubbleClosed ? (
             <CompiBubble
+                key="tutorial-step"
                 title={TUTORIAL_STEP_CONTENT[tutorialStep].title}
                 body={TUTORIAL_STEP_CONTENT[tutorialStep].body}
                 actions={tutorialStep === 'done'
@@ -724,6 +739,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
             />
         ) : (showScoreCoachmark && !scoreCoachmarkClosed) ? (
             <CompiBubble
+                key="score-coachmark"
                 title={TUTORIAL_SCORE_CONTENT.title}
                 body={TUTORIAL_SCORE_CONTENT.body}
                 actions={[{ label: 'Got it', onClick: () => setScoreCoachmarkClosed(true), variant: 'primary' }]}
@@ -925,7 +941,10 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                 {/* Same reasoning as above — a full walkthrough deserves the
                  * whole screen, not the cramped 800px canvas. */}
                 {tutorial && tutorialEvolutionVisible && createPortal(
-                    <div className={styles.fullscreenOverlay}>
+                    <div className="explainer-takeover">
+                        <button className="btn btn--ghost btn--sm explainer-takeover__back" onClick={finishTutorial}>
+                            ← Back to Lobby
+                        </button>
                         <TutorialEvolutionExplainer
                             onFinish={finishTutorial}
                             finishLabel="Finish Tutorial → Lobby"

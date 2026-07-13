@@ -133,24 +133,6 @@
     box-sizing: border-box;
 }
 
-/* Tutorial's DNA/evolution explainer breaks out of the (small, scaled) game
-   canvas entirely — rendered via a portal (see createPortal in the component)
-   as a true full-viewport takeover, same reasoning as the Compi coachmarks:
-   `.wrapper`'s transform would otherwise confine it to the canvas's own box. */
-.fullscreenOverlay {
-    position: fixed;
-    inset: 0;
-    z-index: 500;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(10, 10, 15, 0.92);
-    backdrop-filter: blur(6px);
-    overflow-y: auto;
-    padding: 40px 16px;
-    box-sizing: border-box;
-}
-
 .title {
     font-family: 'JetBrains Mono', monospace;
     font-size: 28px;

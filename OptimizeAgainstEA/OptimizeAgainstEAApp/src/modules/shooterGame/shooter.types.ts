@@ -204,6 +204,17 @@ export const TUTORIAL_DNA: DNA = [
     0,    // BULLET_SPEED    – langsamste Kugeln
 ];
 
+// Gesetzt (localStorage) sobald das Tutorial einmal komplett durchlaufen wurde
+// (Übungsrunde + DNA/EA-Explainer) — danach öffnet der Tutorial-Button in der
+// Lobby ein Auswahlfenster statt direkt die Übungsrunde zu starten.
+export const TUTORIAL_COMPLETED_KEY = 'shooter.tutorial.completed';
+
+// Gleiche Mechanik für die beiden anderen Modi: erster Tutorial-Durchlauf ist
+// der komplette Fluss (Übungsrunde → modusspezifischer Explainer), danach
+// öffnet der jeweilige Tutorial-Button das Auswahlfenster.
+export const HORDE_TUTORIAL_COMPLETED_KEY    = 'horde.tutorial.completed';
+export const RAIDBOSS_TUTORIAL_COMPLETED_KEY = 'raidboss.tutorial.completed';
+
 // ---- Player Ghosting ----
 export interface PlayerGhostFrame {
     position: Vector2D;

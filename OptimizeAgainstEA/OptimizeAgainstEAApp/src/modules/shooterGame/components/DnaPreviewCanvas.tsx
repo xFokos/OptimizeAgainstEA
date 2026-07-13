@@ -117,9 +117,14 @@ export function DnaPreviewCanvas({ dna }: DnaPreviewCanvasProps) {
             agentCooldown = cooldown;
             if (bullet) bullets.push({ ...bullet, owner: 'agent' });
 
+            // Impact check: bullets stop at whoever they were fired at instead
+            // of phasing through (cheap — a couple of distance checks each).
+            const hits = (b: ArenaBullet, x: number, y: number, r: number) =>
+                (b.x - x) ** 2 + (b.y - y) ** 2 < (r + BULLET_RADIUS) ** 2;
             bullets = bullets
                 .map(b => ({ ...b, x: b.x + b.vx * dt, y: b.y + b.vy * dt, life: b.life - dt }))
-                .filter(b => b.life > 0 && b.x > -20 && b.x < ARENA_SIZE + 20 && b.y > -20 && b.y < ARENA_SIZE + 20);
+                .filter(b => b.life > 0 && b.x > -20 && b.x < ARENA_SIZE + 20 && b.y > -20 && b.y < ARENA_SIZE + 20)
+                .filter(b => !(b.owner === 'player' ? hits(b, agent.x, agent.y, AGENT_RADIUS) : hits(b, player.x, player.y, 7)));
 
             // ---- Draw ----
             ctx.clearRect(0, 0, ARENA_SIZE, ARENA_SIZE);

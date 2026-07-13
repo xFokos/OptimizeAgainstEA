@@ -47,6 +47,8 @@ button.help-button {
     text-align:     left;
     flex-direction: row;
     align-items:    flex-start;
+    /* Containing block für das absolut verankerte × (help-modal__close). */
+    position:       relative;
 }
 
 .help-modal__compi {
@@ -65,6 +67,25 @@ button.help-button {
     gap:            var(--sp-5, 20px);
     min-width:      0;
     flex:           1;
+}
+
+/* ── Chooser-Variante (TutorialChooserModal): wenig Inhalt, daher darf das
+   Modal sein overflow aufgeben — Compi ist größer und ragt oben/links über
+   die Fensterkante hinaus. Er bleibt im Flex-Flow (negative Margins statt
+   absolute Positionierung), kann den Content rechts also nie überdecken. ── */
+/* .modal davor: dessen overflow-y:auto hat als spätere gleich-spezifische
+   Regel sonst Vorrang (Import-Reihenfolge der Primitives) und clippt Compi. */
+.modal.help-modal--chooser {
+    width:    min(640px, 94vw);
+    overflow: visible;
+}
+.help-modal--chooser .help-modal__compi {
+    width:  170px;
+    margin: -56px 0 0 -64px;
+}
+@media (max-width: 560px) {
+    /* Column-Layout: kein Platz zum Rausragen nach links — nur leicht nach oben. */
+    .help-modal--chooser .help-modal__compi { width: 120px; margin: -44px 0 0 0; }
 }
 
 @media (max-width: 560px) {
@@ -87,7 +108,11 @@ button.help-button {
 }
 
 .help-modal__close {
-    flex-shrink:  0;
+    /* Fest an der Modal-Ecke, unabhängig vom Content-Flow — so sitzt es auch
+       dann oben rechts, wenn der Inhalt kurz oder vertikal zentriert ist. */
+    position:     absolute;
+    top:          14px;
+    right:        14px;
     width:        28px;
     height:       28px;
     display:      flex;

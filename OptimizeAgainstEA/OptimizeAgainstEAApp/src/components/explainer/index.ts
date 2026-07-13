@@ -4,5 +4,5 @@
 
 export { ExplainerFlow } from './ExplainerFlow';
 export type { ExplainerStep } from './ExplainerFlow';
-export { PopulationVisual, CrossoverVisual, MutationVisual, GenerationsVisual } from './eaConceptVisuals';
-export type { PopulationMember, CrossoverGene, MutationChange } from './eaConceptVisuals';
+export { PopulationVisual, CrossoverVisual, MutationVisual, GenerationsVisual, FitnessVisual } from './eaConceptVisuals';
+export type { PopulationMember, CrossoverGene, MutationChange, FitnessRow } from './eaConceptVisuals';

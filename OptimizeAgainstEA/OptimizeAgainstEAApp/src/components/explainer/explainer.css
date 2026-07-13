@@ -53,6 +53,35 @@
 	z-index:         1;
 }
 
+/* ── Fullscreen takeover host — for showing an ExplainerFlow as a whole-screen
+   overlay (in-game tutorial walkthrough, lobby "revisit a tutorial part").
+   Gives `.explainer` the sized, positioned ancestor it needs (see NOTE above)
+   while escaping any transformed/scaled game wrapper — portal this to
+   document.body. ─────────────────────────────────────────────────────────── */
+.explainer-takeover {
+	position:        fixed;
+	inset:           0;
+	z-index:         500;
+	display:         flex;
+	align-items:     center;
+	justify-content: center;
+	background:      rgba(10, 10, 15, 0.92);
+	backdrop-filter: blur(6px);
+	overflow-y:      auto;
+	padding:         40px 16px;
+	box-sizing:      border-box;
+}
+
+/* Escape hatch back to wherever the takeover was opened from — hosts render
+   this themselves (the destination differs per host), the class just pins it
+   to the takeover's top-left corner. */
+.explainer-takeover__back {
+	position: absolute;
+	top:      var(--sp-4, 16px);
+	left:     var(--sp-4, 16px);
+	z-index:  2;
+}
+
 /* ── Body: progress + stage, centered in the remaining space ─────────────── */
 .explainer__body {
 	display:         flex;

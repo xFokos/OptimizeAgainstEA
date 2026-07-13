@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useHints, HINTS, TourSpotlight } from '../../../components/hints';
 import type { HintId } from '../../../components/hints';
@@ -14,6 +15,9 @@ import { lobbyStyles, tabStyles, mobilePageStyle, mobileBtnsStyle } from './lobb
 import { PRESETS, LOBBY_TABS, LOBBY_TAB_LABELS, type PresetId, type LobbyTab } from './lobbyConstants';
 import { ShooterPreview } from './previews/ShooterPreview';
 import { SoloPlayOverview } from './SoloPlayOverview';
+import { TutorialChooserModal } from './TutorialChooserModal';
+import { TutorialEvolutionExplainer } from '../components/tutorialEvolutionContent';
+import { TUTORIAL_COMPLETED_KEY } from '../shooter.types';
 
 // ---- Normal Lobby ----
 
@@ -137,6 +141,43 @@ export function NormalLobby() {
         navigate('/ShooterGame', { state: { tutorial: true } });
     };
 
+    // Tutorial-Button: erster Durchlauf startet direkt die Übungsrunde (die am
+    // Ende in den DNA/EA-Explainer mündet). Sobald das einmal abgeschlossen
+    // wurde (Flag gesetzt in ShooterCanvas' finishTutorial), öffnet der Button
+    // stattdessen ein Auswahlfenster, um gezielt einen Teil zu wiederholen.
+    const [tutorialChooserOpen, setTutorialChooserOpen] = useState(false);
+    const [explainerOpen, setExplainerOpen]             = useState(false);
+    const openTutorial = () => {
+        if (localStorage.getItem(TUTORIAL_COMPLETED_KEY)) setTutorialChooserOpen(true);
+        else void startPractice();
+    };
+
+    const tutorialOverlays = (
+        <>
+            {tutorialChooserOpen && (
+                <TutorialChooserModal
+                    onClose={() => setTutorialChooserOpen(false)}
+                    onPractice={() => { setTutorialChooserOpen(false); void startPractice(); }}
+                    onExplainer={() => { setTutorialChooserOpen(false); setExplainerOpen(true); }}
+                />
+            )}
+            {/* Portal: der Desktop-Wrapper hat `zoom` — als echtes Fullscreen-
+              * Takeover gehört der Explainer in den unskalierten Viewport. */}
+            {explainerOpen && createPortal(
+                <div className="explainer-takeover">
+                    <button className="btn btn--ghost btn--sm explainer-takeover__back" onClick={() => setExplainerOpen(false)}>
+                        ← Back to Lobby
+                    </button>
+                    <TutorialEvolutionExplainer
+                        onFinish={() => setExplainerOpen(false)}
+                        finishLabel="Back to Lobby"
+                    />
+                </div>,
+                document.body,
+            )}
+        </>
+    );
+
     const tabBar = (
         <div ref={tabBarRef} style={{ ...tabStyles.bar, overflowX: 'auto', flexWrap: 'nowrap' as const, flexShrink: 0 }}>
             {LOBBY_TABS.map(t => (
@@ -219,12 +260,13 @@ export function NormalLobby() {
                 </div>
                 <div style={mobileBtnsStyle}>
                     <HelpButton topic="shooter.solo" onTakeTour={startTour} />
-                    <button className="btn btn--outline btn--sm" onClick={startPractice}>Tutorial</button>
+                    <button className="btn btn--outline btn--sm" onClick={openTutorial}>Tutorial</button>
                     <button ref={playBtnRef} className="btn btn--primary btn--lg" style={{ flex: 1 }} onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
                         {hasActiveGame ? 'Continue →' : 'Play →'}
                     </button>
                 </div>
                 {tourOverlay}
+                {tutorialOverlays}
             </div>
         );
     }
@@ -256,12 +298,13 @@ export function NormalLobby() {
             </div>
 
             <div style={{ ...lobbyStyles.rightBottom, gap: 10 }}>
-                <button className="btn btn--outline btn--lg" onClick={startPractice}>Tutorial</button>
+                <button className="btn btn--outline btn--lg" onClick={openTutorial}>Tutorial</button>
                 <button ref={playBtnRef} className="btn btn--primary btn--lg" onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
                     {hasActiveGame ? 'Continue →' : 'Play →'}
                 </button>
             </div>
             {tourOverlay}
+            {tutorialOverlays}
         </div>
     );
 }
