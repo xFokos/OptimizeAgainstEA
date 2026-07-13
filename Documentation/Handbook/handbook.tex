@@ -1,0 +1,607 @@
+% =====================================================================
+%  Optimize Against EA — Handbook / User Manual
+%  GameLab 2 (2025) — Julius-Maximilians-Universität Würzburg
+%  Authors: Philipp Sehne, David Ahrens
+%
+%  Build:  pdflatex handbook.tex   (run twice for TOC/links)
+%  Screenshots go into ./figures/ — placeholders are marked with \todo.
+% =====================================================================
+\documentclass[11pt,a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage[colorlinks=true, linkcolor=blue!50!black, urlcolor=blue!50!black]{hyperref}
+
+\graphicspath{{figures/}}
+
+% --- small helpers ----------------------------------------------------
+\newcommand{\todo}[1]{\textcolor{red!70!black}{\textbf{[TODO: #1]}}}
+\newcommand{\route}[1]{\texttt{#1}}          % app route, e.g. \route{/PeakFinder}
+\newcommand{\uielem}[1]{\textsf{\textbf{#1}}} % UI element, e.g. \uielem{Start EA}
+\newcommand{\key}[1]{\fbox{\small\texttt{#1}}} % keyboard key
+
+% Placeholder figure box until real screenshots exist
+\newcommand{\screenshot}[2]{%
+  \begin{figure}[htbp]
+    \centering
+    \fbox{\parbox[c][5cm][c]{0.85\textwidth}{\centering \todo{Screenshot: #1}}}
+    \caption{#2}
+  \end{figure}}
+
+\title{\Huge\textbf{Optimize Against EA}\\[1ex]
+       \LARGE Handbook \& User Manual\\[2ex]
+       \large GameLab~2 --- Julius-Maximilians-Universität Würzburg}
+\author{Philipp Sehne \\ \small\texttt{Philipp.Sehne@stud-mail.uni-wuerzburg.de}
+   \and David Ahrens  \\ \small\texttt{David.Ahrens@stud-mail.uni-wuerzburg.de}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+% =====================================================================
+\chapter{Introduction}
+% =====================================================================
+
+\section{What is Optimize Against EA?}
+
+\emph{Optimize Against EA} is an educational web application that teaches
+optimization concepts --- in particular \textbf{Evolutionary Algorithms (EAs)}
+--- through a collection of interactive mini-games. Instead of reading about
+selection, crossover and mutation in the abstract, players \emph{experience}
+them: they compete against an EA, watch populations evolve step by step, and
+experiment with the algorithm's parameters to see how behaviour changes.
+
+The application contains three main mini-games, each highlighting a different
+facet of evolutionary optimization:
+
+\begin{description}[style=nextline]
+  \item[Peak Finder (\route{/PeakFinder})]
+    Probe a hidden function surface to find its global minimum --- solo, or
+    in competition with an EA whose every generation can be replayed and
+    dissected step by step.
+  \item[Maze Explorer (\route{/MazeExplorer})]
+    Explore an invisible maze by hand, then watch an EA solve the same maze
+    --- and discover how the choice of \emph{fitness function} (Euclidean
+    distance, geodesic distance, novelty search) completely changes the
+    algorithm's behaviour.
+  \item[Shooter Game (\route{/ShooterGame})]
+    Fight waves of enemy agents whose behaviour is encoded as DNA and evolved
+    by a genetic algorithm between rounds --- the enemies literally adapt to
+    \emph{your} play style.
+\end{description}
+
+\section{Who is this manual for?}
+
+This handbook is aimed at \textbf{players and instructors}: it explains how to
+start the application, how to play each game, and what each control and
+setting means. No programming knowledge is required.
+
+Developers looking for the programmatic interfaces (engine functions, type
+contracts, worker protocols) should consult the separate
+\textbf{API documentation} instead.
+
+\section{Educational goals}
+
+Playing through the games, a player encounters the following concepts:
+
+\begin{itemize}
+  \item search spaces, local vs.\ global optima, deceptive landscapes;
+  \item the evolutionary loop: evaluation $\to$ selection $\to$ crossover
+        $\to$ mutation $\to$ new generation;
+  \item elitism and premature convergence;
+  \item fitness shaping --- how the \emph{same} EA succeeds or fails
+        depending on how fitness is defined;
+  \item novelty search --- why \emph{not} chasing the goal can outperform
+        chasing it;
+  \item continuous genomes (points on a surface), discrete genomes
+        (move sequences), and behavioural genomes (agent DNA).
+\end{itemize}
+
+% =====================================================================
+\chapter{Getting Started}
+% =====================================================================
+
+\section{Playing online (recommended)}
+
+The easiest way to use the application is the live deployment:
+
+\begin{center}
+  \large\url{https://OptimizeAgainstEA.web.app}
+\end{center}
+
+No installation is required. The app runs entirely in the browser
+(client-side); a modern browser is the only prerequisite.
+
+\section{System requirements}
+
+\begin{itemize}
+  \item \textbf{Browser:} a current version of Chrome, Firefox, Edge or Safari.
+  \item \textbf{Input:} mouse + keyboard \emph{or} touch screen. No gamepad
+        is required. The games are playable on desktop and mobile devices
+        \todo{note current state of mobile support below 640px}.
+  \item \textbf{Network:} only needed to load the page (and for the
+        community Raidboss feature, which uses Firebase).
+\end{itemize}
+
+\section{Running locally from source}
+
+For local use (e.g.\ offline demos), the app can be built from source.
+Requirements: \href{https://nodejs.org/}{Node.js} (developed with v24.x;
+v20+ should work) and \texttt{npm}.
+
+\begin{enumerate}
+  \item Open a terminal in \texttt{OptimizeAgainstEA/OptimizeAgainstEAApp}.
+  \item Install dependencies: \texttt{npm install}
+  \item Start the development server: \texttt{npm run dev}\\
+        Vite prints a local URL (default \url{http://localhost:5173});
+        open it in your browser.
+\end{enumerate}
+
+To create a production build instead, run \texttt{npm run build}; the static
+output in \texttt{dist/} can be served by any web server
+(\texttt{npm run preview} serves it locally).
+
+\section{First steps in the app}
+
+\begin{enumerate}
+  \item The \textbf{home page} (\route{/}) welcomes you and leads to the
+        \textbf{Dashboard} (\route{/Dashboard}), the central game-selection
+        screen.
+  \item Pick a game. Each game page has its own mode selector and settings.
+  \item Look for the \uielem{?}~help buttons and the \uielem{Hints} toggle
+        (light-bulb icon) --- see Section~\ref{sec:help-system}.
+\end{enumerate}
+
+\screenshot{Dashboard / game selection screen}{The Dashboard --- entry point
+to all mini-games.}
+
+\section{The built-in help and hint systems}
+\label{sec:help-system}
+
+The application ships with two layers of in-app assistance:
+
+\begin{description}[style=nextline]
+  \item[Help dialogs (\uielem{?} buttons)]
+    Open a modal with two tabs: \uielem{Gameplay} (how to play) and
+    \uielem{Technical} (what the algorithm is doing). Available on the
+    shooter modes and other game screens.
+  \item[Contextual hints (\uielem{light-bulb} toggle)]
+    When enabled, short coach-marks and toasts appear at the right moment
+    during play --- e.g.\ after your first probe in Peak Finder, a hint
+    explains that the EA has just advanced a generation. Hints can be
+    switched off at any time and re-armed with the \uielem{Reset} button.
+    Your preference is remembered between visits.
+\end{description}
+
+% =====================================================================
+\chapter{Peak Finder}
+% =====================================================================
+\label{ch:peakfinder}
+
+\section{Concept}
+
+Peak Finder (\route{/PeakFinder}) is a search-space exploration game in the
+spirit of \emph{Battleships}. A function surface is hidden from you: every
+point on the map has a value between $0$ (the global minimum --- the point
+you are looking for) and $1$ (far away from any minimum). The surface also
+contains \emph{local} minima --- traps that look promising but are not the
+true goal.
+
+You explore by placing \textbf{probes}. Each probe reveals the surface in a
+small circle around it (as contour lines or a heat map), giving you partial
+information to plan your next probe. You win by placing a probe inside the
+\textbf{win radius} around the global minimum.
+
+\screenshot{Peak Finder play mode with several probes and revealed
+contours}{Peak Finder: probing a hidden surface. Contours are only revealed
+near your probes.}
+
+\section{Game modes}
+
+Peak Finder has three modes, selectable at the top of the page:
+
+\subsection{Play}
+
+The classic solo mode. Load a map (a random one, a saved one, or one shared
+via code --- see Section~\ref{sec:mapcodes}), then click/tap anywhere to
+probe. The interface shows your probe history and your best probe so far.
+Find the global minimum in as few probes as you can.
+
+\begin{itemize}
+  \item \textbf{Probe:} click / tap a location on the map.
+  \item \textbf{Visualization:} switch between \uielem{Contour} and
+        \uielem{Heatmap} display of the revealed areas.
+  \item \textbf{Win:} a probe inside the win radius triggers the win
+        overlay, which shows your statistics.
+\end{itemize}
+
+\subsection{Create}
+
+Build your own maps. Place up to 12 local minima on the map (a minimum
+spacing between minima is enforced), then choose which one is the
+\emph{global} minimum. Dashed rings preview each minimum's zone. Finished
+maps can be saved locally and exported as a \textbf{map code} to share with
+others.
+
+\subsection{Vs EA}
+
+The centerpiece mode: you and an Evolutionary Algorithm search the
+\emph{same} hidden map --- and this time it is a race.
+
+\begin{itemize}
+  \item You probe as usual. For every probe you place, the EA advances a
+        fixed number of \textbf{generations} (configurable).
+  \item The EA maintains a \textbf{population} of candidate points. It wins
+        when a sufficient fraction of its population (default 10\%)
+        gathers inside the win radius.
+  \item After each of your probes you can open the \uielem{Replay} viewer
+        to inspect exactly what the EA just did
+        (Section~\ref{sec:replay}).
+  \item If the EA solves the map first, you may study its solution and try
+        to beat it in a second attempt.
+\end{itemize}
+
+\section{The EA settings panel}
+\label{sec:ea-settings}
+
+In Vs~EA mode you control the algorithm you are playing against. The
+settings panel exposes the following parameters (defaults in parentheses):
+
+\begin{center}
+\begin{tabularx}{\textwidth}{l l X}
+  \toprule
+  \textbf{Setting} & \textbf{Default} & \textbf{Meaning} \\
+  \midrule
+  Population size & 40 &
+    Number of candidate points the EA maintains per generation. Larger
+    populations explore more but converge more slowly. \\
+  Max.\ generations & 200 &
+    Upper limit on generations before the EA gives up. \\
+  Crossover rate & 0.8 &
+    Probability that two parents are recombined (instead of copied). \\
+  Mutation rate & 0.3 &
+    Probability that an offspring is mutated. \\
+  Mutation strength & 0.25 &
+    How far a mutation can move a point across the map. \\
+  Mutation decay & 0.97 &
+    Per-generation factor shrinking the mutation strength --- the EA takes
+    big steps early and fine-tunes later. \\
+  Win fraction & 0.10 &
+    Fraction of the population that must sit inside the win radius for the
+    EA to win. \\
+  Selection & tournament &
+    How parents are chosen: \emph{tournament}, \emph{roulette} or
+    \emph{elitist}. \\
+  Crossover & arithmetic &
+    How two parents combine: \emph{arithmetic} (blend), \emph{uniform} or
+    \emph{single-point}. \\
+  Mutation & gaussian &
+    Shape of the random perturbation: \emph{gaussian}, \emph{uniform} or
+    \emph{cauchy} (occasional long jumps). \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+Experimenting with these is the point of the game: try a huge mutation
+strength and watch the population scatter; switch selection to
+\emph{elitist} and watch it converge prematurely into a local minimum.
+
+\section{The replay viewer}
+\label{sec:replay}
+
+The replay viewer is a full-screen overlay that replays the EA's last
+generations \textbf{phase by phase}:
+
+\begin{center}
+  \emph{initial} $\to$ \emph{sorted} $\to$ \emph{elite} $\to$
+  \emph{breeding} $\to$ \emph{mutating} $\to$ \emph{new generation} $\to$
+  \emph{win check}
+\end{center}
+
+The left side shows the population as dots gliding across the map; the right
+side lists every individual with its fitness and a role badge
+(\uielem{ELITE}, \uielem{PARENT~A}, \uielem{PARENT~B}, \uielem{CHILD},
+\uielem{WIN}). Use the playback controls to step forward/backward or let it
+autoplay. A fitness chart tracks the population's best value across
+generations.
+
+\screenshot{EA replay overlay with population dots and individual list}
+{The replay viewer: every selection, crossover and mutation made visible.}
+
+\section{Sharing maps: map codes}
+\label{sec:mapcodes}
+
+Every map can be exported as a short text code (via the \uielem{Code}
+dialog) and imported on any other device. Codes encode the minima positions,
+the global minimum and the win radius. Saved maps and saved function
+problems are also kept in a local sidebar for quick access.
+
+\section{Function Tuner}
+
+The \route{/FunctionTuner} page is a companion tool for adjusting the
+mathematical functions used as Peak Finder problems --- useful for
+instructors preparing specific landscapes. \todo{Short description of the
+FunctionTuner workflow once its UI is final.}
+
+% =====================================================================
+\chapter{Maze Explorer}
+% =====================================================================
+\label{ch:maze}
+
+\section{Concept}
+
+Maze Explorer (\route{/MazeExplorer}) is a teaching exhibit built around a
+simple contrast: \emph{you} explore an invisible maze step by step ---
+then an EA explores the same maze with a whole population at once.
+
+The maze is procedurally generated from a visible \textbf{seed}, so the
+exact same maze can be re-run under different settings --- the key to the
+mode's central experiment.
+
+\section{Playing the maze yourself}
+
+In \uielem{Play} mode the maze is hidden under fog-of-war. You move with the
+arrow keys (\key{$\uparrow$}\,\key{$\downarrow$}\,\key{$\leftarrow$}\,\key{$\rightarrow$});
+each move reveals your current cell and its reachable neighbours. Reach the
+target cell to finish. Your explored trail is kept --- it becomes the
+baseline against which the EA's exploration is compared.
+
+\screenshot{Maze play mode with fog-of-war and partially revealed
+corridors}{Exploring the maze by hand under fog-of-war.}
+
+\section{The experiment mode}
+
+\uielem{Experiment} mode is the heart of the game. Here an EA solves the
+maze while you watch and dissect:
+
+\begin{itemize}
+  \item Each \textbf{individual} in the population is a complete
+        \emph{path}: a fixed-length sequence of moves
+        (\key{U}/\key{D}/\key{L}/\key{R}). Moves into walls are simply
+        ignored.
+  \item The whole population is drawn as translucent \textbf{trails} on the
+        maze: generation~1 is chaotic scribble; over generations the trails
+        braid into a clean route to the goal.
+  \item A per-generation \textbf{replay} (like Peak Finder's,
+        Section~\ref{sec:replay}) dissects selection, crossover and
+        mutation. Crossover is especially vivid here: the child follows
+        parent~A's route up to the splice cell, then continues on
+        parent~B's.
+\end{itemize}
+
+\section{Fitness functions: the headline experiment}
+\label{sec:maze-fitness}
+
+The maze offers several \textbf{selectable fitness functions}, and comparing
+them on the \emph{same seeded maze} is the game's main lesson:
+
+\begin{description}[style=nextline]
+  \item[Euclidean distance to goal]
+    Rewards ending close to the goal as the crow flies. On most mazes this
+    is \emph{deceptive}: the population piles up against the wall nearest
+    the goal and gets stuck. Teaches: deceptive landscapes and premature
+    convergence.
+  \item[Geodesic distance to goal]
+    Rewards ending close to the goal \emph{through the corridors} (true
+    walking distance). The same EA now climbs cleanly to the exit.
+    Teaches: fitness shaping can fix a broken search.
+  \item[Novelty search]
+    Ignores the goal entirely and rewards reaching cells that no previous
+    individual has reached. Counter-intuitively, this often finds the exit
+    when goal-chasing fails --- the classic Lehman \& Stanley maze result.
+    Teaches: sometimes \emph{not} aiming at the objective works better.
+  \item[Length / efficiency penalty]
+    Additionally rewards reaching the goal in fewer moves.
+    Teaches: multi-objective tension between exploration and efficiency.
+\end{description}
+
+\textbf{Suggested experiment:} note the maze seed, run the EA with Euclidean
+fitness and watch it get trapped; then re-run the identical maze with
+geodesic fitness, then with novelty search. Same maze, same algorithm ---
+three completely different behaviours.
+
+\section{Create mode}
+
+\uielem{Create} mode lets you generate and save mazes (seed-based) for later
+sessions. Saved mazes appear in a sidebar; like Peak Finder maps they can be
+shared via codes. \todo{Confirm final Create-mode feature set.}
+
+% =====================================================================
+\chapter{Shooter Game}
+% =====================================================================
+\label{ch:shooter}
+
+\section{Concept}
+
+The Shooter Game (\route{/ShooterGame}) is a top-down arena shooter with a
+twist: the enemies are controlled by a \textbf{genetic algorithm}. Each
+enemy agent's behaviour is encoded as a strand of \textbf{DNA} --- seven
+genes controlling aggression, dodging, accuracy, preferred range, speed,
+aim prediction and fire rate. Between rounds the population \emph{evolves},
+using a recording (``ghost'') of your previous round as training data. The
+enemies do not just get harder --- they adapt to \emph{how you play}.
+
+\section{Controls}
+
+\begin{center}
+\begin{tabular}{ll}
+  \toprule
+  \textbf{Action} & \textbf{Input} \\
+  \midrule
+  Move            & \key{W}\,\key{A}\,\key{S}\,\key{D} (desktop) /
+                    virtual joystick (touch) \\
+  Aim             & mouse (desktop) / aim zone (touch) \\
+  Shoot           & mouse button (desktop) / aim zone (touch) \\
+  \bottomrule
+\end{tabular}
+\end{center}
+\todo{Verify exact key/button bindings and any additional actions (dash,
+pause, \ldots).}
+
+\section{Game modes}
+
+The shooter lobby (\route{/lobby/shooter}) leads to three modes, each with
+its own \uielem{?}~help dialog in-game:
+
+\subsection{Solo}
+
+Round-based duels against evolved agents. After every round the population
+evolves against your ghost recording; the on-screen \uielem{DNA display}
+shows the current opponent's genes, so you can literally watch traits like
+\emph{aggression} or \emph{accuracy} rise in response to your tactics.
+
+\subsection{Horde}
+
+Waves of enemies with map-based play (walls, pathfinding) on selectable
+maps. Enemy DNA evolves across waves. A companion \textbf{map editor}
+(\route{/HordeMapEditor}) lets you build custom horde maps.
+\todo{Describe wave structure, mods/upgrades between waves, and win/lose
+conditions once final.}
+
+\subsection{Community Raidboss}
+
+A shared, community-evolved opponent: the boss's DNA is trained by the
+rounds of \emph{all} players (via Firebase), so everyone collectively
+shapes one adversary. \todo{Describe how a raidboss session starts and how
+player contributions are aggregated.}
+
+\section{Reading the DNA display}
+
+Each agent's genome is a vector of seven genes, all in $[0,1]$:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{l X}
+  \toprule
+  \textbf{Gene} & \textbf{Effect} \\
+  \midrule
+  Aggression       & How strongly the agent chases you. \\
+  Dodge weight     & How hard it tries to avoid your bullets. \\
+  Shoot accuracy   & Aim precision (1 = perfect aim). \\
+  Preferred range  & The combat distance it tries to maintain. \\
+  Movement speed   & Speed bonus on top of the base speed. \\
+  Predict lead     & How far it leads its shots ahead of your movement. \\
+  Fire rate        & How quickly it shoots. \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+Watching these values drift over rounds is the game's evolutionary
+storytelling: camp in a corner and \emph{accuracy} and \emph{range} genes
+win; rush constantly and \emph{dodge weight} rises.
+
+\section{How the evolution works (in brief)}
+
+After each round every agent receives a fitness score based on its
+performance against you (damage dealt, survival, \ldots). The algorithm
+then applies tournament selection, single-point crossover and per-gene
+mutation to produce the next generation. Before your first round, the
+population can be pre-trained by simulating agents against each other, so
+even round~1 opponents are not purely random.
+
+% =====================================================================
+\chapter{A Small EA Glossary}
+% =====================================================================
+\label{ch:glossary}
+
+Plain-language definitions of the terms used across all three games.
+
+\begin{description}[style=nextline]
+  \item[Individual] One candidate solution. A point on the map (Peak
+    Finder), a move sequence (Maze), or a DNA vector (Shooter).
+  \item[Population] The set of individuals alive in one generation.
+  \item[Fitness] A number scoring how good an individual is. In Peak Finder
+    lower is better (distance-like); in the Shooter higher is better.
+  \item[Generation] One full cycle of evaluate $\to$ select $\to$ breed
+    $\to$ mutate.
+  \item[Selection] Choosing which individuals get to reproduce.
+    \emph{Tournament}: pick a few at random, the best of them wins.
+    \emph{Roulette}: chance proportional to fitness.
+    \emph{Elitist}: only the best reproduce.
+  \item[Crossover] Combining two parents into a child.
+    \emph{Arithmetic}: blend their values. \emph{Single-point}: take the
+    first part from one parent, the rest from the other. \emph{Uniform}:
+    coin-flip per gene.
+  \item[Mutation] Randomly perturbing a child. Keeps the population
+    exploring instead of collapsing onto one solution.
+  \item[Elitism] Copying the best few individuals unchanged into the next
+    generation so progress is never lost.
+  \item[Local optimum] A solution better than all its neighbours but worse
+    than the global best --- where greedy search gets stuck.
+  \item[Deceptive landscape] A problem where following the apparent
+    gradient leads \emph{away} from the true optimum (see the Euclidean
+    maze fitness, Section~\ref{sec:maze-fitness}).
+  \item[Premature convergence] The whole population collapsing onto one
+    (often local) optimum before exploring enough.
+  \item[Novelty search] Selecting for \emph{new behaviour} instead of
+    fitness --- rewarding individuals that reach places no one has reached
+    before.
+\end{description}
+
+% =====================================================================
+\chapter{Troubleshooting \& FAQ}
+% =====================================================================
+
+\begin{description}[style=nextline]
+  \item[The page loads but a game screen stays blank.]
+    Make sure your browser is up to date (the app uses modern Web Worker
+    and Canvas APIs). Try a hard reload
+    (\key{Ctrl}+\key{Shift}+\key{R} / \key{Cmd}+\key{Shift}+\key{R}).
+  \item[The EA in Vs~EA mode never seems to move.]
+    The EA only advances when \emph{you} probe --- it runs a fixed number
+    of generations per probe. Place a probe, then open the replay viewer.
+  \item[Hints stopped appearing.]
+    One-time hints are only shown once per session. Use the \uielem{Reset}
+    button next to the hint toggle to re-arm them, and check that the
+    light-bulb toggle is on.
+  \item[My saved maps / mazes disappeared.]
+    Saved content is stored in your browser's local storage. It does not
+    transfer between browsers or devices, and clearing site data deletes
+    it. Use map codes (Section~\ref{sec:mapcodes}) to back up or transfer
+    maps.
+  \item[Performance is poor on my machine.]
+    Reduce the EA population size and the visualization resolution
+    settings. The EA itself runs in a background Web Worker, so the UI
+    should stay responsive even with heavy settings.
+  \item[Does the app collect data?]
+    The app runs client-side. Only the community Raidboss mode communicates
+    with a server (Firebase) to share evolved DNA.
+    \todo{Confirm the exact data sent by the Raidboss feature.}
+\end{description}
+
+\appendix
+
+% =====================================================================
+\chapter{Route Reference}
+% =====================================================================
+
+\begin{center}
+\begin{tabularx}{\textwidth}{l X}
+  \toprule
+  \textbf{Route} & \textbf{Page} \\
+  \midrule
+  \route{/}                & Home / welcome page \\
+  \route{/Dashboard}       & Game selection dashboard \\
+  \route{/PeakFinder}      & Peak Finder (Chapter~\ref{ch:peakfinder}) \\
+  \route{/MazeExplorer}    & Maze Explorer (Chapter~\ref{ch:maze}) \\
+  \route{/ShooterGame}     & Shooter Game (Chapter~\ref{ch:shooter}) \\
+  \route{/lobby/shooter}   & Shooter lobby / mode selection \\
+  \route{/HordeGame}       & Horde mode \\
+  \route{/HordeMapEditor}  & Horde map editor \\
+  \route{/FunctionTuner}   & Function tuning tool for Peak Finder problems \\
+  \route{/Settings}        & Global settings \\
+  \route{/Analytics}       & Analytics page \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\end{document}
