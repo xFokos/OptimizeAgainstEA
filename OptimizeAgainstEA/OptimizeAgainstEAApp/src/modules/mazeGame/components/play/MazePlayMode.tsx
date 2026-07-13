@@ -18,6 +18,11 @@ interface MazePlayModeProps {
 
 const WALK_TICK_MS = 140; // one walk step per tick; matches MazeCanvas's glide
 
+/** Fraction of the string that must be written before the filmstrip hint fires. */
+const FILMSTRIP_HINT_AT = 0.1;
+/** Fraction of a submitted string that must be CHANGED before the mutation hint fires. */
+const EDIT_HINT_AT = 0.1;
+
 const WALKER_COLOR = '#4af0a0';
 const GHOST_COLOR = 'rgba(160, 170, 200, 0.35)';
 // The translucent "edit probe" that trails the draft string during playback.
@@ -89,7 +94,21 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
   const { showHint, active, enabled, isSeen, markSeen } = useHints();
   const [introDone, setIntroDone] = useState(false);
   const introOpen = useRef(false);
+  // The spotlight cuts out the whole input panel (D-pad + toolbar + Submit),
+  // not just the button — the hint is about writing the string, not one control.
+  const inputPanelRef = useRef<HTMLDivElement>(null);
+  // 3. Once the draft is this far along, a spotlight on the filmstrips explains
+  //    them — by then the player has actually written moves onto the strip.
+  const stripsRef = useRef<HTMLDivElement>(null);
+  // 4. And when the string is finally full-length, one on the Submit button
+  //    alone — the control that just unlocked.
   const submitBtnRef = useRef<HTMLButtonElement>(null);
+  // 5. On the first submission, one on the whole strips panel. The walk
+  //    animation is held back until it is dismissed (see submit()).
+  const genomePanelRef = useRef<HTMLDivElement>(null);
+  // 6. And once that first run has animated to its end, one on the fitness
+  //    selector — the run is now scored, so the score is worth talking about.
+  const fitnessPanelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     // Read `seen` BEFORE showing — showHint marks it synchronously. If the modal
@@ -107,10 +126,44 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
     if (introOpen.current) { introOpen.current = false; setIntroDone(true); }
   }, [active]);
 
+  // The maze is aspect-locked, so on a tall column it ends up narrower than the
+  // column itself. Measure what it actually renders at and hand that width to
+  // the strips panel above it, so the two line up edge to edge at any size.
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [mazeWidth, setMazeWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const canvas = stageRef.current?.firstElementChild;
+    if (!canvas) return;
+    const ro = new ResizeObserver(([entry]) => setMazeWidth(entry.contentRect.width));
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, []);
+  const stripWidth: CSSProperties | undefined =
+    mazeWidth ? { width: mazeWidth, marginInline: 'auto' } : undefined;
+
   const submitHint = HINTS['maze.play.submit'];
   const showSubmitSpotlight =
     introDone && enabled && !submission && !isSeen('maze.play.submit');
   const closeSubmitSpotlight = () => markSeen('maze.play.submit');
+
+  const filmstripHint = HINTS['maze.play.filmstrip'];
+  const closeFilmstripSpotlight = () => markSeen('maze.play.filmstrip');
+
+  const readyHint = HINTS['maze.play.readyToRun'];
+  const closeReadySpotlight = () => markSeen('maze.play.readyToRun');
+
+  // Shown from the first submission until dismissed; dismissing releases the
+  // walker (submit() deliberately leaves it paused while this is up).
+  const firstRunHint = HINTS['maze.play.firstRun'];
+  const [runHeld, setRunHeld] = useState(false);
+  const releaseRun = () => {
+    markSeen('maze.play.firstRun');
+    setRunHeld(false);
+    setPlaying(true);
+  };
+
+  const fitnessHint = HINTS['maze.play.fitness'];
+  const closeFitnessSpotlight = () => markSeen('maze.play.fitness');
 
   const cols = maze.cols;
   const rows = maze.rows;
@@ -161,6 +214,24 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
   const subLen = submission?.path.length ?? 0;
   const draftLen = draft.length;
   const draftComplete = draftLen === requiredLen;
+
+  // Filmstrip spotlight: 10% of the moves written, and never on top of the
+  // Submit one (that spotlight blocks input, so it is always dismissed first).
+  const showFilmstripSpotlight =
+    enabled
+    && !showSubmitSpotlight
+    && !isSeen('maze.play.filmstrip')
+    && draftLen >= Math.max(1, Math.ceil(requiredLen * FILMSTRIP_HINT_AT));
+
+  // The string is full — light up the one control that just unlocked. Queues
+  // behind the filmstrip spotlight, and only before the first run.
+  const showReadySpotlight =
+    enabled
+    && draftComplete
+    && !submission
+    && !showSubmitSpotlight
+    && !showFilmstripSpotlight
+    && !isSeen('maze.play.readyToRun');
   const maxLen = Math.max(subLen, draftLen);
   // The walker rides the SUBMITTED walk at the caret (clamped to its length).
   const walkerIdx = submission ? Math.min(pos, subLen) : 0;
@@ -175,6 +246,17 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
   const committedEnd = submission ? walkEndOf(submission.walk, subLen) : 0;
   const draftEnd = draftLen > 0 ? walkEndOf(draftWalk, draftLen) : 0;
   const playEnd = Math.max(committedEnd, draftEnd);
+
+  // The submitted run has animated all the way to its end (goal or last move) —
+  // it now has a fitness, so explain where that number comes from. Waits out the
+  // win banner, which has the floor when the very first string solves the maze.
+  const showFitnessSpotlight =
+    enabled
+    && !runHeld
+    && !won
+    && committedEnd > 0
+    && pos >= committedEnd
+    && !isSeen('maze.play.fitness');
 
   // ── Autoplay (advances the caret across the submitted run, then stops) ─────
   const animating = playing && pos < playEnd;
@@ -258,13 +340,18 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
     // Win is NOT declared here — it fires only when the walker animates onto the
     // goal (see the effect below), so the banner waits for the run to arrive.
     setPos(0);
-    setPlaying(true);
+    // On the very first run the 'firstRun' spotlight explains what is about to
+    // happen, so hold the walker at the start line — releaseRun() presses play.
+    const hold = enabled && !isSeen('maze.play.firstRun');
+    setRunHeld(hold);
+    setPlaying(!hold);
   };
 
   const restart = () => {
     setDraft([]);
     setPos(0);
     setPlaying(false);
+    setRunHeld(false);
     setSubmission(null);
     setGhost(null);
     setRevealed(new Set([cellIndex(maze.start.x, maze.start.y, cols)]));
@@ -360,6 +447,17 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
     ? draft.length !== submission.path.length || draft.some((m, i) => m !== submission.path[i])
     : draft.length > 0;
 
+  // How many moves of the submitted string the player has changed. Once that
+  // passes EDIT_HINT_AT, they have effectively hand-mutated a genome — say so.
+  const editedCount = submission
+    ? draft.reduce<number>((n, m, i) => (m !== submission.path[i] ? n + 1 : n), 0)
+    : 0;
+  useEffect(() => {
+    if (editedCount >= Math.max(1, Math.ceil(requiredLen * EDIT_HINT_AT))) {
+      showHint('maze.play.mutation');
+    }
+  }, [editedCount, requiredLen, showHint]);
+
   // Submitted-strip painters: each move tinted by the cell it lands on.
   const subWalk = submission?.walk;
   const goalGene = subWalk ? subWalk.reachedGoalAt - 1 : -1;
@@ -404,12 +502,48 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
     <div className="maze-app maze-app--menu">
       {showSubmitSpotlight && (
         <TourSpotlight
-          targetRef={submitBtnRef}
+          targetRef={inputPanelRef}
           title={submitHint.title}
           body={fillTemplate(submitHint.body, { moves: String(requiredLen) })}
           actions={[{ label: 'Got it', onClick: closeSubmitSpotlight, variant: 'primary' }]}
           onAdvance={closeSubmitSpotlight}
           onSkip={closeSubmitSpotlight}
+        />
+      )}
+      {showFilmstripSpotlight && (
+        <TourSpotlight
+          targetRef={stripsRef}
+          title={filmstripHint.title}
+          body={filmstripHint.body}
+          actions={[{ label: 'Got it', onClick: closeFilmstripSpotlight, variant: 'primary' }]}
+          onSkip={closeFilmstripSpotlight}
+        />
+      )}
+      {showReadySpotlight && (
+        <TourSpotlight
+          targetRef={submitBtnRef}
+          title={readyHint.title}
+          body={readyHint.body}
+          actions={[{ label: 'Got it', onClick: closeReadySpotlight, variant: 'primary' }]}
+          onSkip={closeReadySpotlight}
+        />
+      )}
+      {runHeld && (
+        <TourSpotlight
+          targetRef={genomePanelRef}
+          title={firstRunHint.title}
+          body={firstRunHint.body}
+          actions={[{ label: 'Run it', onClick: releaseRun, variant: 'primary' }]}
+          onSkip={releaseRun}
+        />
+      )}
+      {showFitnessSpotlight && (
+        <TourSpotlight
+          targetRef={fitnessPanelRef}
+          title={fitnessHint.title}
+          body={fitnessHint.body}
+          actions={[{ label: 'Got it', onClick: closeFitnessSpotlight, variant: 'primary' }]}
+          onSkip={closeFitnessSpotlight}
         />
       )}
       <header className="maze-topbar maze-topbar--bar">
@@ -421,7 +555,7 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
       <div className="maze-layout maze-layout--play">
         {/* LEFT — the D-pad input + submission controls */}
         <div className="maze-controls">
-          <div className="panel panel--surface panel--md maze-panel">
+          <div className="panel panel--surface panel--md maze-panel" ref={inputPanelRef}>
             <div className="eyebrow">Write a {requiredLen}-move string</div>
             {renderDpad()}
             <div className="maze-toolbar">
@@ -460,7 +594,7 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
           className="maze-map-col"
           style={{ maxWidth: `min(100%, calc((100dvh - 260px) * ${cols / rows}))` }}
         >
-          <div className="panel panel--surface panel--md maze-panel maze-genome-panel">
+          <div className="panel panel--surface panel--md maze-panel maze-genome-panel" style={stripWidth} ref={genomePanelRef}>
             <div className="maze-genome-head">
               <div className="eyebrow">Strings</div>
               <span className="maze-genome-stats">
@@ -469,7 +603,7 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
               </span>
             </div>
 
-            <div className="maze-dual-strips">
+            <div className="maze-dual-strips" ref={stripsRef}>
               <div className="maze-strip-line">
                 <span className="maze-strip-tag">submitted</span>
                 <FilmStrip
@@ -518,7 +652,7 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
             </div>
           </div>
 
-          <div className="maze-canvas-stage">
+          <div className="maze-canvas-stage" ref={stageRef}>
             <MazeCanvas
               cols={cols}
               rows={rows}
@@ -549,7 +683,7 @@ export function MazePlayMode({ maze, onBack, onNewMaze }: MazePlayModeProps) {
         </div>
 
         {/* RIGHT — the fitness selector (repaints instantly) */}
-        <aside className="panel panel--surface panel--md maze-panel maze-play-side">
+        <aside className="panel panel--surface panel--md maze-panel maze-play-side" ref={fitnessPanelRef}>
           <div className="eyebrow">Fitness function</div>
           <p className="maze-note maze-play-side__note">
             Colours the trail &amp; the submitted string by closeness to the goal.
