@@ -1,0 +1,803 @@
+% =====================================================================
+%  Optimize Against EA — API Documentation (Developer Reference)
+%  GameLab 2 (2025) — Julius-Maximilians-Universität Würzburg
+%  Authors: Philipp Sehne, David Ahrens
+%
+%  Build:  pdflatex api.tex   (run twice for TOC/links)
+%
+%  LAYOUT NOTE: This file is the structural skeleton of the API doc.
+%  A few entries are fully written out (marked "worked example") to fix
+%  the format; the rest are \todo stubs following the same pattern.
+%  Every entry uses the \apientry environment defined below.
+% =====================================================================
+\documentclass[11pt,a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[colorlinks=true, linkcolor=blue!50!black, urlcolor=blue!50!black]{hyperref}
+
+% --- TypeScript listings style ---------------------------------------
+\definecolor{codebg}{gray}{0.96}
+\definecolor{codekw}{RGB}{0,0,180}
+\definecolor{codestr}{RGB}{160,50,20}
+\definecolor{codecomment}{RGB}{60,120,60}
+\lstdefinelanguage{TypeScript}{
+  keywords={import, export, from, type, interface, const, let, function,
+            return, if, else, for, while, new, extends, implements,
+            readonly, number, string, boolean, void, null, undefined,
+            true, false, as, satisfies},
+  keywordstyle=\color{codekw}\bfseries,
+  comment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  commentstyle=\color{codecomment}\itshape,
+  string=[b]',
+  morestring=[b]",
+  morestring=[b]`,
+  stringstyle=\color{codestr},
+  sensitive=true,
+}
+\lstset{
+  language=TypeScript,
+  basicstyle=\small\ttfamily,
+  backgroundcolor=\color{codebg},
+  frame=single, framerule=0pt,
+  breaklines=true, breakatwhitespace=true,
+  columns=fullflexible, keepspaces=true,
+  aboveskip=1ex, belowskip=1ex,
+  literate={↑}{{$\uparrow$}}1 {→}{{$\rightarrow$}}1
+           {↓}{{$\downarrow$}}1 {←}{{$\leftarrow$}}1,
+}
+
+% --- helpers ----------------------------------------------------------
+\newcommand{\todo}[1]{\textcolor{red!70!black}{\textbf{[TODO: #1]}}}
+\newcommand{\srcfile}[1]{\texttt{\small #1}}   % source path
+\newcommand{\ts}[1]{\texttt{#1}}               % inline identifier
+
+% One API reference entry: \begin{apientry}{name}{source file} ... \end{apientry}
+\newenvironment{apientry}[2]{%
+  \par\medskip\noindent
+  \begin{minipage}{\textwidth}
+  \hrule\vspace{0.6ex}
+  {\large\ttfamily\bfseries #1}\hfill{\footnotesize\srcfile{#2}}
+  \vspace{0.4ex}\hrule\medskip
+}{%
+  \end{minipage}\par\medskip
+}
+
+% Labelled paragraph inside an entry: Params / Returns / Side effects / Notes
+\newcommand{\apifield}[1]{\par\smallskip\noindent\textbf{#1.}\ }
+
+\title{\Huge\textbf{Optimize Against EA}\\[1ex]
+       \LARGE API Documentation\\[0.5ex]
+       \large Developer Reference\\[2ex]
+       \large GameLab~2 --- Julius-Maximilians-Universität Würzburg}
+\author{Philipp Sehne \\ \small\texttt{Philipp.Sehne@stud-mail.uni-wuerzburg.de}
+   \and David Ahrens  \\ \small\texttt{David.Ahrens@stud-mail.uni-wuerzburg.de}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+% =====================================================================
+\chapter{Introduction}
+% =====================================================================
+
+\section{Scope}
+
+\emph{Optimize Against EA} is a purely client-side React~19 + TypeScript
+single-page application (built with Vite). It exposes no HTTP/REST endpoints;
+``API'' in this document therefore means the \textbf{programmatic interfaces
+of the codebase}: the exported types, engine functions, Web Worker message
+protocols, React hooks, and data serialization formats a developer needs in
+order to extend the application or reuse its parts.
+
+This document complements the \emph{Handbook \& User Manual}, which covers
+the application from the player's perspective.
+
+\section{How to read a reference entry}
+
+Each documented symbol appears as an entry with its source file in the
+header, followed by its signature, a description, and where relevant
+\textbf{Params}, \textbf{Returns}, \textbf{Side effects} and \textbf{Notes}
+fields. All paths are relative to
+\srcfile{OptimizeAgainstEA/OptimizeAgainstEAApp/src/}.
+
+\section{Conventions used in the codebase}
+
+\begin{itemize}
+  \item Type-only imports use \ts{import type \{...\}}.
+  \item React components are \ts{function} declarations; engine and utility
+        functions are \ts{const} arrow functions or plain functions.
+  \item No \ts{any}; all callback parameters are explicitly typed.
+  \item Fitness in the map/maze EAs is \emph{minimized} (0 = optimal);
+        fitness in the shooter GA is \emph{maximized}.
+  \item Randomness is injected as \ts{RNG = () => number} (a
+        \ts{Math.random}-compatible function) so engines stay deterministic
+        under a seeded RNG.
+\end{itemize}
+
+% =====================================================================
+\chapter{Architecture Overview}
+% =====================================================================
+
+\section{Layering}
+
+Every game module follows the same four-layer structure. Lower layers never
+import from higher ones:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{l X}
+  \toprule
+  \textbf{Layer} & \textbf{Contents} \\
+  \midrule
+  \ts{types/}      & Pure type contracts and default configurations. No logic. \\
+  \ts{engine/}     & Pure, React-free logic: problem construction, EA
+                     operators, codecs, geometry. Unit-testable in isolation. \\
+  \ts{engine/*.worker.ts} & Web Workers running the EA off the main thread;
+                     communicate via typed message unions
+                     (\ts{WorkerInMessage}/\ts{WorkerOutMessage}). \\
+  \ts{hooks/}      & React hooks bridging engine/workers to component state. \\
+  \ts{components/} & Presentational and interactive React components. \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Module map}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{l l X}
+  \toprule
+  \textbf{Module} & \textbf{Route} & \textbf{Chapter} \\
+  \midrule
+  \srcfile{modules/BattleShips/}  & \ts{/PeakFinder}   & \ref{ch:api-battleships} \\
+  \srcfile{modules/mazeGame/}     & \ts{/MazeExplorer} & \ref{ch:api-maze} \\
+  \srcfile{modules/shooterGame/}  & \ts{/ShooterGame}, \ts{/HordeGame} & \ref{ch:api-shooter} \\
+  \srcfile{components/, hooks/, context/} & --- (shared) & \ref{ch:api-shared} \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\todo{Architecture diagram: modules, workers, stores, and the data flow
+between them (one figure).}
+
+% =====================================================================
+\chapter{Shared Infrastructure}
+% =====================================================================
+\label{ch:api-shared}
+
+\section{Global state and settings}
+
+\begin{apientry}{SettingsContext / SettingsProvider}{context/SettingsContext.tsx}
+Global settings provider; wraps all routes in \srcfile{App.tsx}.
+\apifield{Notes}\todo{Document the settings shape, the \ts{useSettings()}
+hook, and persistence behaviour.}
+\end{apientry}
+
+\section{Layout components}
+
+\begin{apientry}{GameLayout, LAYOUT}{components/layout/GameLayout.tsx}
+Three-column page shell (\ts{leftBar | canvas | sidebar}) used by the
+shooter pages. Exports the \ts{LAYOUT} constant (column widths, spacing,
+panel colours) for canvas-sizing arithmetic.
+\apifield{Notes}Pass the combined sidebar width to \ts{useScaledCanvas}
+so the canvas scales correctly.
+\end{apientry}
+
+\begin{apientry}{PageContainer}{components/layout/PageContainer.tsx}
+\todo{Props and usage.}
+\end{apientry}
+
+\section{Shared hooks}
+
+\begin{apientry}{useScaledCanvas (worked example)}{hooks/useScaledCanvas.ts}
+\begin{lstlisting}
+const { canvasRef, scale } = useScaledCanvas({
+  baseWidth:    number,   // logical canvas width  (e.g. ARENA.WIDTH)
+  baseHeight:   number,   // logical canvas height
+  sidebarWidth: number,   // total horizontal space taken by side panels
+});
+\end{lstlisting}
+Scales a canvas to the largest size fitting the viewport minus the given
+sidebar width, preserving the logical aspect ratio.
+\apifield{Returns}\todo{Confirm exact return shape.}
+\end{apientry}
+
+\begin{apientry}{useViewport}{hooks/useViewport.ts}
+\todo{Signature and behaviour.}
+\end{apientry}
+
+\begin{apientry}{useOrientationLock}{hooks/useOrientationLock.ts}
+\todo{Signature and behaviour.}
+\end{apientry}
+
+\section{Hint system}
+
+Page-wide, toggleable contextual help
+(\srcfile{components/hints/}). Content lives exclusively in
+\srcfile{hintContent.ts} (BattleShips) and
+\srcfile{modules/mazeGame/hints/mazeHintContent.ts}.
+
+\begin{apientry}{useHints (worked example)}{components/hints/HintContext.tsx}
+\begin{lstlisting}
+const { showHint, dismiss } = useHints();
+showHint('vsEa.afterProbe', { vars: { gens: '5' }, actions: [...] });
+\end{lstlisting}
+Fires a hint by id. No-ops when hints are disabled or the hint is marked
+\ts{once} and was already seen this session.
+\apifield{Side effects}Persists \ts{enabled} to \ts{localStorage}
+(\ts{bs.hints.enabled}) and \ts{seen} ids to \ts{sessionStorage}
+(\ts{bs.hints.seen}).
+\end{apientry}
+
+\begin{apientry}{HintDef}{components/hints/hintContent.ts}
+\begin{lstlisting}
+{ title?, body, style: 'modal' | 'toast', once?, pauses? }
+\end{lstlisting}
+\ts{pauses: true} blocks interaction behind a backdrop until dismissed.
+\end{apientry}
+
+\begin{apientry}{HintPopover}{components/hints/HintPopover.tsx}
+Anchored coach-mark wrapper. \todo{Props (\ts{id}, \ts{placement},
+\ts{show}) and the CSS-grid caveat.}
+\end{apientry}
+
+\section{Help system}
+
+\begin{apientry}{HELP\_TOPICS / HelpButton}{components/help/helpContent.tsx}
+Content registry for the site-wide help modals. Adding a topic = one entry
+in \ts{HELP\_TOPICS} plus a \ts{<HelpButton topic="..." />}. Each topic
+provides a \ts{Gameplay} and a \ts{Technical} tab component.
+\end{apientry}
+
+\section{Firebase}
+
+\begin{apientry}{firebase}{lib/firebase.ts}
+\todo{Exported firebase app/database handles; which features use them
+(community Raidboss); required configuration.}
+\end{apientry}
+
+\section{Utilities}
+
+\begin{apientry}{rng}{utils/rng.ts}
+\todo{Seeded RNG factory --- signature and algorithm.}
+\end{apientry}
+
+% =====================================================================
+\chapter{Peak Finder Module (BattleShips)}
+% =====================================================================
+\label{ch:api-battleships}
+
+All paths relative to \srcfile{modules/BattleShips/}.
+
+\section{Type contracts (\srcfile{types/})}
+
+\begin{apientry}{ProblemInstance (worked example)}{types/map.ts}
+The central abstraction: game modes only ever hold a \ts{ProblemInstance},
+never a raw \ts{MapConfig}.
+\begin{lstlisting}
+interface ProblemInstance {
+  evaluate: (x: number, y: number) => number; // 0 = global min, 1 = far away
+  bounds:   { xMin: number; xMax: number; yMin: number; yMax: number };
+  isWin:    (x: number, y: number) => boolean;
+  metadata?: { name?: string;
+               globalMinimum?: { x: number; y: number; value: number } };
+}
+\end{lstlisting}
+\apifield{Notes}Implemented by \ts{createMapProblem}
+(\srcfile{engine/functionSurface.ts}) and \ts{createFunctionProblem}
+(\srcfile{engine/functionProblem.ts}). New problem sources only need to
+produce this shape.
+\end{apientry}
+
+\begin{apientry}{Coordinate, Minimum, MapConfig, ProbeResult}{types/map.ts}
+\todo{Field-by-field documentation.}
+\end{apientry}
+
+\begin{apientry}{EAConfig (worked example)}{types/ea.ts}
+Complete configuration of the Vs-EA opponent. \ts{DEFAULT\_EA\_CONFIG}
+provides the defaults; \ts{EA\_PRESETS} bundles named presets for the UI.
+\begin{center}
+\begin{tabularx}{\textwidth}{l l X}
+  \toprule
+  \textbf{Field} & \textbf{Default} & \textbf{Meaning} \\
+  \midrule
+  \ts{populationSize}    & 40   & Individuals per generation \\
+  \ts{maxGenerations}    & 200  & Hard stop \\
+  \ts{crossoverRate}     & 0.8  & Probability of recombination \\
+  \ts{mutationRate}      & 0.3  & Probability of mutating a child \\
+  \ts{mutationStrength}  & 0.25 & Max.\ perturbation (normalized coords) \\
+  \ts{mutationDecay}     & 0.97 & Per-generation strength multiplier \\
+  \ts{winPopulationFraction} & 0.10 & Fraction inside win radius $\Rightarrow$ solved \\
+  \ts{selectionStrategy} & \ts{'tournament'} & \ts{| 'roulette' | 'elitist'} \\
+  \ts{crossoverStrategy} & \ts{'arithmetic'} & \ts{| 'uniform' | 'singlePoint'} \\
+  \ts{mutationStrategy}  & \ts{'gaussian'}   & \ts{| 'uniform' | 'cauchy'} \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+\end{apientry}
+
+\begin{apientry}{Individual, Generation, SelectionFn, CrossoverFn,
+MutationFn, RNG}{types/ea.ts}
+\todo{Field-by-field documentation of the EA data types and the operator
+function signatures.}
+\end{apientry}
+
+\section{Engine (\srcfile{engine/})}
+
+\begin{apientry}{createMapProblem}{engine/functionSurface.ts}
+\ts{createMapProblem(config: MapConfig): ProblemInstance} --- builds the
+smooth surface from placed minima. Tunables: \ts{DISTANCE\_SCALE} (0.25),
+\ts{LOCAL\_MIN\_FLOOR\_MIN/MAX} (0.08/0.25).
+\todo{Describe the surface formula.}
+\end{apientry}
+
+\begin{apientry}{buildContours}{engine/contours.ts}
+Marching-squares isoline extraction:
+\ts{buildContours(evaluate, levels, resolution)}.
+\todo{Parameter and return documentation.}
+\end{apientry}
+
+\begin{apientry}{geometry helpers}{engine/geometry.ts}
+\ts{euclideanDistance}, \ts{isWithinRadius}, \ts{closestMinimumDistance}.
+\todo{Signatures.}
+\end{apientry}
+
+\begin{apientry}{sampleGradient}{engine/colorScale.ts}
+\ts{sampleGradient(t: number)} --- shared violet$\to$red colour ramp used
+by heatmap, contours and charts.
+\end{apientry}
+
+\begin{apientry}{encodeMap / decodeMap / generateRandomMap}{engine/mapCodec.ts}
+Map share-codes; see the format specification in
+Chapter~\ref{ch:api-formats}.
+\end{apientry}
+
+\begin{apientry}{problemCode / codeClipboard}{engine/problemCode.ts}
+\todo{Function-problem share codes and clipboard helpers.}
+\end{apientry}
+
+\section{EA engine (\srcfile{engine/ea/})}
+
+\begin{apientry}{createEAStepper (worked example)}{engine/ea/evolutionaryAlgorithm.ts}
+\begin{lstlisting}
+function createEAStepper(
+  problem: ProblemInstance,
+  config:  EAConfig,
+  callbacks?: EACallbacks,
+): EAStepper
+\end{lstlisting}
+Creates a resumable EA. Each \ts{stepper.step()} advances exactly one
+generation and returns a \ts{StepResult} (continue / solved / exhausted).
+The generation loop: sort best-first $\to$ copy elite (top 5\%, $\geq$1)
+$\to$ select parents $\to$ crossover $\to$ mutate $\to$ clamp to bounds
+$\to$ evaluate $\to$ win check (\ts{winPopulationFraction} of the
+population inside the win radius).
+\apifield{Notes}\ts{runEA} is the non-interactive convenience wrapper that
+steps to completion.
+\end{apientry}
+
+\begin{apientry}{SELECTION\_STRATEGIES, CROSSOVER\_STRATEGIES,
+MUTATION\_STRATEGIES}{engine/ea/operators.ts}
+Strategy registries mapping each \ts{*Strategy} string to its
+implementation. \ts{CROSSOVER\_STRATEGIES\_RECORDING} variants additionally
+return metadata (\ts{CrossoverResult}) consumed by the replay log.
+\todo{Document each concrete operator.}
+\end{apientry}
+
+\begin{apientry}{individual helpers}{engine/ea/individual.ts}
+\ts{createRandom}, \ts{evaluate}, \ts{clamp}. \todo{Signatures.}
+\end{apientry}
+
+\begin{apientry}{eaReplayLog}{engine/ea/eaReplayLog.ts}
+\ts{ReplayFrame} discriminated union + \ts{buildReplayFrames}. Phase order:
+\ts{initial → sorted → elite → breeding → mutating → newGen → winCheck}.
+\todo{Frame payloads per phase.}
+\end{apientry}
+
+\section{Worker protocol (\srcfile{engine/ea/ea.worker.ts})}
+
+\begin{apientry}{WorkerInMessage / WorkerOutMessage (worked example)}{types/ea.ts}
+The EA runs in a dedicated Web Worker. The main thread sends
+\ts{WorkerInMessage}s and receives \ts{WorkerOutMessage}s:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{l l X}
+  \toprule
+  \textbf{Direction} & \textbf{Type} & \textbf{Meaning} \\
+  \midrule
+  in  & \ts{START} & Initialize EA with \ts{MapConfig} + \ts{EAConfig}
+                     (does \emph{not} start stepping) \\
+  in  & \ts{STEP}  & Advance $n$ generations \\
+  in  & \ts{STOP}  & Terminate the run \\
+  out & \ts{GENERATION} & Per-generation summary (best individual, stats) \\
+  out & \ts{REPLAY}     & \ts{ReplayFrame[]} for the replay viewer \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+\todo{Exact payload fields of each message variant, plus any
+solved/exhausted/error variants.}
+\end{apientry}
+
+\section{Hooks (\srcfile{hooks/})}
+
+\begin{apientry}{useEARunner (worked example)}{hooks/useEARunner.ts}
+\begin{lstlisting}
+const ea = useEARunner();
+ea.init(mapConfig, eaConfig); // create worker, send START - does NOT run
+ea.step(n);                   // advance n generations
+ea.start(mapConfig, eaConfig);// run freely to completion
+ea.stop(); ea.reset();
+// state: ea.status, ea.generations, ea.currentGeneration,
+//        ea.best, ea.totalGenerations, ea.latestReplay
+\end{lstlisting}
+React-side owner of the EA worker.
+\ts{EAStatus = 'idle' | 'running' | 'solved' | 'exhausted' | 'error'}.
+\ts{latestReplay} holds the \ts{ReplayFrame[]} of the most recent step
+batch, consumed by \ts{useEAReplay}.
+\end{apientry}
+
+\begin{apientry}{useEAReplay}{hooks/useEAReplay.ts}
+Replay playback state machine (\ts{next}, \ts{prev}, \ts{play},
+\ts{pause}). \todo{Full state/return documentation.}
+\end{apientry}
+
+\begin{apientry}{useGameMap}{hooks/useGameMap.ts}
+Create-mode map state (\ts{minima}, \ts{addMinimum}, \ts{getCode}, \ldots).
+Limits: \ts{MAX\_MINIMA} = 12, \ts{MIN\_SPACING} = 0.12.
+\todo{Full API.}
+\end{apientry}
+
+\begin{apientry}{usePlaySession}{hooks/usePlaySession.ts}
+Play-mode session state (\ts{probes}, \ts{status}, \ts{bestProbe},
+\ts{probe()}, \ts{reset()}). \todo{Full API.}
+\end{apientry}
+
+\begin{apientry}{useSavedMaps}{hooks/useSavedMaps.ts}
+\todo{LocalStorage-backed saved-map CRUD.}
+\end{apientry}
+
+\section{Key components (\srcfile{components/game/})}
+
+\begin{apientry}{GameMap (worked example)}{components/game/shared/GameMap.tsx}
+The central map canvas. Important props:
+\begin{lstlisting}
+evaluateFn?:      EvalFn        // enables ContourLayer / HeatmapLayer
+revealPoints?:    Coordinate[]  // visualization only shown near these
+exclusionRadius?: number        // dashed rings (create mode), normalized
+defaultVizMode?:  'contour' | 'heatmap'
+\end{lstlisting}
+\todo{Remaining props (click handling, markers, children).}
+\end{apientry}
+
+\begin{apientry}{ContourLayer / HeatMapLayer}{components/game/shared/}
+Tunables: \ts{DEFAULT\_CONTOUR\_CONFIG} (lineCount, spacingExponent,
+resolution), \ts{DEFAULT\_HEATMAP\_CONFIG} (resolution, opacity,
+valueExponent). \todo{Props.}
+\end{apientry}
+
+\begin{apientry}{EAReplayOverlay / ReplayMap / IndividualList}
+{components/game/vs-ea/}
+Full-screen replay modal; population dots left, sortable individual list
+with role badges (ELITE / PARENT A / PARENT B / CHILD / WIN) right.
+Tunables: \ts{DOT\_MOVE\_DURATION} (0.8\,s), autoplay dwell (1200\,ms).
+\todo{Props.}
+\end{apientry}
+
+\begin{apientry}{FitnessChart, ModeSelector, CodeModal,
+SavedMapsSidebar, SavedFunctionsSidebar}{components/game/shared/}
+\todo{One short entry each.}
+\end{apientry}
+
+% =====================================================================
+\chapter{Maze Explorer Module (mazeGame)}
+% =====================================================================
+\label{ch:api-maze}
+
+All paths relative to \srcfile{modules/mazeGame/}. The module mirrors the
+BattleShips structure with a \emph{discrete} genome: an individual is a
+fixed-length move sequence instead of a point.
+
+\section{Type contracts (\srcfile{types/})}
+
+\begin{apientry}{Maze core types (worked example)}{types/maze.ts}
+\begin{lstlisting}
+type Move = 0 | 1 | 2 | 3;          // indexes into MOVE_ARROWS / MOVE_DELTAS
+type Path = Move[];                  // the genome: fixed-length move sequence
+const MOVE_ARROWS = ['↑','→','↓','←'];
+type WallRule  = 'waste' | 'break' | 'repair';
+type FitnessFnId = 'manhattan' | 'geodesic' | 'length' | 'novelty';
+\end{lstlisting}
+\ts{Grid} stores walls as bitmasks per cell (\ts{MOVE\_WALL\_BIT});
+\ts{cellIndex(x, y, cols)} maps 2-D coordinates to flat indices.
+\ts{WalkResult} is the phenotype: the outcome of executing a \ts{Path}
+through the maze under a \ts{WallRule}.
+\apifield{Notes}\todo{Document \ts{Cell}, \ts{Grid}, \ts{SerializedMaze},
+\ts{WalkResult}, \ts{MazeProblem} field by field.}
+\end{apientry}
+
+\begin{apientry}{EAConfig / DEFAULT\_MAZE\_EA\_CONFIG}{types/ea.ts}
+Discrete-EA configuration. Strategy sets differ from BattleShips:
+\ts{CrossoverStrategy = 'singlePoint' | 'uniform'},
+\ts{MutationStrategy = 'point' | 'segment'}. Genome length is auto-sized
+via \ts{DEFAULT\_PATH\_LENGTH\_FACTOR} (3.5$\times$ the geodesic
+distance). \todo{Full field table like the BattleShips one.}
+\end{apientry}
+
+\section{Engine (\srcfile{engine/})}
+
+\begin{apientry}{mazeGen}{engine/mazeGen.ts}
+Seeded procedural maze generation --- identical seed $\Rightarrow$
+identical maze (the basis of the fitness-comparison experiment).
+\todo{Algorithm and signature.}
+\end{apientry}
+
+\begin{apientry}{geodesic}{engine/geodesic.ts}
+BFS distance field through corridors, precomputed at maze generation;
+backs the \ts{geodesic} fitness function and genome auto-sizing.
+\todo{Signature.}
+\end{apientry}
+
+\begin{apientry}{mazeProblem}{engine/mazeProblem.ts}
+Builds a \ts{MazeProblem} (maze + fitness function selection) analogous to
+BattleShips' \ts{ProblemInstance}. \todo{Signature and fitness-function
+dispatch.}
+\end{apientry}
+
+\begin{apientry}{createNoveltyScorer (worked example)}{engine/ea/novelty.ts}
+\begin{lstlisting}
+function createNoveltyScorer(
+  cols: number, rows: number, k: number = DEFAULT_K,
+): NoveltyScorer
+\end{lstlisting}
+Novelty-search infrastructure: maintains an archive of behaviour
+descriptors (final cell reached) and scores an individual by its mean
+distance to the $k$ nearest archived behaviours --- higher = more novel.
+Used when \ts{FitnessFnId = 'novelty'}.
+\apifield{Notes}\todo{Archive admission policy and descriptor details.}
+\end{apientry}
+
+\begin{apientry}{EA engine \& operators}{engine/ea/}
+\ts{individual.ts}, \ts{operators.ts}, \ts{evolutionaryAlgorithm.ts},
+\ts{eaReplayLog.ts} --- parallel structure to
+Chapter~\ref{ch:api-battleships}; discrete operators (re-pick a move /
+splice move sequences). \todo{Entries per file, same pattern as
+BattleShips.}
+\end{apientry}
+
+\begin{apientry}{mazeCodec}{engine/mazeCodec.ts}
+Maze share-codes; see Chapter~\ref{ch:api-formats}. \todo{Signatures.}
+\end{apientry}
+
+\section{Worker protocol (\srcfile{engine/ea/maze.worker.ts})}
+
+\begin{apientry}{WorkerInMessage / WorkerOutMessage}{types/ea.ts}
+\todo{Message table analogous to the BattleShips worker protocol.}
+\end{apientry}
+
+\section{Hooks and components}
+
+\begin{apientry}{useMazeEARunner / useMazeEAReplay / useSavedMazes}{hooks/}
+\todo{Entries following the BattleShips hook pattern.}
+\end{apientry}
+
+\begin{apientry}{MazeCanvas, MazeExperimentMode, MazeEASettingsPanel,
+MazeEAReplayOverlay, MazePathMap, MazeIndividualList}{components/}
+\todo{One short entry each (props, role).}
+\end{apientry}
+
+% =====================================================================
+\chapter{Shooter Module (shooterGame)}
+% =====================================================================
+\label{ch:api-shooter}
+
+All paths relative to \srcfile{modules/shooterGame/}.
+
+\section{Types and constants (\srcfile{shooter.types.ts})}
+
+\begin{apientry}{DNA (worked example)}{shooter.types.ts}
+An agent genome is \ts{number[]} of length~7; all genes in $[0,1]$.
+Indices via \ts{DNA\_INDEX}:
+\begin{center}
+\begin{tabularx}{\textwidth}{c l X}
+  \toprule
+  \# & \textbf{Gene} & \textbf{Effect} \\
+  \midrule
+  0 & \ts{AGGRESSION}      & Chase strength \\
+  1 & \ts{DODGE\_WEIGHT}   & Bullet-avoidance strength \\
+  2 & \ts{SHOOT\_ACCURACY} & Aim precision (1 = perfect) \\
+  3 & \ts{PREFERRED\_RANGE}& Combat distance ($\times$300\,px + 100\,px) \\
+  4 & \ts{MOVEMENT\_SPEED} & Speed bonus (40 base + gene $\times$ 80\,px/s) \\
+  5 & \ts{PREDICT\_LEAD}   & Aim lead factor \\
+  6 & \ts{FIRE\_RATE}      & Fire rate (higher = faster) \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+Related constants: \ts{ARENA} (800$\times$800 logical px),
+\ts{GAME\_CONFIG} (round duration, bullet speed, cooldowns),
+\ts{STARTER\_DNA}. \ts{GamePhase = 'idle' | 'playing' | 'roundEnd' |
+'evolving'}.
+\end{apientry}
+
+\section{Core loop (\srcfile{game/core/})}
+
+\begin{apientry}{gameLoop.update}{game/core/gameLoop.ts}
+Pure function \ts{update(state, dt, input) → GameState}; no React
+dependencies. Also accumulates \ts{PlayerGhostFrame[]} into
+\ts{GameState.ghostFrames} for ghost-based evolution.
+\todo{Full signature and state transitions.}
+\end{apientry}
+
+\begin{apientry}{renderer}{game/core/renderer.ts}
+Canvas draw calls. \todo{Entry.}
+\end{apientry}
+
+\begin{apientry}{vec}{game/core/vec.ts}
+2-D vector math: \ts{add}, \ts{sub}, \ts{scale}, \ts{normalize},
+\ts{angle}, \ts{clamp}, \ts{perpendicular}, \ldots \todo{Signatures.}
+\end{apientry}
+
+\section{Genetic algorithm (\srcfile{game/ga/})}
+
+\begin{apientry}{evolve (worked example)}{game/ga/evolution.ts}
+Produces the next generation after a round: tournament selection $\to$
+single-point crossover $\to$ per-gene mutation, driven by each agent's
+round fitness. Companions:
+\begin{itemize}[nosep]
+  \item \ts{getNextAgent(population): number[]} --- DNA of the next
+        opponent to spawn;
+  \item \ts{presimulate(generations): Population} --- round-robin
+        pre-training (every agent vs.\ every other) before the first round;
+  \item \ts{presimulateAgainstGhost(generations, ghost)} --- evolves the
+        population against a recording of the player's previous round.
+\end{itemize}
+\todo{Exact signatures and config knobs.}
+\end{apientry}
+
+\begin{apientry}{fitness}{game/ga/fitness.ts}
+\ts{calculateFitness(stats: RoundStats): number},
+\ts{calculateRaidbossFitness(stats, roundDuration)},
+\ts{normalizeFitness(fitnesses)}. \todo{Scoring formulas.}
+\end{apientry}
+
+\begin{apientry}{population}{game/ga/population.ts}
+\ts{initPopulation}, \ts{updatePopulationStats}. \todo{Entry.}
+\end{apientry}
+
+\begin{apientry}{evolution.worker.ts}{game/ga/evolution.worker.ts}
+\todo{Worker message protocol for off-thread evolution/presimulation.}
+\end{apientry}
+
+\section{Stores}
+
+The shooter uses custom observable stores (not Zustand/Redux): components
+subscribe via \ts{store.subscribe(cb)} and read \ts{store.state} directly.
+
+\begin{apientry}{gameStore}{game/gameStore.ts}
+Holds \ts{GameState} outside React; consumed by \ts{ShooterCanvas} and
+\ts{DNADisplay}. \todo{State shape and mutation API.}
+\end{apientry}
+
+\begin{apientry}{raidbossStore / analyticsStore}{game/}
+\todo{Entries; document the Firebase interaction of the raidboss store.}
+\end{apientry}
+
+\section{Horde mode (\srcfile{horde/})}
+
+\begin{apientry}{horde subsystem}{horde/}
+\ts{hordeTypes.ts}, \ts{hordeDna.ts}, \ts{hordeMaps.ts},
+\ts{hordePathfinding.ts}, \ts{hordeCollision.ts}, \ts{hordeGameStore.ts},
+\ts{hordeRunStore.ts}. \todo{One entry per file: map format, pathfinding
+algorithm, wave/DNA evolution, store shapes.}
+\end{apientry}
+
+\section{Mods (\srcfile{mods/})}
+
+\begin{apientry}{mods subsystem}{mods/}
+\ts{modTypes.ts}, \ts{runModsStore.ts}, \ts{shotEngine.ts}.
+\todo{Mod type registry and how mods alter the shot engine.}
+\end{apientry}
+
+\section{Hooks and components}
+
+\begin{apientry}{useGameLoop / useInput / useTouchControls}{hooks/}
+\ts{useGameLoop}: requestAnimationFrame loop calling \ts{update()} and
+driving \ts{gameStore}. \ts{useInput}: keyboard + mouse $\to$
+\ts{InputState}. \ts{useTouchControls}: virtual joystick / aim zone.
+\todo{Signatures.}
+\end{apientry}
+
+\begin{apientry}{ShooterCanvas, HordeCanvas, DNADisplay,
+MobileJoystickZone, MobileAimZone}{components/}
+\todo{One short entry each.}
+\end{apientry}
+
+% =====================================================================
+\chapter{Data Formats}
+% =====================================================================
+\label{ch:api-formats}
+
+Serialization formats are the closest thing the app has to a public API:
+they cross device boundaries via share codes and local storage.
+
+\section{Peak Finder map code (v1)}
+
+Produced by \ts{encodeMap} (\srcfile{BattleShips/engine/mapCodec.ts}):
+a URL-safe Base64 encoding of
+
+\begin{lstlisting}
+{ "v": 1,                      // format version
+  "id": "ABC123",              // map id
+  "m": [[x, y, isGlobal], ...],// minima (normalized coords)
+  "wr": 0.04,                  // win radius (fraction of map width)
+  "t": 1699999999999 }         // timestamp
+\end{lstlisting}
+
+\todo{Error handling of \ts{decodeMap} on malformed/old codes.}
+
+\section{Maze code}
+
+\srcfile{mazeGame/engine/mazeCodec.ts} + \ts{SerializedMaze}.
+\todo{Format specification (seed-based?), versioning.}
+
+\section{Function problem code}
+
+\srcfile{BattleShips/engine/problemCode.ts}. \todo{Format specification.}
+
+\section{Local storage keys}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{l X}
+  \toprule
+  \textbf{Key} & \textbf{Contents} \\
+  \midrule
+  \ts{bs.hints.enabled} & Hint system on/off (\ts{localStorage}) \\
+  \ts{bs.hints.seen}    & Seen hint ids (\ts{sessionStorage}, per session) \\
+  \todo{saved maps key} & Saved Peak Finder maps \\
+  \todo{saved mazes key}& Saved mazes \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\appendix
+
+% =====================================================================
+\chapter{Extension Recipes}
+% =====================================================================
+
+Short how-tos for the most likely extension points.
+\todo{Flesh out each recipe with concrete steps.}
+
+\begin{itemize}
+  \item \textbf{Add a new analytic problem to Peak Finder} --- implement a
+        \ts{ProblemInstance} via \ts{createFunctionProblem} and register it.
+  \item \textbf{Add a new EA operator} --- add an entry to the relevant
+        \ts{*\_STRATEGIES} registry and extend the strategy union type.
+  \item \textbf{Add a new maze fitness function} --- extend
+        \ts{FitnessFnId}, \ts{FITNESS\_FN\_IDS} and \ts{FITNESS\_FN\_LABELS},
+        implement the scorer in \ts{mazeProblem.ts}.
+  \item \textbf{Add a help topic} --- one entry in \ts{HELP\_TOPICS} +
+        \ts{<HelpButton topic="..."/>}.
+  \item \textbf{Add a hint} --- one entry in \ts{hintContent.ts}, fire via
+        \ts{showHint(id)} or wrap with \ts{<HintPopover>}.
+  \item \textbf{Add a new mini-game module} --- follow the four-layer module
+        structure (Chapter~2) and register a route in \srcfile{App.tsx}.
+\end{itemize}
+
+% =====================================================================
+\chapter{Tunable Constants Reference}
+% =====================================================================
+
+Central table of gameplay/visual constants and their locations.
+\todo{Import the full tunables table (currently maintained in
+\srcfile{claude.md}) and keep the two in sync — or declare one canonical.}
+
+\end{document}

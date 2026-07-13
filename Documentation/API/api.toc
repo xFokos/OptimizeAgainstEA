@@ -1,0 +1,43 @@
+\babel@toc {english}{}\relax 
+\contentsline {chapter}{\numberline {1}Introduction}{3}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Scope}{3}{section.1.1}%
+\contentsline {section}{\numberline {1.2}How to read a reference entry}{3}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Conventions used in the codebase}{3}{section.1.3}%
+\contentsline {chapter}{\numberline {2}Architecture Overview}{4}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Layering}{4}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Module map}{4}{section.2.2}%
+\contentsline {chapter}{\numberline {3}Shared Infrastructure}{5}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Global state and settings}{5}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Layout components}{5}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Shared hooks}{5}{section.3.3}%
+\contentsline {section}{\numberline {3.4}Hint system}{6}{section.3.4}%
+\contentsline {section}{\numberline {3.5}Help system}{6}{section.3.5}%
+\contentsline {section}{\numberline {3.6}Firebase}{6}{section.3.6}%
+\contentsline {section}{\numberline {3.7}Utilities}{6}{section.3.7}%
+\contentsline {chapter}{\numberline {4}Peak Finder Module (BattleShips)}{7}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Type contracts (\texttt {\small types/})}{7}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Engine (\texttt {\small engine/})}{8}{section.4.2}%
+\contentsline {section}{\numberline {4.3}EA engine (\texttt {\small engine/ea/})}{8}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Worker protocol (\texttt {\small engine/ea/ea.worker.ts})}{9}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Hooks (\texttt {\small hooks/})}{9}{section.4.5}%
+\contentsline {section}{\numberline {4.6}Key components (\texttt {\small components/game/})}{10}{section.4.6}%
+\contentsline {chapter}{\numberline {5}Maze Explorer Module (mazeGame)}{11}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Type contracts (\texttt {\small types/})}{11}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Engine (\texttt {\small engine/})}{11}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Worker protocol (\texttt {\small engine/ea/maze.worker.ts})}{12}{section.5.3}%
+\contentsline {section}{\numberline {5.4}Hooks and components}{12}{section.5.4}%
+\contentsline {chapter}{\numberline {6}Shooter Module (shooterGame)}{13}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Types and constants (\texttt {\small shooter.types.ts})}{13}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Core loop (\texttt {\small game/core/})}{13}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Genetic algorithm (\texttt {\small game/ga/})}{14}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Stores}{14}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Horde mode (\texttt {\small horde/})}{14}{section.6.5}%
+\contentsline {section}{\numberline {6.6}Mods (\texttt {\small mods/})}{14}{section.6.6}%
+\contentsline {section}{\numberline {6.7}Hooks and components}{15}{section.6.7}%
+\contentsline {chapter}{\numberline {7}Data Formats}{16}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Peak Finder map code (v1)}{16}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Maze code}{16}{section.7.2}%
+\contentsline {section}{\numberline {7.3}Function problem code}{16}{section.7.3}%
+\contentsline {section}{\numberline {7.4}Local storage keys}{16}{section.7.4}%
+\contentsline {chapter}{\numberline {A}Extension Recipes}{17}{appendix.A}%
+\contentsline {chapter}{\numberline {B}Tunable Constants Reference}{18}{appendix.B}%
