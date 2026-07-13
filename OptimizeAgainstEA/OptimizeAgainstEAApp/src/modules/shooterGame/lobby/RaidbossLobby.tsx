@@ -147,8 +147,7 @@ export function RaidbossLobby() {
                 <div style={lobbyStyles.header}>
                     <h1 style={{ ...lobbyStyles.title, color: RB }}>Community Raidboss</h1>
                     <p style={lobbyStyles.description}>
-                        Jeder Spieler bewertet einen Agenten der Community-Population.
-                        Sind alle bewertet, evoliert die Population automatisch zur nächsten Generation.
+                        Play against one individual of the current generation. There is no simulation and every individual experiences real player combat.
                     </p>
                 </div>
                 {statusContent}
