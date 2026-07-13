@@ -27,12 +27,9 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
   'maze.play.start': {
     title: 'You are the EA',
     body:
-      'This time you play the role of the algorithm. Your genome is a fixed ' +
-      'string of moves — write it with the D-pad (or the arrow keys), then hit ' +
-      'Submit to run it. The walker follows your string through the fog and ' +
-      'reports a fitness value: the lower it is, the closer you got to the ' +
-      'goal. Nothing else is revealed, so edit the string, resubmit, and let ' +
-      'each attempt guide the next one.',
+      'In this mode you try to solve a maze like an EA would. ' +
+      'You will build a string of Inputs and then watch the probe explore the maze in that order.' +
+      'After that you can edit your string and repeat the process till you find the goal.',
     style: 'modal',
     once: true,
     pauses: true,
@@ -49,7 +46,7 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
       'A genome has a fixed length: Submit only unlocks once all {moves} moves ' +
       'are written. Bumping into a wall wastes that move but costs you nothing ' +
       'else, so fill every slot — even a rough guess is a starting point you ' +
-      'can improve on.',
+      'can improve on. You can submit moves by using the Buttons (or your arrow keys).',
     style: 'toast',
     once: true,
   },
@@ -61,10 +58,9 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
   'maze.play.filmstrip': {
     title: 'Your string, move by move',
     body:
-      'The bottom strip is the string you are writing; the top one is the last ' +
-      'one you submitted, tinted by how close each move landed to the goal. ' +
-      'Both share one caret: click any move to jump there — the D-pad overwrites ' +
-      'from that spot, so you can fix a bad stretch without redoing the rest.',
+      'Here you can view, play and edit your string. ' +
+      'You always see your last submitted string so you know exactly where to make edits. ' +
+      'Once you made all your edits here, just press Submit again.',
     style: 'toast',
     once: true,
   },
@@ -80,7 +76,7 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
       'Every slot is filled, so Submit has unlocked. Run it and watch the ' +
       'walker follow your moves through the fog — whatever it uncovers, and the ' +
       'fitness it comes back with, is what you get to work from for the next ' +
-      'attempt. Not confident in it? Good — the EA\'s first guess is random too.',
+      'attempt. ',
     style: 'toast',
     once: true,
   },
@@ -95,7 +91,7 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
       'Your string moved to the top strip and the walker is about to follow it. ' +
       'Each move is tinted by how close it landed to the goal, and a dimmed one ' +
       'means the walker hit a wall there and stood still — a wasted move. Use ' +
-      'the transport buttons below to replay, pause, or step through it move by ' +
+      'the buttons below to replay, pause, or step through it move by ' +
       'move. Dismiss this and the run starts.',
     style: 'toast',
     once: true,
@@ -124,11 +120,7 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
   'maze.play.mutation': {
     title: 'That\'s a mutation',
     body:
-      'You just did what the EA does: keep the string that scored well, change ' +
-      'a few of its moves, and run it again to see whether the fitness improved. ' +
-      'Resubmit and compare — a better number means the change was worth keeping, ' +
-      'a worse one means throw it away and try a different tweak. Repeat that a ' +
-      'few thousand times a second and you have an evolutionary algorithm.',
+      'Now that you have edited your String you can resubmit and see how you improvement',
     style: 'toast',
     once: true,
     sticky: true,
