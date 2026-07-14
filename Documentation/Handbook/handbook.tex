@@ -198,12 +198,12 @@ contains \emph{local} minima --- traps that look promising but are not the
 true goal.
 
 You explore by placing \textbf{probes}. Each probe reveals the surface in a
-small circle around it (as contour lines or a heat map), giving you partial
+small circle around it (as heat map), giving you partial
 information to plan your next probe. You win by placing a probe inside the
 \textbf{win radius} around the global minimum.
 
 \screenshot{Peak Finder play mode with several probes and revealed
-contours}{Peak Finder: probing a hidden surface. Contours are only revealed
+contours}{Peak Finder: probing a hidden surface. Heatmap is only revealed
 near your probes.}
 
 \section{Game modes}
@@ -219,8 +219,7 @@ Find the global minimum in as few probes as you can.
 
 \begin{itemize}
   \item \textbf{Probe:} click / tap a location on the map.
-  \item \textbf{Visualization:} switch between \uielem{Contour} and
-        \uielem{Heatmap} display of the revealed areas.
+  \item \textbf{Visualization:} \uielem{Heatmap} display of the revealed areas.
   \item \textbf{Win:} a probe inside the win radius triggers the win
         overlay, which shows your statistics.
 \end{itemize}
@@ -242,7 +241,7 @@ The centerpiece mode: you and an Evolutionary Algorithm search the
   \item You probe as usual. For every probe you place, the EA advances a
         fixed number of \textbf{generations} (configurable).
   \item The EA maintains a \textbf{population} of candidate points. It wins
-        when a sufficient fraction of its population (default 10\%)
+        when a sufficient fraction of its population (default 35\%)
         gathers inside the win radius.
   \item After each of your probes you can open the \uielem{Replay} viewer
         to inspect exactly what the EA just did
@@ -255,34 +254,36 @@ The centerpiece mode: you and an Evolutionary Algorithm search the
 \label{sec:ea-settings}
 
 In Vs~EA mode you control the algorithm you are playing against. The
-settings panel exposes the following parameters (defaults in parentheses):
+settings panel exposes the following parameters. The defaults listed below
+correspond to the \uielem{Normal} difficulty preset, which is active when
+the mode starts:
 
 \begin{center}
 \begin{tabularx}{\textwidth}{l l X}
   \toprule
   \textbf{Setting} & \textbf{Default} & \textbf{Meaning} \\
   \midrule
-  Population size & 40 &
+  Population size & 30 &
     Number of candidate points the EA maintains per generation. Larger
     populations explore more but converge more slowly. \\
   Max.\ generations & 200 &
     Upper limit on generations before the EA gives up. \\
-  Crossover rate & 0.8 &
+  Crossover rate & 0.7 &
     Probability that two parents are recombined (instead of copied). \\
   Mutation rate & 0.3 &
     Probability that an offspring is mutated. \\
   Mutation strength & 0.25 &
     How far a mutation can move a point across the map. \\
-  Mutation decay & 0.97 &
+  Mutation decay & 0.90 &
     Per-generation factor shrinking the mutation strength --- the EA takes
     big steps early and fine-tunes later. \\
-  Win fraction & 0.10 &
+  Win fraction & 0.35 &
     Fraction of the population that must sit inside the win radius for the
     EA to win. \\
-  Selection & tournament &
+  Selection & elitist &
     How parents are chosen: \emph{tournament}, \emph{roulette} or
     \emph{elitist}. \\
-  Crossover & arithmetic &
+  Crossover & uniform &
     How two parents combine: \emph{arithmetic} (blend), \emph{uniform} or
     \emph{single-point}. \\
   Mutation & gaussian &
@@ -311,8 +312,7 @@ generations \textbf{phase by phase}:
 The left side shows the population as dots gliding across the map; the right
 side lists every individual with its fitness and a role badge
 (\uielem{ELITE}, \uielem{PARENT~A}, \uielem{PARENT~B}, \uielem{CHILD},
-\uielem{WIN}). Use the playback controls to step forward/backward or let it
-autoplay. A fitness chart tracks the population's best value across
+\uielem{WIN}). Use the playback controls to step forward/backward. A fitness chart tracks the population's best value across
 generations.
 
 \screenshot{EA replay overlay with population dots and individual list}

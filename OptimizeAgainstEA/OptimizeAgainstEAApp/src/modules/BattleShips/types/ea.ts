@@ -43,16 +43,17 @@ export type SelectionStrategy = 'tournament' | 'roulette' | 'elitist';
 export type CrossoverStrategy = 'uniform'    | 'arithmetic' | 'singlePoint';
 export type MutationStrategy  = 'gaussian'   | 'uniform'    | 'cauchy';
 
+/** Matches the 'normal' entry in EA_PRESETS — the preset Vs-EA mode starts with. */
 export const DEFAULT_EA_CONFIG: EAConfig = {
-  populationSize:     40,
+  populationSize:     30,
   maxGenerations:     200,
-  crossoverRate:      0.8,
+  crossoverRate:      0.7,
   mutationRate:       0.3,
   mutationStrength:   0.25,
-  mutationDecay:      0.97,
-  winPopulationFraction: 0.10,
-  selectionStrategy:  'tournament',
-  crossoverStrategy:  'arithmetic',
+  mutationDecay:      0.90,
+  winPopulationFraction: 0.35,
+  selectionStrategy:  'elitist',
+  crossoverStrategy:  'uniform',
   mutationStrategy:   'gaussian',
 };
 

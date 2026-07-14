@@ -171,18 +171,18 @@ ea.start(mapConfig, eaConfig);  // runs freely to completion
 
 ### BattleShips EA configuration
 
-`DEFAULT_EA_CONFIG` in `types/ea.ts`:
+`DEFAULT_EA_CONFIG` in `types/ea.ts` (matches the `'normal'` preset in `EA_PRESETS`, which Vs-EA mode starts with):
 ```ts
-populationSize:   40
+populationSize:   30
 maxGenerations:   200
-crossoverRate:    0.8
+crossoverRate:    0.7
 mutationRate:     0.3
 mutationStrength: 0.25
-mutationDecay:    0.97
-winPopulationFraction: 0.10
-selectionStrategy: 'tournament'  // | 'roulette' | 'elitist'
-crossoverStrategy: 'arithmetic'  // | 'uniform' | 'singlePoint'
-mutationStrategy:  'gaussian'    // | 'uniform' | 'cauchy'
+mutationDecay:    0.90
+winPopulationFraction: 0.35
+selectionStrategy: 'elitist'  // | 'tournament' | 'roulette'
+crossoverStrategy: 'uniform'  // | 'arithmetic' | 'singlePoint'
+mutationStrategy:  'gaussian' // | 'uniform' | 'cauchy'
 ```
 
 ### Map codec
