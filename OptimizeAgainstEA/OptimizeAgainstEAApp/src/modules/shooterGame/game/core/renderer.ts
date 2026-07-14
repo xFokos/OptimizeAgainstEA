@@ -298,12 +298,15 @@ export const renderer = {
         raidbossInfo?: { generation: number; index: number; total: number },
         touch?:        TouchVisualState | null,
         aimLaser?:     { mouseX: number; mouseY: number } | null,
+        // Nur die Boss-Optik (lila, größer, Pulsring) ohne das Raidboss-HUD —
+        // für die Raidboss-Übungsrunde, wo es keine echte Gen/Individuum-Info gibt.
+        bossStyle = false,
     ) {
         if (!canvas) return;
         const ctx = getCtx(canvas);
         if (!ctx) return;
 
-        const isRaidboss = !!raidbossInfo;
+        const isRaidboss = !!raidbossInfo || bossStyle;
         renderer.drawArena(ctx);  // drawImage überschreibt den gesamten Canvas – clearRect nicht nötig
         if (aimLaser) renderer.drawAimLaser(ctx, state, aimLaser.mouseX, aimLaser.mouseY);
         renderer.drawBullets(ctx, state, isRaidboss);

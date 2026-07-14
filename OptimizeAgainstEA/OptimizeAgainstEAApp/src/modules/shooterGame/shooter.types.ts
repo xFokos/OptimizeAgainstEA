@@ -215,6 +215,15 @@ export const TUTORIAL_COMPLETED_KEY = 'shooter.tutorial.completed';
 export const HORDE_TUTORIAL_COMPLETED_KEY    = 'horde.tutorial.completed';
 export const RAIDBOSS_TUTORIAL_COMPLETED_KEY = 'raidboss.tutorial.completed';
 
+// Die Steuerung ist in allen Modi dieselbe — wer irgendwo schon einmal ein
+// Gameplay-Tutorial durchlaufen hat, bekommt deshalb überall direkt das
+// Auswahlfenster statt einer erzwungenen weiteren Übungsrunde. Nur komplett
+// neue Spieler landen im vollen Erstlauf-Fluss.
+export function hasCompletedAnyTutorial(): boolean {
+    return [TUTORIAL_COMPLETED_KEY, HORDE_TUTORIAL_COMPLETED_KEY, RAIDBOSS_TUTORIAL_COMPLETED_KEY]
+        .some(key => localStorage.getItem(key) !== null);
+}
+
 // ---- Player Ghosting ----
 export interface PlayerGhostFrame {
     position: Vector2D;

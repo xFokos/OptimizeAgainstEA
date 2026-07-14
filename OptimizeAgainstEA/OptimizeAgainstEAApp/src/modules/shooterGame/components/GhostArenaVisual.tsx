@@ -4,6 +4,7 @@ import styles from './arenaPreview.module.css';
 import {
     ARENA_SIZE, ARENA_SCALE, BULLET_RADIUS, AGENT_RADIUS,
     stepArenaAgent, drawArenaAgentTriangle,
+    clamp01, bulletHits, patrol as patrolAt, lineupSpots, drawGenLabel,
     type ArenaAgentState, type ArenaBullet,
 } from './arenaAgentSim';
 
@@ -91,52 +92,13 @@ const LINEUP_LAST_HOLD   = 1.2;  // beat before the final agent completes the ro
 const LINEUP_FADE        = 0.35; // per-agent fade-in duration
 const LINEUP_HOLD_FULL   = 1.6;  // full roster stands before the next generation restarts
 
-function lineupSpots(count: number) {
-    const cols   = Math.ceil(Math.sqrt(count));
-    const rows   = Math.ceil(count / cols);
-    const margin = ARENA_SIZE * 0.16;
-    const stepX  = cols > 1 ? (ARENA_SIZE - margin * 2) / (cols - 1) : 0;
-    const stepY  = rows > 1 ? (ARENA_SIZE - margin * 2) / (rows - 1) : 0;
-
-    return Array.from({ length: count }, (_, i) => {
-        const row   = Math.floor(i / cols);
-        const col   = i % cols;
-        const inRow = row === rows - 1 ? count - row * cols : cols;
-        return {
-            x: cols > 1 ? margin + ((cols - inRow) * stepX) / 2 + col * stepX : ARENA_SIZE / 2,
-            y: rows > 1 ? margin + row * stepY : ARENA_SIZE / 2,
-            // Tiny deterministic per-candidate tilt/opacity spread — they read
-            // as individuals, not stamped copies, without anything moving.
-            rot:     -Math.PI / 2 + Math.sin(i * 2.7) * 0.14,
-            opacity: 0.5 + 0.45 * Math.abs(Math.sin(i * 3.3)),
-        };
-    });
-}
-
-function drawGenLabel(ctx: CanvasRenderingContext2D, label: string) {
-    ctx.font         = "700 12px 'JetBrains Mono', monospace";
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle    = 'rgba(255,255,255,0.6)';
-    ctx.fillText(label, ARENA_SIZE / 2, 16);
-}
-
-const bulletHits = (b: ArenaBullet, x: number, y: number, r: number) =>
-    (b.x - x) ** 2 + (b.y - y) ** 2 < (r + BULLET_RADIUS) ** 2;
-
-const clamp01 = (v: number) => Math.min(Math.max(v, 0), 1);
+// lineupSpots/drawGenLabel/bulletHits/clamp01 come from arenaAgentSim.ts —
+// shared with RaidbossArenaVisual/HordeArenaVisual so the staging helpers
+// can't drift apart between the preview canvases.
 
 // The player's recorded run — same deterministic circular patrol during the
 // live round and during the ghost's looped replay of it.
-function patrol(time: number) {
-    const ang = time * PLAYER_ANG_SPEED;
-    return {
-        x:  CX + Math.cos(ang) * PLAYER_ORBIT_R,
-        y:  CY + Math.sin(ang) * PLAYER_ORBIT_R,
-        vx: -Math.sin(ang) * PLAYER_ORBIT_R * PLAYER_ANG_SPEED,
-        vy:  Math.cos(ang) * PLAYER_ORBIT_R * PLAYER_ANG_SPEED,
-    };
-}
+const patrol = (time: number) => patrolAt(time, PLAYER_ANG_SPEED, PLAYER_ORBIT_R);
 
 // Selection view: the same standing roster grid as the lineup, fully
 // assembled from the start — then two candidates get picked as the parents,

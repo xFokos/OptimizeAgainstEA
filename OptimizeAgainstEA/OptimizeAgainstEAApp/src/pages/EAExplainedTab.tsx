@@ -1,18 +1,21 @@
-import { ExplainerFlow, PopulationVisual, CrossoverVisual, MutationVisual, GenerationsVisual } from '../components/explainer';
+import { ExplainerFlow, CrossoverVisual, MutationVisual, GenerationsVisual, GenomeVisual, SearchSpaceVisual, CreatureRosterVisual } from '../components/explainer';
 import type { ExplainerStep } from '../components/explainer';
 
 // ─────────────────────────────────────────────────────────────────────────
 //  Generic, game-agnostic walkthrough of how an Evolutionary Algorithm
-//  works — Selection -> Crossover -> Mutation -> Generations. Every game on
-//  this site (Shooter, Horde, BattleShips, ...) is an application of these
-//  same four ideas; this tab is where a first-timer meets them once,
-//  without any one game's specific vocabulary.
+//  works — from scratch, assuming zero prior knowledge: The Problem →
+//  Fitness → DNA → Population → Selection → Crossover → Mutation → The
+//  Loop. Deliberately NO shooter visuals here (CreatureRosterVisual instead
+//  of the game tutorials' arena canvases) — one running example carries the
+//  whole arc: breeding a creature for an obstacle course.
 // ─────────────────────────────────────────────────────────────────────────
 
-const SELECTION_POPULATION = [
-    { fitness: 0.35 }, { fitness: 0.62 }, { fitness: 0.48 },
-    { fitness: 0.81, color: '#f97316' }, { fitness: 0.29 }, { fitness: 0.55 },
-    { fitness: 0.90, color: '#60a5fa' }, { fitness: 0.44 }, { fitness: 0.67 }, { fitness: 0.38 },
+const GENOME_GENES = [
+    { label: 'Speed',    value: 0.78 },
+    { label: 'Strength', value: 0.34 },
+    { label: 'Sight',    value: 0.61 },
+    { label: 'Stealth',  value: 0.22 },
+    { label: 'Stamina',  value: 0.55 },
 ];
 
 const CROSSOVER_GENES = [
@@ -40,15 +43,39 @@ const GENERATIONS_LATER = [
 
 const STEPS: ExplainerStep[] = [
     {
+        id:    'problem',
+        title: 'The Problem — you can\'t try everything',
+        body:  "Imagine breeding a creature for an obstacle course: how fast should it be, how strong, how sneaky? Just five traits already give millions of possible combinations — far too many to ever test, and no formula points at the best mix. The only thing you CAN do: build one creature, let it run the course, and see how it does. On the right, every bar is one design being tried — the landscape of all possibilities stays hidden.",
+        sideVisual: <SearchSpaceVisual axisLabel="every possible creature →" />,
+    },
+    {
+        id:    'fitness',
+        title: 'Fitness — grading every try',
+        body:  "So the first thing we need is a score. Send a creature through the course and it comes back with one number — its fitness: how far did it get, how fast? That's the only feedback there is; from here on, everything revolves around comparing those numbers. Every game on this site simply defines its own fitness.",
+        sideVisual: <SearchSpaceVisual showScores axisLabel="every possible creature →" />,
+    },
+    {
+        id:    'dna',
+        title: 'DNA — a creature as numbers',
+        body:  "To breed creatures, each one is written down as a fixed list of numbers — its genes. Our creature is just these five numbers between 0 and 1; nothing more. That's the whole trick: anything you can encode as a list of numbers, you can evolve.",
+        visual: <GenomeVisual genes={GENOME_GENES} />,
+    },
+    {
+        id:    'population',
+        title: 'The Population — many creatures at once',
+        body:  "One creature alone tells you almost nothing — a single lucky or unlucky run would steer everything. So the algorithm keeps a whole population: dozens of individuals, each with its own DNA, all graded by the same fitness. Replace the whole roster with a new one, and that's the next generation — watch it on the right.",
+        sideVisual: <CreatureRosterVisual variant="lineup" count={10} />,
+    },
+    {
         id:    'selection',
         title: 'Selection — the fittest get to breed',
-        body:  "An evolutionary algorithm never bets on a single answer. It keeps a whole population of candidate solutions, scores each one with a fitness function — a number saying how well it solves the problem — and picks mostly from the top of that ranking to become parents for the next generation.",
-        visual: <PopulationVisual population={SELECTION_POPULATION} />,
+        body:  "Now the breeding loop begins. The individuals with the best fitness are picked to become parents for the next generation — the rest are dropped. Watch the two parents get picked on the right.",
+        sideVisual: <CreatureRosterVisual variant="selection" count={10} />,
     },
     {
         id:    'crossover',
         title: 'Crossover — two parents, one child',
-        body:  "Each parent's solution is broken into pieces (\"genes\"). A child is built by taking each gene from one parent or the other, mixing successful traits from both without inventing anything new.",
+        body:  "A child is built by taking each gene from one parent or the other — mixing successful traits from both without inventing anything new.",
         visual: <CrossoverVisual genes={CROSSOVER_GENES} />,
     },
     {
@@ -58,10 +85,11 @@ const STEPS: ExplainerStep[] = [
         visual: <MutationVisual changes={MUTATION_CHANGES} />,
     },
     {
-        id:    'generations',
-        title: 'Generations — repeat, and it gets better',
-        body:  "Select, cross over, mutate — then do it again with the new population, generation after generation. No single step is smart on its own, but repeated enough times, the population as a whole reliably drifts toward better solutions.",
+        id:    'loop',
+        title: 'The Loop — repeat, and it gets better',
+        body:  "Select, cross over, mutate — then do it all again with the new population, generation after generation. No single step is smart on its own, but repeated enough times, the population reliably drifts toward better creatures. And that's exactly what you play against in every game on this site — only the creatures and the fitness change.",
         visual: <GenerationsVisual early={GENERATIONS_EARLY} later={GENERATIONS_LATER} />,
+        sideVisual: <CreatureRosterVisual variant="generations" count={10} />,
     },
 ];
 

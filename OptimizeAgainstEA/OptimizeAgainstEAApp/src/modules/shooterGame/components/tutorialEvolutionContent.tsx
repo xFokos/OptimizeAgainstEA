@@ -4,6 +4,7 @@ import { ShooterDnaSection, type DnaGeneDescriptor } from '../settings/ShooterSe
 import { useSettings } from '../../../context/SettingsContext.tsx';
 import {
     ExplainerFlow,
+    ExplainerHintButton,
     type ExplainerStep,
     CrossoverVisual,
     MutationVisual,
@@ -48,6 +49,47 @@ function useSliderDna(initial: DNA) {
         return next;
     });
     return [dna, onChange] as const;
+}
+
+type GeneChange = (i: number, v: number) => void;
+
+// Die zwei interaktiven DNA-Steps — auch einzeln wiederverwendet (siehe
+// SoloDnaExplainerHint unten), deshalb aus dem Tutorial-useMemo herausgelöst.
+// `tutorialContext` steuert nur den Verweis auf den gerade besiegten Dummy,
+// der im Lobby-Popup keinen Sinn ergäbe.
+function buildDnaSteps(
+    fireRateDna: DNA, onFireRate: GeneChange,
+    fullDna: DNA, onFull: GeneChange,
+    tutorialContext: boolean,
+): ExplainerStep[] {
+    return [
+        {
+            id:    'dna-example',
+            title: 'DNA — One Number, One Behavior',
+            body:  tutorialContext
+                ? `Fire Rate controls how often the agent shoots. The dummy you just fought had this at ${TUTORIAL_DNA[DNA_INDEX.FIRE_RATE].toFixed(1)} — that's why it barely fired at all. Drag the slider below and watch the EA on the right fire faster or slower, live.`
+                : 'Fire Rate controls how often the agent shoots. Drag the slider below and watch the EA on the right fire faster or slower, live.',
+            visual: <ShooterDnaSection dna={fireRateDna} onChange={onFireRate} genes={FIRE_RATE_GENE} />,
+            sideVisual: <DnaPreviewCanvas dna={fireRateDna} />,
+        },
+        {
+            id:    'dna-full',
+            title: 'DNA — The Whole Genome',
+            body:  "All 8 genes work together like this, all the time — there's no hidden neural net, just these numbers. Try dragging a few and watch the EA's whole personality shift on the right.",
+            visual: <ShooterDnaSection dna={fullDna} onChange={onFull} genes={ALL_GENES} />,
+            sideVisual: <DnaPreviewCanvas dna={fullDna} />,
+        },
+    ];
+}
+
+function buildFitnessStep(): ExplainerStep {
+    return {
+        id:    'fitness',
+        title: 'Fitness — Grading an EA',
+        body:  "After every round, the EA gets one score for how well it did — its fitness. Every hit it lands on you counts +100, every hit it takes counts −100, and winning the round adds a bonus on top. The higher the fitness, the better it did against you — it's exactly what the bar at the top of your round was counting.",
+        visual: <FitnessVisual rows={FITNESS_EXAMPLE} />,
+        sideVisual: <FitnessArenaVisual />,
+    };
 }
 
 // Illustrative "how the EA gets its next DNA" story — same 3 mechanisms as
@@ -151,30 +193,11 @@ export function TutorialEvolutionExplainer({ onFinish, finishLabel }: TutorialEv
     const [fullDna, setFullGene]         = useSliderDna(NEUTRAL_DNA);
 
     const steps: ExplainerStep[] = useMemo(() => [
-        {
-            id:    'dna-example',
-            title: 'DNA — One Number, One Behavior',
-            body:  `Fire Rate controls how often the agent shoots. The dummy you just fought had this at ${TUTORIAL_DNA[DNA_INDEX.FIRE_RATE].toFixed(1)} — that's why it barely fired at all. Drag the slider below and watch the EA on the right fire faster or slower, live.`,
-            visual: <ShooterDnaSection dna={fireRateDna} onChange={setFireRateGene} genes={FIRE_RATE_GENE} />,
-            sideVisual: <DnaPreviewCanvas dna={fireRateDna} />,
-        },
-        {
-            id:    'dna-full',
-            title: 'DNA — The Whole Genome',
-            body:  "All 8 genes work together like this, all the time — there's no hidden neural net, just these numbers. Try dragging a few and watch the EA's whole personality shift on the right.",
-            visual: <ShooterDnaSection dna={fullDna} onChange={setFullGene} genes={ALL_GENES} />,
-            sideVisual: <DnaPreviewCanvas dna={fullDna} />,
-        },
+        ...buildDnaSteps(fireRateDna, setFireRateGene, fullDna, setFullGene, true),
         // Fitness comes here — after the player has played with *one* EA, but
         // before the population steps: "one EA gets a grade" is concrete;
         // "20 of them get graded at once" builds on it two steps later.
-        {
-            id:    'fitness',
-            title: 'Fitness — Grading an EA',
-            body:  "After every round, the EA gets one score for how well it did — its fitness. Every hit it lands on you counts +100, every hit it takes counts −100, and winning the round adds a bonus on top. The higher the fitness, the better it did against you — it's exactly what the bar at the top of your round was counting.",
-            visual: <FitnessVisual rows={FITNESS_EXAMPLE} />,
-            sideVisual: <FitnessArenaVisual />,
-        },
+        buildFitnessStep(),
         // Math.max(1, ...): if the player already set presim generations to 0
         // (a valid setting — see evolution.worker.ts), describing "0
         // generations in a row" would undercut the very mechanism this step
@@ -184,4 +207,82 @@ export function TutorialEvolutionExplainer({ onFinish, finishLabel }: TutorialEv
     ], [fireRateDna, setFireRateGene, fullDna, setFullGene, eaSettings.populationSize, eaSettings.presimGenerations]);
 
     return <ExplainerFlow steps={steps} onFinish={onFinish} finishLabel={finishLabel} />;
+}
+
+// ---- "?"-Buttons für Lobby/Settings ----
+// Wiederverwenden genau die Tutorial-Steps (inkl. Slider + Live-Canvas) als
+// Fullscreen-Popup — neben der jeweiligen Einstellung platzieren.
+
+/** Neben DNA-Anzeigen/-Slidern: die zwei interaktiven DNA-Steps. */
+export function SoloDnaExplainerHint() {
+    const [fireRateDna, setFireRateGene] = useSliderDna(NEUTRAL_DNA);
+    const [fullDna, setFullGene]         = useSliderDna(NEUTRAL_DNA);
+    const steps = useMemo(
+        () => buildDnaSteps(fireRateDna, setFireRateGene, fullDna, setFullGene, false),
+        [fireRateDna, setFireRateGene, fullDna, setFullGene],
+    );
+    return <ExplainerHintButton steps={steps} label="How does the DNA work?" />;
+}
+
+/** Welche EA-Einstellung erklärt werden soll — Schlüssel = Settings-Feld. */
+export type SoloEaSettingTopic =
+    | 'mutationRate' | 'mutationStrength' | 'presimGenerations' | 'populationSize'
+    | 'crossoverType' | 'injectionDeviation' | 'hallOfFame';
+
+// Ein Step pro Einstellung: wo es eine Tutorial-Animation gibt, wird sie
+// wiederverwendet; für den Rest reicht ein kurzer Text, der sich auf die im
+// Tutorial eingeführten Begriffe (Gene, Population, Fitness) stützt.
+function buildEaSettingStep(topic: SoloEaSettingTopic, populationSize: number): ExplainerStep {
+    switch (topic) {
+        case 'mutationRate': return {
+            id:    'setting-mutation-rate',
+            title: 'Mutation Rate',
+            body:  "When a new child is bred, every gene has this chance to mutate — a small random nudge like below. Low keeps children close to their parents; high explores more, but can also wreck good genes.",
+            visual: <MutationVisual changes={MUTATION_CHANGES} />,
+        };
+        case 'mutationStrength': return {
+            id:    'setting-mutation-strength',
+            title: 'Mutation Strength',
+            body:  "How far a single mutation can nudge a gene. Small values fine-tune what already works; large values make wild jumps — more discovery, less stability.",
+            visual: <MutationVisual changes={MUTATION_CHANGES} />,
+        };
+        case 'presimGenerations': return {
+            id:    'setting-presim',
+            title: 'Presim Generations',
+            body:  "Between your rounds, every candidate replays your recorded ghost — this many full generations in a row. Higher means the population arrives already trained against your style.",
+            sideVisual: <GhostArenaVisual />,
+        };
+        case 'populationSize': return {
+            id:    'setting-population-size',
+            title: 'Population Size',
+            body:  `How many candidates evolve at once — each its own individual with its own DNA, together one population. More means more variety per generation; fewer converges faster but is fragile.`,
+            sideVisual: <GhostArenaVisual variant="lineup" count={populationSize} />,
+        };
+        case 'crossoverType': return {
+            id:    'setting-crossover',
+            title: 'Crossover Type',
+            body:  "How two parents' genes mix into a child: Uniform picks each gene from a random parent (the blue/orange mix below); Single-Point cuts the DNA at one spot and takes the front from one parent, the rest from the other.",
+            visual: <CrossoverVisual genes={CROSSOVER_GENES} colorA={COL_A} colorB={COL_B} />,
+        };
+        case 'injectionDeviation': return {
+            id:    'setting-injection',
+            title: 'Injection Deviation',
+            body:  "When fresh individuals get injected into the population, their genes are spread this far around your starter DNA. Small keeps them near-clones of your setup; large brings in wild newcomers — extra diversity so evolution doesn't get stuck.",
+        };
+        case 'hallOfFame': return {
+            id:    'setting-hall-of-fame',
+            title: 'Hall of Fame',
+            body:  "Remembers the best individual ever found — judged by the same fitness score as everything else — so a proven champion can't be lost when later generations drift away from it.",
+        };
+    }
+}
+
+/** "?" neben einer einzelnen EA-Einstellung im Algorithm-Tab. */
+export function SoloEaSettingHint({ topic }: { topic: SoloEaSettingTopic }) {
+    const { eaSettings } = useSettings();
+    const steps = useMemo(
+        () => [buildEaSettingStep(topic, eaSettings.populationSize)],
+        [topic, eaSettings.populationSize],
+    );
+    return <ExplainerHintButton steps={steps} label="What does this setting do?" />;
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { HelpButton } from '../../../components/help';
 import { gameStore } from '../game/gameStore';
@@ -8,6 +9,9 @@ import type { RaidbossDoc } from '../game/raidbossStore';
 import { useMobile, useZoom, enterGameFullscreen } from './lobbyHooks';
 import { lobbyStyles, mobilePageStyle, mobileBtnsStyle } from './lobbyStyles';
 import { RaidbossPreview } from './previews/RaidbossPreview';
+import { TutorialChooserModal } from './TutorialChooserModal';
+import { TutorialRaidbossExplainer } from '../components/tutorialRaidbossContent';
+import { hasCompletedAnyTutorial } from '../shooter.types';
 
 // ---- Raidboss Lobby ----
 
@@ -38,6 +42,53 @@ export function RaidbossLobby() {
             setLoading(false);
         }
     };
+
+    // Übungsrunde = dieselbe Solo-Practice-Round (Steuerung ist identisch),
+    // nur dass sie am Ende in den Raidboss-Explainer mündet und hierher
+    // zurückkehrt (tutorialMode) — kein Firestore-Slot, nichts wird bewertet.
+    const startPractice = async () => {
+        await enterGameFullscreen();
+        gameStore.state = null as unknown as typeof gameStore.state;
+        gameStore.notify();
+        navigate('/ShooterGame', { state: { tutorial: true, tutorialMode: 'raidboss' } });
+    };
+
+    // Wie in der Solo-Lobby: nur komplett neue Spieler bekommen den vollen
+    // Erstlauf (Übungsrunde → Explainer) — wer irgendwo schon ein
+    // Gameplay-Tutorial gemacht hat, kriegt direkt das Auswahlfenster.
+    const [tutorialChooserOpen, setTutorialChooserOpen] = useState(false);
+    const [explainerOpen, setExplainerOpen]             = useState(false);
+    const openTutorial = () => {
+        if (hasCompletedAnyTutorial()) setTutorialChooserOpen(true);
+        else void startPractice();
+    };
+
+    const tutorialOverlays = (
+        <>
+            {tutorialChooserOpen && (
+                <TutorialChooserModal
+                    accent={RB}
+                    onClose={() => setTutorialChooserOpen(false)}
+                    onPractice={() => { setTutorialChooserOpen(false); void startPractice(); }}
+                    onExplainer={() => { setTutorialChooserOpen(false); setExplainerOpen(true); }}
+                />
+            )}
+            {/* Portal: der Desktop-Wrapper hat `zoom` — als echtes Fullscreen-
+              * Takeover gehört der Explainer in den unskalierten Viewport. */}
+            {explainerOpen && createPortal(
+                <div className="explainer-takeover">
+                    <button className="btn btn--ghost btn--sm explainer-takeover__back" onClick={() => setExplainerOpen(false)}>
+                        ← Back to Lobby
+                    </button>
+                    <TutorialRaidbossExplainer
+                        onFinish={() => setExplainerOpen(false)}
+                        finishLabel="Back to Lobby"
+                    />
+                </div>,
+                document.body,
+            )}
+        </>
+    );
 
     const evalCount  = doc ? doc.individuals.filter(i => i.fitness !== null).length : 0;
     const total      = doc?.populationSize ?? 0;
@@ -121,8 +172,10 @@ export function RaidbossLobby() {
                 {statusContent}
                 <div style={mobileBtnsStyle}>
                     <HelpButton topic="shooter.raidboss" />
+                    <button className="btn btn--outline btn--sm" style={{ '--btn-color': RB } as React.CSSProperties} onClick={openTutorial}>Tutorial</button>
                     <div style={{ flex: 1 }}>{playBtn}</div>
                 </div>
+                {tutorialOverlays}
             </div>
         );
     }
@@ -153,9 +206,11 @@ export function RaidbossLobby() {
                 {statusContent}
             </div>
 
-            <div style={lobbyStyles.rightBottom}>
+            <div style={{ ...lobbyStyles.rightBottom, gap: 10 }}>
+                <button className="btn btn--outline btn--lg" style={{ '--btn-color': RB } as React.CSSProperties} onClick={openTutorial}>Tutorial</button>
                 {playBtn}
             </div>
+            {tutorialOverlays}
         </div>
     );
 }

@@ -45,6 +45,45 @@
 	height: 40px;
 }
 
+/* ── Genome: eine Lösung = eine Zahlenliste — Label + einzelner Balken ───── */
+.eaviz__genomeRow {
+	display:         grid;
+	grid-template-columns: 100px 1fr;
+	align-items:     center;
+	gap:             8px;
+}
+
+/* ── Rahmen/Legende für Canvas-Visuals des Explainer-Pakets (SearchSpace-
+   Visual) — bewusst dieselben Werte wie arenaPreview.module.css der Spiel-
+   Tutorials, damit alles als ein System liest; dupliziert statt importiert,
+   damit das geteilte Paket nicht von einem Spiel-Modul abhängt. ──────────── */
+.eaviz__previewBox {
+	display:        flex;
+	flex-direction: column;
+	align-items:    center;
+	gap:            10px;
+}
+.eaviz__previewCanvas {
+	border-radius: 12px;
+	background:    rgba(255, 255, 255, 0.03);
+	border:        1px solid rgba(255, 255, 255, 0.1);
+}
+.eaviz__previewLegend {
+	display:     flex;
+	align-items: center;
+	gap:         6px;
+	font-size:   11px;
+	color:       rgba(255, 255, 255, 0.45);
+}
+.eaviz__previewLegendDot {
+	width:         8px;
+	height:        8px;
+	border-radius: 50%;
+	display:       inline-block;
+	margin-left:   8px;
+}
+.eaviz__previewLegendDot:first-child { margin-left: 0; }
+
 /* ── Crossover: name / parent A / parent B / child gene table ────────────── */
 .eaviz__geneRow {
 	display:         grid;

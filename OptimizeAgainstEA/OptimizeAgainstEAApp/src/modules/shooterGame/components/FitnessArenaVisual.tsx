@@ -24,7 +24,14 @@ const POPUP_RISE = 26;  // px drifted upward over a popup's lifetime
 interface Popup  { x: number; y: number; text: string; color: string; age: number }
 interface Bullet { x: number; y: number; vx: number; vy: number; owner: 'agent' | 'player' }
 
-export function FitnessArenaVisual() {
+interface FitnessArenaVisualProps {
+    /** Farbe + Legenden-Label des Gegners — Solo lässt den Default (orange
+     * "EA"), das Raidboss-Tutorial übergibt sein Lila und "Boss". */
+    agentColor?: string;
+    agentLabel?: string;
+}
+
+export function FitnessArenaVisual({ agentColor = '#f97316', agentLabel = 'EA' }: FitnessArenaVisualProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -86,7 +93,7 @@ export function FitnessArenaVisual() {
             for (const b of bullets) {
                 ctx.beginPath();
                 ctx.arc(b.x, b.y, BULLET_RADIUS, 0, Math.PI * 2);
-                ctx.fillStyle = b.owner === 'agent' ? '#f97316' : 'rgba(255,255,255,0.75)';
+                ctx.fillStyle = b.owner === 'agent' ? agentColor : 'rgba(255,255,255,0.75)';
                 ctx.fill();
             }
 
@@ -95,7 +102,7 @@ export function FitnessArenaVisual() {
             ctx.fillStyle = '#60a5fa';
             ctx.fill();
 
-            drawArenaAgentTriangle(ctx, { ...AGENT_POS, vx: 0, vy: 0, rot: Math.PI });
+            drawArenaAgentTriangle(ctx, { ...AGENT_POS, vx: 0, vy: 0, rot: Math.PI }, 1, agentColor);
 
             ctx.font         = "700 14px 'JetBrains Mono', monospace";
             ctx.textAlign    = 'center';
@@ -111,14 +118,14 @@ export function FitnessArenaVisual() {
 
         raf = requestAnimationFrame(loop);
         return () => cancelAnimationFrame(raf);
-    }, []);
+    }, [agentColor]);
 
     return (
         <div className={styles.preview}>
             <canvas ref={canvasRef} width={ARENA_SIZE} height={ARENA_SIZE} className={styles.canvas} />
             <div className={styles.legend}>
                 <span className={styles.legendDot} style={{ background: '#60a5fa' }} /> You
-                <span className={styles.legendDot} style={{ background: '#f97316' }} /> EA
+                <span className={styles.legendDot} style={{ background: agentColor }} /> {agentLabel}
             </div>
         </div>
     );

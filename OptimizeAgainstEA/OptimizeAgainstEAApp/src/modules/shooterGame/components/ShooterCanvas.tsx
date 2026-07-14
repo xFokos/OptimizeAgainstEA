@@ -8,6 +8,7 @@ import {
     DNA_NAMES,
     TUTORIAL_DNA,
     TUTORIAL_COMPLETED_KEY,
+    RAIDBOSS_TUTORIAL_COMPLETED_KEY,
     type GameState,
     type GamePhase,
     type InputState,
@@ -19,6 +20,7 @@ import {
 } from '../shooter.types';
 import { CompiBubble } from '../../../components/hints';
 import { TutorialEvolutionExplainer } from './tutorialEvolutionContent';
+import { TutorialRaidbossExplainer } from './tutorialRaidbossContent';
 import { useTutorialStep } from '../hooks/useTutorialStep';
 import { makeInitialGameState } from '../game/makeGameState';
 
@@ -111,12 +113,19 @@ const TUTORIAL_SCORE_CONTENT = {
     body:  "See the bar at the top? Hits you land push it toward you (blue); hits you take push it toward the EA (orange). Push it all the way to your side to win the round.",
 };
 
-// Shown once the practice round ends, pointing the player at the "Learn the
-// DNA" button rather than leaving them to guess what to click next.
+// Shown once the practice round ends, pointing the player at the explainer
+// button rather than leaving them to guess what to click next. The raidboss
+// variant leads into the community-population explainer instead of the DNA one.
 const TUTORIAL_ROUND_END_CONTENT = {
-    title: 'Round complete!',
-    body: "That's it for the practice round. Next, let's break down what those DNA numbers actually mean — hit the button below.",
-};
+    solo: {
+        title: 'Round complete!',
+        body: "That's it for the practice round. Next, let's break down what those DNA numbers actually mean — hit the button below.",
+    },
+    raidboss: {
+        title: 'Round complete!',
+        body: "That's it for the practice round — the controls are exactly the same against the boss. Next, let's see who that boss actually is — hit the button below.",
+    },
+} as const;
 
 // ---- Tutorial: DNA-meaning + "how the EA evolves" explainer ----
 // The practice round is a single round with no real population, so there's
@@ -138,9 +147,13 @@ interface ShooterCanvasProps {
     externalInputRef?: RefObject<InputState>;           // von ShooterGamePage; wenn gesetzt → Zone-Touch-Modus
     leaveHandlerRef?:  RefObject<(() => Promise<void>) | undefined>;  // ShooterGamePage registriert sich hier für sauberes Verlassen
     tutorial?:         boolean;  // Practice round: passive Zielscheibe statt echter GA-Gegner, einzige Runde
+    // Woher die Übungsrunde gestartet wurde: steuert nur, welcher Explainer am
+    // Rundenende kommt und in welche Lobby es zurückgeht — das Gameplay der
+    // Übungsrunde selbst ist identisch.
+    tutorialMode?:     'solo' | 'raidboss';
 }
 
-export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tutorial = false }: ShooterCanvasProps) => {
+export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tutorial = false, tutorialMode = 'solo' }: ShooterCanvasProps) => {
     const { eaSettings, shooterSettings } = useSettings();
     const navigate = useNavigate();
 
@@ -361,6 +374,8 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
     }
 
     const pushRoundAnalytics = useCallback((roundState: GameState) => {
+        // Übungsrunde taucht nicht in /Analytics auf — sie ist kein echter Run.
+        if (tutorial) return;
         if (analyticsLoggedRef.current || roundState.roundNumber === 0) return;
         analyticsLoggedRef.current = true;
         const s = roundState.agent.stats;
@@ -479,8 +494,12 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
         const aimLaser = (externalInputRef && state.phase === 'playing')
             ? { mouseX: externalInputRef.current.mouseX, mouseY: externalInputRef.current.mouseY }
             : null;
-        renderer.render(canvasRef.current, state, raidbossInfoRef.current ?? undefined, touch, aimLaser);
-    }, [externalInputRef]);
+        renderer.render(
+            canvasRef.current, state, raidbossInfoRef.current ?? undefined, touch, aimLaser,
+            // Raidboss-Übungsrunde: Dummy in Boss-Optik, aber ohne Raidboss-HUD.
+            tutorial && tutorialMode === 'raidboss',
+        );
+    }, [externalInputRef, tutorial, tutorialMode]);
 
     useGameLoop({
         gameState:  gameStateRef as RefObject<GameState>,
@@ -514,13 +533,14 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
     // Tutorial ist eine einzige Runde ohne Evolution/Fortsetzung — Store leeren
     // damit ein späteres echtes "Play" nicht in dieser Runde landet.
     const finishTutorial = async () => {
-        // Ab jetzt bietet der Tutorial-Button in der Lobby das Auswahlfenster
-        // (Übungsrunde / Explainer einzeln) statt des kompletten Durchlaufs an.
-        localStorage.setItem(TUTORIAL_COMPLETED_KEY, '1');
+        // Ab jetzt bietet der Tutorial-Button in der jeweiligen Lobby das
+        // Auswahlfenster (Übungsrunde / Explainer einzeln) statt des kompletten
+        // Durchlaufs an — pro Modus ein eigenes Flag.
+        localStorage.setItem(tutorialMode === 'raidboss' ? RAIDBOSS_TUTORIAL_COMPLETED_KEY : TUTORIAL_COMPLETED_KEY, '1');
         if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
         gameStore.state = null as unknown as typeof gameStore.state;
         gameStore.notify();
-        navigate('/lobby/shooter', { state: { mode: 'normal' } });
+        navigate('/lobby/shooter', { state: { mode: tutorialMode === 'raidboss' ? 'raidboss' : 'normal' } });
     };
 
     const showTutorialEvolutionExplainer = () => setTutorialEvolutionVisible(true);
@@ -576,7 +596,9 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
         const nextRound    = currentState.roundNumber + 1;
 
         if (currentState.roundNumber === 0) {
-            analyticsStore.clear();
+            // Tutorial: Analytics des letzten echten Runs nicht wegwerfen —
+            // die Übungsrunde loggt selbst auch nichts (siehe pushRoundAnalytics).
+            if (!tutorial) analyticsStore.clear();
             runModsStore.reset();
         }
         analyticsLoggedRef.current = false;
@@ -879,8 +901,8 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                         {tutorial && !roundEndBubbleClosed && (
                             <CompiBubble
                                 inline
-                                title={TUTORIAL_ROUND_END_CONTENT.title}
-                                body={TUTORIAL_ROUND_END_CONTENT.body}
+                                title={TUTORIAL_ROUND_END_CONTENT[tutorialMode].title}
+                                body={TUTORIAL_ROUND_END_CONTENT[tutorialMode].body}
                                 actions={[]}
                                 onClose={() => setRoundEndBubbleClosed(true)}
                             />
@@ -888,7 +910,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
 
                         {tutorial ? (
                             <button className="btn btn--primary" style={{ fontSize: 16, padding: '14px 32px' }} onClick={showTutorialEvolutionExplainer}>
-                                Learn the DNA →
+                                {tutorialMode === 'raidboss' ? 'Meet the Raidboss →' : 'Learn the DNA →'}
                             </button>
                         ) : isRaidbossRound ? (
                             <div style={{ display: 'flex', gap: 10 }}>
@@ -945,10 +967,17 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                         <button className="btn btn--ghost btn--sm explainer-takeover__back" onClick={finishTutorial}>
                             ← Back to Lobby
                         </button>
-                        <TutorialEvolutionExplainer
-                            onFinish={finishTutorial}
-                            finishLabel="Finish Tutorial → Lobby"
-                        />
+                        {tutorialMode === 'raidboss' ? (
+                            <TutorialRaidbossExplainer
+                                onFinish={finishTutorial}
+                                finishLabel="Finish Tutorial → Lobby"
+                            />
+                        ) : (
+                            <TutorialEvolutionExplainer
+                                onFinish={finishTutorial}
+                                finishLabel="Finish Tutorial → Lobby"
+                            />
+                        )}
                     </div>,
                     document.body,
                 )}

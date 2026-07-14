@@ -35,6 +35,29 @@ export function PopulationVisual({ population }: { population: PopulationMember[
     );
 }
 
+// ── Genome: one individual's DNA as a plain list of labeled numbers ──────
+// Für den "eine Lösung ist nur eine Zahlenliste"-Step — bewusst statisch,
+// die interaktiven Slider gehören den Spiel-Tutorials (dort gibt es echtes
+// Verhalten zum Beobachten, hier nicht).
+
+export interface GenomeGene {
+    label: string;
+    value: number;
+}
+
+export function GenomeVisual({ genes, color = '#4fc3f7' }: { genes: GenomeGene[]; color?: string }) {
+    return (
+        <div className="eaviz">
+            {genes.map(gene => (
+                <div key={gene.label} className="eaviz__genomeRow">
+                    <span className="eaviz__geneName">{gene.label}</span>
+                    <GeneBar value={gene.value} color={color} />
+                </div>
+            ))}
+        </div>
+    );
+}
+
 // ── Crossover: two parents' genes mixed into a child, gene by gene ────────
 
 export interface CrossoverGene {

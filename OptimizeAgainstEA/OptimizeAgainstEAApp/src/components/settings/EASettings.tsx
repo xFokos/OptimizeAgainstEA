@@ -1,8 +1,18 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useSettings, resetEASettings, defaultHordeSettings } from '../../context/SettingsContext';
 import { CompiTooltip } from '../ui/CompiTooltip';
 
-export function EASettingsPanel() {
+/** Ein "?"-Button pro Einstellung (z.B. SoloEaSettingHint) — als Slots,
+ * damit dieses geteilte Panel nichts Spiel-Spezifisches importiert. */
+export type EaSettingKey =
+    | 'mutationRate' | 'mutationStrength' | 'presimGenerations' | 'populationSize'
+    | 'crossoverType' | 'injectionDeviation' | 'hallOfFame';
+
+interface EASettingsPanelProps {
+    rowHints?: Partial<Record<EaSettingKey, ReactNode>>;
+}
+
+export function EASettingsPanel({ rowHints }: EASettingsPanelProps) {
     const { eaSettings: s, setEaSettings } = useSettings();
 
     return (
@@ -13,6 +23,7 @@ export function EASettingsPanel() {
                 <CompiTooltip text="Chance each gene has to randomly mutate when a new generation is created.">
                     <label style={styles.label}>Mutation Rate</label>
                 </CompiTooltip>
+                {rowHints?.mutationRate}
                 <input
                     type="range" min={0} max={0.5} step={0.01}
                     value={s.mutationRate}
@@ -27,6 +38,7 @@ export function EASettingsPanel() {
                 <CompiTooltip text="How large a mutation's random change to a gene can be.">
                     <label style={styles.label}>Mutation Strength</label>
                 </CompiTooltip>
+                {rowHints?.mutationStrength}
                 <input
                     type="range" min={0} max={0.5} step={0.01}
                     value={s.mutationStrength}
@@ -41,6 +53,7 @@ export function EASettingsPanel() {
                 <CompiTooltip text="How many generations the EA simulates against itself before your first round — higher starts tougher.">
                     <label style={styles.label}>Presim Generations</label>
                 </CompiTooltip>
+                {rowHints?.presimGenerations}
                 <input
                     type="range" min={0} max={10} step={1}
                     value={s.presimGenerations}
@@ -55,6 +68,7 @@ export function EASettingsPanel() {
                 <CompiTooltip text="How many individuals compete and evolve each generation.">
                     <label style={styles.label}>Population Size</label>
                 </CompiTooltip>
+                {rowHints?.populationSize}
                 <input
                     type="range" min={5} max={50} step={5}
                     value={s.populationSize}
@@ -69,6 +83,7 @@ export function EASettingsPanel() {
                 <CompiTooltip text="How two parents' DNA combine into a child: Uniform mixes genes randomly, Single-Point splits the DNA at one point.">
                     <label style={styles.label}>Crossover Type</label>
                 </CompiTooltip>
+                {rowHints?.crossoverType}
                 <div style={styles.toggleGroup}>
                     {(['uniform', 'single-point'] as const).map(type => (
                         <button
@@ -86,6 +101,7 @@ export function EASettingsPanel() {
                 <CompiTooltip text="Random spread applied when refreshing the population, to keep genetic diversity.">
                     <label style={styles.label}>Injection Deviation</label>
                 </CompiTooltip>
+                {rowHints?.injectionDeviation}
                 <input
                     type="range" min={0.05} max={1} step={0.05}
                     value={s.injectionDeviation}
@@ -100,6 +116,7 @@ export function EASettingsPanel() {
                 <CompiTooltip text="Keeps the best individual ever found so evolution can't lose a good solution.">
                     <label style={styles.label}>Hall of Fame</label>
                 </CompiTooltip>
+                {rowHints?.hallOfFame}
                 <div style={styles.toggleGroup}>
                     {([true, false] as const).map(val => (
                         <button

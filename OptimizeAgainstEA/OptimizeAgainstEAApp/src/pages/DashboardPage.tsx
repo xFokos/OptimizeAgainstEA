@@ -4,7 +4,7 @@ import "../styles/specific/dashboard.css";
 import { ProblemSelection } from "../modules/selectProblemPage/page/ProblemSelection.tsx";
 import { EAExplainedTab } from "./EAExplainedTab.tsx";
 
-type Section = "gameSelect" | "settings" | "eaExplained";
+type Section = "gameSelect" | "eaExplained";
 
 export type ProblemId = "battleShips" | "shooter" | "mazeExplorer";
 export type GameConfig = {
@@ -54,11 +54,6 @@ export default function DashboardPage() {
                         onClick={() => handleNav("gameSelect")}
                     />
                     <MenuItem
-                        label="Settings"
-                        active={active === "settings"}
-                        onClick={() => handleNav("settings")}
-                    />
-                    <MenuItem
                         label="EA Explained"
                         active={active === "eaExplained"}
                         onClick={() => handleNav("eaExplained")}
@@ -79,7 +74,6 @@ export default function DashboardPage() {
                     </>
                 )}
 
-                {active === "settings"    && <EmptyTab title="Settings" />}
                 {active === "eaExplained" && <EAExplainedTab />}
             </main>
         </div>
@@ -117,13 +111,3 @@ function MenuItem({
     );
 }
 
-function EmptyTab({ title }: { title: string }) {
-    return (
-        <>
-            <h1 className="page-title">{title}</h1>
-            <div className="centered">
-                <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>Coming soon</p>
-            </div>
-        </>
-    );
-}

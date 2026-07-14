@@ -16,8 +16,8 @@ import { PRESETS, LOBBY_TABS, LOBBY_TAB_LABELS, type PresetId, type LobbyTab } f
 import { ShooterPreview } from './previews/ShooterPreview';
 import { SoloPlayOverview } from './SoloPlayOverview';
 import { TutorialChooserModal } from './TutorialChooserModal';
-import { TutorialEvolutionExplainer } from '../components/tutorialEvolutionContent';
-import { TUTORIAL_COMPLETED_KEY } from '../shooter.types';
+import { TutorialEvolutionExplainer, SoloDnaExplainerHint, SoloEaSettingHint } from '../components/tutorialEvolutionContent';
+import { hasCompletedAnyTutorial } from '../shooter.types';
 
 // ---- Normal Lobby ----
 
@@ -142,13 +142,13 @@ export function NormalLobby() {
     };
 
     // Tutorial-Button: erster Durchlauf startet direkt die Übungsrunde (die am
-    // Ende in den DNA/EA-Explainer mündet). Sobald das einmal abgeschlossen
-    // wurde (Flag gesetzt in ShooterCanvas' finishTutorial), öffnet der Button
-    // stattdessen ein Auswahlfenster, um gezielt einen Teil zu wiederholen.
+    // Ende in den DNA/EA-Explainer mündet). Sobald irgendein Gameplay-Tutorial
+    // (egal welcher Modus — Steuerung ist überall gleich) abgeschlossen wurde,
+    // öffnet der Button stattdessen das Auswahlfenster.
     const [tutorialChooserOpen, setTutorialChooserOpen] = useState(false);
     const [explainerOpen, setExplainerOpen]             = useState(false);
     const openTutorial = () => {
-        if (localStorage.getItem(TUTORIAL_COMPLETED_KEY)) setTutorialChooserOpen(true);
+        if (hasCompletedAnyTutorial()) setTutorialChooserOpen(true);
         else void startPractice();
     };
 
@@ -200,11 +200,28 @@ export function NormalLobby() {
                     dnaPanelRef={dnaPanelRef}
                 />
             )}
-            {tab === 'Algorithm' && <EASettingsPanel />}
+            {tab === 'Algorithm' && (
+                <EASettingsPanel
+                    rowHints={{
+                        mutationRate:       <SoloEaSettingHint topic="mutationRate" />,
+                        mutationStrength:   <SoloEaSettingHint topic="mutationStrength" />,
+                        presimGenerations:  <SoloEaSettingHint topic="presimGenerations" />,
+                        populationSize:     <SoloEaSettingHint topic="populationSize" />,
+                        crossoverType:      <SoloEaSettingHint topic="crossoverType" />,
+                        injectionDeviation: <SoloEaSettingHint topic="injectionDeviation" />,
+                        hallOfFame:         <SoloEaSettingHint topic="hallOfFame" />,
+                    }}
+                />
+            )}
             {tab === 'DnaRound' && (
                 <>
                     <div className="panel panel--md" style={{ marginBottom: 12 }}>
-                        <p style={tabStyles.sectionLabel}>DNA</p>
+                        {/* sectionLabels 12px-Bottom-Margin aufs Wrapper-Div verlagert —
+                          * in der Flex-Zeile würde sie das Label gegen den "?" verschieben. */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                            <p style={{ ...tabStyles.sectionLabel, margin: 0 }}>DNA</p>
+                            <SoloDnaExplainerHint />
+                        </div>
                         <ShooterDnaSection
                             dna={liveDna ?? shooterSettings.starterDna}
                             onChange={(i, v) => {

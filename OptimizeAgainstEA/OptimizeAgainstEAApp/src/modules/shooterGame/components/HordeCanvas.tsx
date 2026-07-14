@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { ARENA, type InputState, type Population, type DNA } from '../shooter.types';
+import { ARENA, HORDE_TUTORIAL_COMPLETED_KEY, type InputState, type Population, type DNA } from '../shooter.types';
 import type { HordeGameState, HordePhase, HordeMap } from '../horde/hordeTypes';
 import { hordeRunStore }  from '../horde/hordeRunStore';
 import { hordeGameStore } from '../horde/hordeGameStore';
@@ -17,6 +18,7 @@ import type { PlayerStats } from '../shooter.types';
 import { applyMods, MOD_POOL, type ModDefinition } from '../mods/modTypes';
 import { runModsStore } from '../mods/runModsStore';
 import { CompiBubble } from '../../../components/hints';
+import { TutorialHordeExplainer } from './tutorialHordeContent';
 
 // React wiring for Horde mode: game loop, overlays (start/choosing/dead),
 // tutorial coachmarks. The pure game/EA logic lives in horde/hordeEngine.ts,
@@ -28,10 +30,12 @@ const MOD_CHOICE_COUNT  = 3;
 
 // ---- Tutorial-feste Spielkonfiguration ----
 // Einzige Übungsrunde: feste Map mit Deckung (Pillars), kleine Welle, inerte
-// Gegner (siehe HORDE_TUTORIAL_DNA) und ein niedriger Kill-Schwellwert, damit
-// die Mod-Auswahl ("Powerups") garantiert schnell auftaucht.
+// Gegner (siehe HORDE_TUTORIAL_DNA). Kills lösen hier KEINE Powerup-Auswahl
+// aus — die kommt genau einmal, skriptgesteuert beim 'mods'-Schritt (siehe
+// tutorialModOfferTimerRef), damit sie nicht unvermittelt reinplatzt.
 const TUTORIAL_WAVE_SIZE           = 8;
-const TUTORIAL_KILLS_PER_UPGRADE   = 2;
+const TUTORIAL_EVOLUTION_DWELL     = 6;   // s die die "It just evolved"-Bubble mindestens steht
+const TUTORIAL_MOD_OFFER_DELAY     = 3.5; // s Lese-Pause für die Powerup-Bubble vorm Overlay
 
 type HordeTutorialStep = 'move' | 'aim' | 'shoot' | 'obstacles' | 'evolution' | 'mods' | 'done';
 
@@ -40,13 +44,12 @@ const HORDE_TUTORIAL_STEP_CONTENT: Record<HordeTutorialStep, { title: string; bo
     aim:       { title: 'Step 2 — Aim',       body: 'Move your mouse — your reticle follows it wherever it goes.' },
     shoot:     { title: 'Step 3 — Shoot',     body: 'Left-click or press Space to fire at the dummies.' },
     obstacles: { title: 'Cover',              body: "Those pillars block bullets — yours and theirs. Duck behind one to break line of sight." },
-    // Real, not a mockup — the DNA panel really did just update: the killed
-    // agent's slot in the population got a fresh genome (a mix of two good
-    // survivors, plus a small random tweak) and respawned. Unlike Solo's
-    // round-based reveal, here it happens live, on every single death.
-    evolution: { title: 'That panel just evolved', body: "Look at the DNA panel on the right — it just updated. This dummy's replacement is a mix of two survivors' genes (crossover) with a small random tweak (mutation). That's the whole algorithm, happening live, every time one of them dies." },
-    mods:      { title: 'Powerups',           body: 'Every couple of kills you get to pick a powerup that boosts your stats for the rest of the run.' },
-    done:      { title: "You've got it!",     body: 'Try the powerup choice below, then finish whenever you\'re ready.' },
+    // Kein Verweis aufs DNA-Panel — das ist im Tutorial ausgeblendet (poppte
+    // sonst unvermittelt beim ersten Kill auf); die Mechanik im Detail erklärt
+    // der Horde-Explainer direkt im Anschluss.
+    evolution: { title: 'It just evolved',    body: "Each dummy you kill instantly respawns as a new one, bred from two survivors' genes with a small random tweak. That's evolution running live on every death — we'll break it down right after this round." },
+    mods:      { title: 'Powerups',           body: "Here comes a powerup choice — pick one, it boosts your stats for the rest of the run. In a real run you earn one every couple of kills." },
+    done:      { title: "You've got it!",     body: 'Play as long as you like — then hit the button and we\'ll break down how the horde actually evolves.' },
 };
 
 // ---- Component ----
@@ -80,7 +83,9 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false,
     // Resume a saved run if there is one. A 'choosing' phase can't resume as-is —
     // the pending mod-choice prompt itself isn't persisted — so it downgrades to
     // 'playing' (the run continues, that one mod offer is simply skipped).
-    const resumed: HordeGameState | null = hordeGameStore.state
+    // Tutorial: nie resumen und (siehe unten) nie in den Store schreiben — die
+    // Übungsrunde darf nicht als "Continue Horde" ins echte Spiel durchsickern.
+    const resumed: HordeGameState | null = !tutorial && hordeGameStore.state
         ? (hordeGameStore.state.phase === 'choosing' ? { ...hordeGameStore.state, phase: 'playing' } : hordeGameStore.state)
         : null;
     const stateRef       = useRef<HordeGameState | null>(resumed);
@@ -88,16 +93,18 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false,
     const playerStatsRef = useRef<PlayerStats>(shooterSettings.playerStats);
     const hordeSizeRef   = useRef(tutorial ? TUTORIAL_WAVE_SIZE : hordeSettings.waveSize);
     const starterDnaRef  = useRef(tutorial ? HORDE_TUTORIAL_DNA : hordeSettings.starterDna);
-    const modChoiceEnabledRef = useRef(tutorial ? true : hordeSettings.modChoiceEnabled);
-    const killsPerUpgradeRef  = useRef(tutorial ? TUTORIAL_KILLS_PER_UPGRADE : hordeSettings.killsPerUpgrade);
+    // Tutorial: false — Kills bieten keine Mods an, das eine skriptgesteuerte
+    // Angebot beim 'mods'-Schritt läuft separat (tutorialModOfferTimerRef).
+    const modChoiceEnabledRef = useRef(tutorial ? false : hordeSettings.modChoiceEnabled);
+    const killsPerUpgradeRef  = useRef(hordeSettings.killsPerUpgrade);
     const mapRef         = useRef<HordeMap>(tutorial ? getHordeMap('pillars') : resolveHordeMap(hordeSettings.mapId, hordeSettings.customObstacles, hordeSettings.customSpawnSides, hordeSettings.customPlayerSpawn));
 
     useEffect(() => { eaRef.current          = hordeSettings;               }, [hordeSettings]);
     useEffect(() => { playerStatsRef.current = shooterSettings.playerStats;  }, [shooterSettings]);
     useEffect(() => { hordeSizeRef.current   = tutorial ? TUTORIAL_WAVE_SIZE : hordeSettings.waveSize;     }, [hordeSettings, tutorial]);
     useEffect(() => { starterDnaRef.current  = tutorial ? HORDE_TUTORIAL_DNA : hordeSettings.starterDna;   }, [hordeSettings.starterDna, tutorial]);
-    useEffect(() => { modChoiceEnabledRef.current = tutorial ? true : hordeSettings.modChoiceEnabled; }, [hordeSettings.modChoiceEnabled, tutorial]);
-    useEffect(() => { killsPerUpgradeRef.current  = tutorial ? TUTORIAL_KILLS_PER_UPGRADE : hordeSettings.killsPerUpgrade;   }, [hordeSettings.killsPerUpgrade, tutorial]);
+    useEffect(() => { modChoiceEnabledRef.current = tutorial ? false : hordeSettings.modChoiceEnabled; }, [hordeSettings.modChoiceEnabled, tutorial]);
+    useEffect(() => { killsPerUpgradeRef.current  = hordeSettings.killsPerUpgrade; }, [hordeSettings.killsPerUpgrade]);
     useEffect(() => {
         mapRef.current = tutorial
             ? getHordeMap('pillars')
@@ -120,6 +127,12 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false,
     // stays visible, so a step a player satisfies instantly (e.g. already
     // moving) doesn't flash by unread.
     const tutorialAimOriginRef = useRef<{ x: number; y: number } | null>(null);
+    // Countdown fürs eine skriptgesteuerte Powerup-Angebot im 'mods'-Schritt:
+    // null = Schritt noch nicht erreicht, >0 = Lese-Pause läuft, <=0 = angeboten.
+    const tutorialModOfferTimerRef = useRef<number | null>(null);
+    // Gleiche Mechanik für die Evolution-Bubble — die MIN_STEP_MS des Hooks
+    // (3s) waren zum Lesen der längeren Erklärung zu knapp.
+    const tutorialEvolutionTimerRef = useRef<number | null>(null);
     const {
         stepRef: tutorialStepRef,
         step: tutorialStep,
@@ -130,7 +143,13 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false,
         tick: tickTutorialStep,
     } = useTutorialStep<HordeTutorialStep>('move');
 
+    // Tutorial-Abschluss = Übungsrunde + Horde-Explainer komplett — erst der
+    // Explainer-Finish setzt das Flag, das den Lobby-Button aufs Auswahlfenster
+    // umschaltet (wie ShooterCanvas' finishTutorial für Solo/Raidboss).
+    const [hordeExplainerVisible, setHordeExplainerVisible] = useState(false);
+
     const finishTutorial = async () => {
+        localStorage.setItem(HORDE_TUTORIAL_COMPLETED_KEY, '1');
         if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
         hordeGameStore.state = null;
         hordeGameStore.notify();
@@ -142,6 +161,8 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false,
         runModsStore.reset();
         if (tutorial) {
             tutorialAimOriginRef.current = null;
+            tutorialModOfferTimerRef.current = null;
+            tutorialEvolutionTimerRef.current = null;
             advanceTutorialStep('move');
         }
         // Base genes + movement loop + size/opacity are all jittered around the
@@ -150,11 +171,18 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false,
         // gets overridden by pure randomness. Only the spawn-side weights have
         // no starter equivalent (see HORDE_STARTER_DNA_LENGTH) and stay fully
         // random every spawn, on purpose — not something to bias up front.
+        //
+        // Tutorial: KEIN Jitter — schon ±0.05 Movement-Speed lässt die inerten
+        // Dummies langsam in Wände driften, wo die Stuck-Cull sie "einfach so"
+        // sterben lässt (wirkt instabil). Exakte HORDE_TUTORIAL_DNA = wirklich
+        // regungslose Zielscheiben.
         const pop: Population = {
             generation:  1,
             individuals: Array.from({ length: hordeSizeRef.current }, () => ({
                 dna: [
-                    ...starterDnaRef.current.map(v => Math.max(0, Math.min(1, v + (Math.random() - 0.5) * 0.1))),
+                    ...(tutorial
+                        ? [...starterDnaRef.current]
+                        : starterDnaRef.current.map(v => Math.max(0, Math.min(1, v + (Math.random() - 0.5) * 0.1)))),
                     ...Array.from({ length: 4 }, () => Math.random()), // spawn-side weights: top, right, bottom, left
                 ],
                 fitness: 0,
@@ -163,8 +191,10 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false,
             avgFitness:  0,
         };
         stateRef.current = makeInitialState(pop, mapRef.current);
-        hordeGameStore.state = stateRef.current;
-        hordeGameStore.notify();
+        if (!tutorial) {
+            hordeGameStore.state = stateRef.current;
+            hordeGameStore.notify();
+        }
         setUiPhase('playing');
         setUiGen(pop.individuals.length);
         setUiScore(0);
@@ -208,7 +238,9 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false,
                     setUiPhase('dead');
                     setUiScore(next.score);
                     setUiGen(next.generation);
-                    hordeRunStore.record({ score: next.score, generation: next.generation });
+                    // Tutorial-Tode zählen nicht als "Last Run" — die
+                    // Übungsrunde bleibt komplett außerhalb des echten Spiels.
+                    if (!tutorial) hordeRunStore.record({ score: next.score, generation: next.generation });
                     // The run is over — nothing left to resume. "Last Run" above
                     // already has the score/generation via hordeRunStore.
                     hordeGameStore.state = null;
@@ -246,15 +278,37 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false,
                         // step pointing at it rather than reference nothing.
                         requestTutorialStep(hideDnaPanel ? 'mods' : 'evolution');
                     } else if (step === 'evolution') {
-                        requestTutorialStep('mods');
-                    } else if (step === 'mods' && next.phase === 'choosing') {
-                        requestTutorialStep('done');
+                        // Nicht sofort weiterschalten — die Erklärung braucht
+                        // mehr Zeit als die 3s-Mindestanzeige des Hooks.
+                        if (tutorialEvolutionTimerRef.current === null) {
+                            tutorialEvolutionTimerRef.current = TUTORIAL_EVOLUTION_DWELL;
+                        } else {
+                            tutorialEvolutionTimerRef.current -= dt;
+                            if (tutorialEvolutionTimerRef.current <= 0) requestTutorialStep('mods');
+                        }
+                    } else if (step === 'mods' && next.phase === 'playing') {
+                        // Genau ein skriptgesteuertes Powerup-Angebot: erst die
+                        // Bubble kurz lesen lassen, dann das Overlay öffnen.
+                        if (tutorialModOfferTimerRef.current === null) {
+                            tutorialModOfferTimerRef.current = TUTORIAL_MOD_OFFER_DELAY;
+                        } else if (tutorialModOfferTimerRef.current > 0) {
+                            tutorialModOfferTimerRef.current -= dt;
+                            if (tutorialModOfferTimerRef.current <= 0) {
+                                const available = MOD_POOL.filter(m => !runModsStore.activeModIds.includes(m.id));
+                                const shuffled  = [...available].sort(() => Math.random() - 0.5);
+                                setPendingModChoices(shuffled.slice(0, Math.min(MOD_CHOICE_COUNT, available.length)));
+                                setUiPhase('choosing');
+                                next = { ...next, phase: 'choosing' };
+                                requestTutorialStep('done');
+                            }
+                        }
                     }
                     tickTutorialStep();
                 }
 
                 stateRef.current = next;
-                if (next.phase !== 'dead') hordeGameStore.state = next;
+                // Tutorial läuft nur im lokalen stateRef — nichts zu resumen.
+                if (!tutorial && next.phase !== 'dead') hordeGameStore.state = next;
                 render(ctx, next);
             } else {
                 render(ctx, s);
@@ -281,11 +335,16 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false,
         color:          '#fff',
     };
 
+    // Tutorial: kein DNA-Panel — es poppte unvermittelt beim ersten Kill auf
+    // und lenkt vom eigentlichen Gameplay-Lernen ab; die DNA erklärt danach
+    // der Horde-Explainer. Compi übernimmt stattdessen die rechte Seite.
+    const showDnaPanel = !hideDnaPanel && !tutorial;
+
     return (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexShrink: 0 }}>
         {/* Mirrors the DNA panel's width on the other side so the canvas itself
             stays centered instead of being pushed left by the panel. */}
-        {!hideDnaPanel && <div style={{ width: PANEL_W, flexShrink: 0 }} />}
+        {showDnaPanel && <div style={{ width: PANEL_W, flexShrink: 0 }} />}
         <div style={{ width: ARENA.WIDTH * scale, height: ARENA.HEIGHT * scale, position: 'relative', flexShrink: 0 }}>
             <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0 }}>
                 <canvas ref={canvasRef} width={ARENA.WIDTH} height={ARENA.HEIGHT} style={{ display: 'block' }} />
@@ -350,19 +409,40 @@ export function HordeCanvas({ scale = 1, externalInputRef, hideDnaPanel = false,
                     </div>
                 )}
 
-                {tutorial && uiPhase === 'playing' && !tutorialBubbleClosed && (
+                {/* Portalled: der Wrapper oben hat `transform: scale(...)` und
+                  * wäre sonst der Containing Block — Compi klebte mitten auf
+                  * dem Canvas statt rechts daneben im echten Viewport (gleiche
+                  * Fix-Klasse wie ShooterCanvas' tutorialCoachmark). */}
+                {tutorial && uiPhase === 'playing' && !tutorialBubbleClosed && createPortal(
                     <CompiBubble
                         title={HORDE_TUTORIAL_STEP_CONTENT[tutorialStep].title}
                         body={HORDE_TUTORIAL_STEP_CONTENT[tutorialStep].body}
                         actions={tutorialStep === 'done'
-                            ? [{ label: 'Finish Tutorial → Lobby', onClick: finishTutorial, variant: 'primary' }]
+                            ? [{ label: 'Learn the Evolution →', onClick: () => setHordeExplainerVisible(true), variant: 'primary' }]
                             : []}
                         onClose={() => setTutorialBubbleClosed(true)}
-                    />
+                    />,
+                    document.body,
+                )}
+
+                {/* Fullscreen-Takeover wie ShooterCanvas' Explainer: portalled,
+                  * weil der Wrapper oben `transform: scale(...)` hat und fixe
+                  * Positionierung sonst im Canvas-Kasten gefangen wäre. */}
+                {tutorial && hordeExplainerVisible && createPortal(
+                    <div className="explainer-takeover">
+                        <button className="btn btn--ghost btn--sm explainer-takeover__back" onClick={finishTutorial}>
+                            ← Back to Lobby
+                        </button>
+                        <TutorialHordeExplainer
+                            onFinish={finishTutorial}
+                            finishLabel="Finish Tutorial → Lobby"
+                        />
+                    </div>,
+                    document.body,
                 )}
             </div>
         </div>
-        {!hideDnaPanel && <HordeDnaPanel bestDna={bestDna} height={ARENA.HEIGHT * scale} />}
+        {showDnaPanel && <HordeDnaPanel bestDna={bestDna} height={ARENA.HEIGHT * scale} />}
         </div>
     );
 }

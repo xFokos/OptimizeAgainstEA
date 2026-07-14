@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useHints, HINTS, TourSpotlight } from '../../../components/hints';
 import type { HintId } from '../../../components/hints';
@@ -15,6 +16,9 @@ import { HORDE_TABS, HORDE_TAB_LABELS, HORDE_EDITABLE_GENES, type HordeTab } fro
 import { HordePreview } from './previews/HordePreview';
 import { HordeMapPreview } from './previews/HordeMapPreview';
 import { HordeOverview } from './HordeOverview';
+import { TutorialChooserModal } from './TutorialChooserModal';
+import { TutorialHordeExplainer } from '../components/tutorialHordeContent';
+import { hasCompletedAnyTutorial } from '../shooter.types';
 
 function HordeMapSection() {
     const navigate = useNavigate();
@@ -106,6 +110,43 @@ export function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
         hordeGameStore.notify();
         navigate('/HordeGame', { state: { tutorial: true } });
     };
+
+    // Wie in der Solo-Lobby: nur komplett neue Spieler bekommen den vollen
+    // Erstlauf (Übungsrunde → Horde-Explainer) — wer irgendwo schon ein
+    // Gameplay-Tutorial gemacht hat, kriegt direkt das Auswahlfenster.
+    const [tutorialChooserOpen, setTutorialChooserOpen] = useState(false);
+    const [explainerOpen, setExplainerOpen]             = useState(false);
+    const openTutorial = () => {
+        if (hasCompletedAnyTutorial()) setTutorialChooserOpen(true);
+        else void startHordeTutorial();
+    };
+
+    const tutorialOverlays = (
+        <>
+            {tutorialChooserOpen && (
+                <TutorialChooserModal
+                    accent={HO}
+                    onClose={() => setTutorialChooserOpen(false)}
+                    onPractice={() => { setTutorialChooserOpen(false); void startHordeTutorial(); }}
+                    onExplainer={() => { setTutorialChooserOpen(false); setExplainerOpen(true); }}
+                />
+            )}
+            {/* Portal: der Desktop-Wrapper hat `zoom` — als echtes Fullscreen-
+              * Takeover gehört der Explainer in den unskalierten Viewport. */}
+            {explainerOpen && createPortal(
+                <div className="explainer-takeover">
+                    <button className="btn btn--ghost btn--sm explainer-takeover__back" onClick={() => setExplainerOpen(false)}>
+                        ← Back to Lobby
+                    </button>
+                    <TutorialHordeExplainer
+                        onFinish={() => setExplainerOpen(false)}
+                        finishLabel="Back to Lobby"
+                    />
+                </div>,
+                document.body,
+            )}
+        </>
+    );
 
     // Guided lobby tour — same spotlight mechanism as Solo's (see NormalLobby):
     // highlights one real element per step instead of a corner-pinned bubble.
@@ -262,10 +303,11 @@ export function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
                 </div>
                 <div style={mobileBtnsStyle}>
                     <HelpButton topic="shooter.horde" onTakeTour={startTour} />
-                    <button className="btn btn--outline btn--sm" style={{ '--btn-color': HO } as React.CSSProperties} onClick={startHordeTutorial}>Tutorial</button>
+                    <button className="btn btn--outline btn--sm" style={{ '--btn-color': HO } as React.CSSProperties} onClick={openTutorial}>Tutorial</button>
                     <div style={{ flex: 1 }}>{playBtn}</div>
                 </div>
                 {tourOverlay}
+                {tutorialOverlays}
             </div>
         );
     }
@@ -301,10 +343,11 @@ export function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
             </div>
 
             <div style={{ ...lobbyStyles.rightBottom, gap: 10 }}>
-                <button className="btn btn--outline btn--lg" style={{ '--btn-color': HO } as React.CSSProperties} onClick={startHordeTutorial}>Tutorial</button>
+                <button className="btn btn--outline btn--lg" style={{ '--btn-color': HO } as React.CSSProperties} onClick={openTutorial}>Tutorial</button>
                 {playBtn}
             </div>
             {tourOverlay}
+            {tutorialOverlays}
         </div>
     );
 }

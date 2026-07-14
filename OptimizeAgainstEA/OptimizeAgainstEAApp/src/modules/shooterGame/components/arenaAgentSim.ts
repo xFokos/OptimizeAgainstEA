@@ -104,8 +104,9 @@ export function patrol(time: number, angSpeed: number, orbitR: number): ArenaTar
 }
 
 /** Centered roster grid (short last row centered) with a tiny deterministic
- * per-candidate tilt/opacity spread so they read as individuals. */
-export function lineupSpots(count: number) {
+ * per-candidate tilt/opacity spread so they read as individuals.
+ * `faceDown` flips the facing (e.g. toward player dots along the bottom). */
+export function lineupSpots(count: number, faceDown = false) {
     const cols   = Math.ceil(Math.sqrt(count));
     const rows   = Math.ceil(count / cols);
     const margin = ARENA_SIZE * 0.16;
@@ -119,7 +120,7 @@ export function lineupSpots(count: number) {
         return {
             x: cols > 1 ? margin + ((cols - inRow) * stepX) / 2 + col * stepX : ARENA_SIZE / 2,
             y: rows > 1 ? margin + row * stepY : ARENA_SIZE / 2,
-            rot:     -Math.PI / 2 + Math.sin(i * 2.7) * 0.14,
+            rot:     (faceDown ? Math.PI : -Math.PI) / 2 + Math.sin(i * 2.7) * 0.14,
             opacity: 0.5 + 0.45 * Math.abs(Math.sin(i * 3.3)),
         };
     });

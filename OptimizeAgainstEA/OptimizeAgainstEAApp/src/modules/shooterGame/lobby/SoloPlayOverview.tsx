@@ -10,6 +10,7 @@ import { useMobile } from './lobbyHooks';
 import { ovStyles, tabStyles } from './lobbyStyles';
 import { PRESETS, type PresetId, type LobbyTab } from './lobbyConstants';
 import { DnaGeneRow } from './DnaGeneRow';
+import { SoloDnaExplainerHint } from '../components/tutorialEvolutionContent';
 
 // ---- Solo Play Overview (tab 1) ----
 
@@ -234,7 +235,11 @@ export function SoloPlayOverview({ selectedPreset, setSelectedPreset, onNavigate
                     whichever is currently true (live agent if a game exists). */}
                 <div ref={dnaPanelRef} className="panel panel--md">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <p style={{ ...tabStyles.sectionLabel, margin: 0 }}>DNA</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <p style={{ ...tabStyles.sectionLabel, margin: 0 }}>DNA</p>
+                            {/* Öffnet die zwei DNA-Steps des Tutorials als Popup. */}
+                            <SoloDnaExplainerHint />
+                        </div>
                         <button className="btn btn--ghost btn--sm" onClick={() => onNavigateTab('DnaRound')}>
                             Edit →
                         </button>

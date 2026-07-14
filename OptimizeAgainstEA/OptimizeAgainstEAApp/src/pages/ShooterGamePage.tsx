@@ -143,7 +143,7 @@ export default function ShooterGamePage() {
                     externalInputRef={isMobileLandscape ? inputRef : undefined}
                     leaveHandlerRef={leaveHandlerRef}
                     tutorial={tutorial}
-                    //tutorialMode={tutorialMode}
+                    tutorialMode={tutorialMode}
                 />
             </GameLayout>
 
