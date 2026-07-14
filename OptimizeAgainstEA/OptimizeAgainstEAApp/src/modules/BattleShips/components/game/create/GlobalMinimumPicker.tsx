@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
 import type { Minimum, MapConfig } from '../../../types/map.ts';
 import { createMapProblem } from '../../../engine/functionSurface';
+import { MAP_SIZES, type MapSizeId } from '../../../engine/mapCodec';
 import { GameMap } from '../shared/GameMap';
 
 interface GlobalMinimumPickerProps {
   minima: Minimum[];
   selectedId: string | null;
+  size: MapSizeId;
   onSelect: (id: string) => void;
   onBack: () => void;
   onFinish: () => void;
@@ -16,21 +18,24 @@ const DUMMY_BOUNDS = { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
 export function GlobalMinimumPicker({
                                       minima,
                                       selectedId,
+                                      size,
                                       onSelect,
                                       onBack,
                                       onFinish,
                                     }: GlobalMinimumPickerProps) {
+  const preset = MAP_SIZES[size];
   const evaluateFn = useMemo(() => {
     if (minima.length === 0) return undefined;
     const config: MapConfig = {
       id: 'preview',
       minima,
       bounds: DUMMY_BOUNDS,
-      winRadius: 0.04,
+      winRadius: preset.winRadius,
+      basinScale: preset.basinScale,
       createdAt: 0,
     };
     return createMapProblem(config).evaluate;
-  }, [minima]);
+  }, [minima, preset.winRadius, preset.basinScale]);
 
   return (
       <div className="create-step">
@@ -71,6 +76,7 @@ export function GlobalMinimumPicker({
               showMinima
               highlightGlobal
               evaluateFn={evaluateFn}
+              heatmapConfig={{ colorSpread: 0 }}
               onMinimumClick={onSelect}
               selectedId={selectedId}
               overlayLabel={!selectedId ? 'Click a dot to select it as the global peak' : undefined}

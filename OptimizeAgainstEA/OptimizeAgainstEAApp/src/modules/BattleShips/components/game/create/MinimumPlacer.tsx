@@ -1,13 +1,17 @@
 import { useMemo } from 'react';
 import type { Minimum, Coordinate, MapConfig } from '../../../types/map.ts';
 import { createMapProblem } from '../../../engine/functionSurface';
+import { MAP_SIZES, type MapSizeId } from '../../../engine/mapCodec';
 import { GameMap } from '../shared/GameMap';
+import { MapSizePicker } from '../shared/MapSizePicker';
 
 interface MinimumPlacerProps {
     minima: Minimum[];
     maxMinima: number;
     minSpacing: number;
     isFull: boolean;
+    size: MapSizeId;
+    onSizeChange: (size: MapSizeId) => void;
     onPlace: (coord: Coordinate) => void;
     onRemove: (id: string) => void;
     onNext: () => void;
@@ -20,23 +24,27 @@ export function MinimumPlacer({
                                   maxMinima,
                                   minSpacing,
                                   isFull,
+                                  size,
+                                  onSizeChange,
                                   onPlace,
                                   onRemove,
                                   onNext,
                               }: MinimumPlacerProps) {
     // Build a live evaluate function from whatever minima exist so far.
     // Re-computes only when minima array changes.
+    const preset = MAP_SIZES[size];
     const evaluateFn = useMemo(() => {
         if (minima.length === 0) return undefined;
         const config: MapConfig = {
             id: 'preview',
             minima,
             bounds: DUMMY_BOUNDS,
-            winRadius: 0.04,
+            winRadius: preset.winRadius,
+            basinScale: preset.basinScale,
             createdAt: 0,
         };
         return createMapProblem(config).evaluate;
-    }, [minima]);
+    }, [minima, preset.winRadius, preset.basinScale]);
 
     return (
         <div className="create-step">
@@ -50,6 +58,8 @@ export function MinimumPlacer({
                     Click a dot to remove it.
                 </p>
 
+                <MapSizePicker value={size} onChange={onSizeChange} />
+
                 <div className="create-step__stats">
           <span className="stat">
             <span className="stat__value">
@@ -62,7 +72,9 @@ export function MinimumPlacer({
 
                 {isFull && (
                     <p style={{ fontSize: '0.78rem', color: 'var(--accent-global)' }}>
-                        Maximum reached — remove a dot to add another.
+                        {minima.length > maxMinima
+                            ? 'Over this size’s limit — pick a bigger size, or remove a dot.'
+                            : 'Maximum reached — remove a dot, or pick a bigger size.'}
                     </p>
                 )}
 
@@ -82,6 +94,7 @@ export function MinimumPlacer({
                     minima={minima}
                     showMinima
                     evaluateFn={evaluateFn}
+                    heatmapConfig={{ colorSpread: 0 }}
                     exclusionRadius={minSpacing / 2}
                     onMapClick={isFull ? undefined : onPlace}
                     onMinimumClick={onRemove}

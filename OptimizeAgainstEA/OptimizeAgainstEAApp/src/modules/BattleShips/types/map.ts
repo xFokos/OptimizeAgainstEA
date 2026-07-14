@@ -8,10 +8,12 @@ export interface Minimum {
   position: Coordinate;
   isGlobal: boolean;
   /**
-   * Explicit depth of this local minimum — the surface "floor" added to the
-   * distance term in `createMapProblem`. Lower = deeper / more deceptive.
-   * When omitted, a position-seeded pseudo-random floor is used instead.
-   * Ignored for the global minimum (always 0). Range: [0, ~0.3].
+   * Explicit depth of this local minimum, as a fraction of the map's
+   * `basinScale` — the surface "floor" added to the distance term in
+   * `createMapProblem`. Lower = deeper / more deceptive. Expressed relative to
+   * the basin scale so a local minimum is equally deceptive on a Small map and
+   * on a Huge one. When omitted, a position-seeded pseudo-random floor is used.
+   * Ignored for the global minimum (always 0). Range: [0, ~0.6].
    */
   floor?: number;
 }
@@ -21,6 +23,18 @@ export interface MapConfig {
   minima: Minimum[];
   bounds: { xMin: number; xMax: number; yMin: number; yMax: number };
   winRadius: number; // normalized radius around global min to trigger win
+  /**
+   * How wide one minimum's basin is, in normalized map units — the distance from
+   * a minimum at which the surface reaches the middle of its value range.
+   *
+   * This is what makes a basin's size a property of the *map*, not of how many
+   * minima happen to be on it. The alternative (normalising each surface against
+   * its own min/max) means adding minima shrinks every basin, because the map's
+   * value range collapses as nowhere is left far from anything — so the same
+   * mountain looked different depending on its neighbours. Comes from the size
+   * preset (see MAP_SIZES): a Small map gets wide basins, a Huge map narrow ones.
+   */
+  basinScale?: number;
   createdAt: number;
 }
 
@@ -34,6 +48,14 @@ export interface ProblemInstance {
     globalMinimum?: { x: number; y: number; value: number };
     /** Approximate extent of the win zone, for drawing the win ring in replays. */
     winRadius?: number;
+    /**
+     * Display hint for HeatmapLayer: how far to spread colours across this
+     * surface's value distribution. Belongs to the problem because the answer
+     * differs by kind — a hand-built map already colours evenly by construction
+     * and must NOT be equalised (that would make basins shrink as minima are
+     * added), whereas an analytic benchmark needs the spread to be legible.
+     */
+    colorSpread?: number;
   };
 }
 

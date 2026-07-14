@@ -6,6 +6,7 @@ import { copyCode } from
 import { useSavedMaps } from '../../../hooks/useSavedMaps';
 import { useHints } from '../../../../../components/hints';
 import type { HintId } from '../../../../../components/hints';
+import { DEFAULT_MAP_SIZE, type MapSizeId } from '../../../engine/mapCodec';
 import { MinimumPlacer } from './MinimumPlacer';
 import { GlobalMinimumPicker } from './GlobalMinimumPicker';
 
@@ -30,6 +31,7 @@ const stepHint: Record<CreateStep, HintId> = {
 
 export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
   const [step, setStep] = useState<CreateStep>('place');
+  const [size, setSize] = useState<MapSizeId>(DEFAULT_MAP_SIZE);
   const [copied, setCopied] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -61,7 +63,7 @@ export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
     clearAll,
     getCode,
     getMapConfig,
-  } = useGameMap();
+  } = useGameMap(size);
 
   const { saveMap } = useSavedMaps();
 
@@ -126,6 +128,8 @@ export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
                 maxMinima={maxMinima}
                 minSpacing={minSpacing}
                 isFull={isFull}
+                size={size}
+                onSizeChange={setSize}
                 onPlace={addMinimum}
                 onRemove={removeMinimum}
                 onNext={() => setStep('pick-global')}
@@ -136,6 +140,7 @@ export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
             <GlobalMinimumPicker
                 minima={minima}
                 selectedId={selectedId}
+                size={size}
                 onSelect={setGlobalMinimum}
                 onBack={() => setStep('place')}
                 onFinish={handleFinish}

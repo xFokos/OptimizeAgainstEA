@@ -687,6 +687,10 @@ export function createFunctionProblem(
       name: fn.label,
       globalMinimum: { x: best.x, y: best.y, value: 0 },
       winRadius: winR,
+      // Unlike a hand-built map, a benchmark's values are piled up wherever its
+      // own maths puts them (Rastrigin's ripples, Rosenbrock's trough), so the
+      // ramp only reads if the colours are spread across that distribution.
+      colorSpread: 0.95,
     },
   };
 }

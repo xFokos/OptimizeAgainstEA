@@ -92,7 +92,7 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
           <GameMap
             evaluateFn={problem.evaluate}
             revealPoints={revealPoints}
-            heatmapConfig={{ revealRadius }}
+            heatmapConfig={{ revealRadius, colorSpread: problem.metadata?.colorSpread }}
             onMapClick={!showOverlay ? probe : undefined}
           >
             {probes.map((p, i) => (

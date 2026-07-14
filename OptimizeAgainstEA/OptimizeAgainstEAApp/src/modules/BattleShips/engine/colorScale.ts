@@ -3,12 +3,19 @@
  *
  * Stop layout (low → high value):
  *   0.00  deep violet   #1a0050
- *   0.15  blue          #0040ff
- *   0.30  cyan          #00e5ff
- *   0.45  green         #00ff60
- *   0.60  yellow        #ffe000
- *   0.75  orange        #ff6000
+ *   0.20  blue          #0040ff
+ *   0.40  cyan          #00e5ff
+ *   0.58  green         #00ff60
+ *   0.74  yellow        #ffe000
+ *   0.88  orange        #ff6000
  *   1.00  deep red      #cc0010
+ *
+ * The cool half deliberately holds most of the ramp. Because the heatmap spreads
+ * colours across each surface's own value distribution, the share of a map
+ * painted in a given band ends up close to that band's *span* here — so handing
+ * the warm end 40% of the ramp (as an even layout does) drowns a big map in red.
+ * Deep red is worth reserving for the last stretch: it should mean "nothing here",
+ * not "somewhat far".
  *
  * Adjust the STOPS array to remap colours — no other code needs to change.
  */
@@ -22,11 +29,11 @@ interface Stop {
 
 const STOPS: Stop[] = [
     { t: 0.00, r:  26, g:   0, b:  80 }, // deep violet
-    { t: 0.15, r:   0, g:  64, b: 255 }, // blue
-    { t: 0.30, r:   0, g: 229, b: 255 }, // cyan
-    { t: 0.45, r:   0, g: 255, b:  96 }, // green
-    { t: 0.60, r: 255, g: 224, b:   0 }, // yellow
-    { t: 0.75, r: 255, g:  96, b:   0 }, // orange
+    { t: 0.20, r:   0, g:  64, b: 255 }, // blue
+    { t: 0.40, r:   0, g: 229, b: 255 }, // cyan
+    { t: 0.58, r:   0, g: 255, b:  96 }, // green
+    { t: 0.74, r: 255, g: 224, b:   0 }, // yellow
+    { t: 0.88, r: 255, g:  96, b:   0 }, // orange
     { t: 1.00, r: 204, g:   0, b:  16 }, // deep red
 ];
 

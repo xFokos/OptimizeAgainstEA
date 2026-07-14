@@ -28,6 +28,7 @@ export function encodeMap(config: MapConfig): string {
       return entry;
     }),
     wr: config.winRadius,
+    ...(config.basinScale !== undefined ? { bs: config.basinScale } : {}),
     t: config.createdAt,
   };
 
@@ -62,6 +63,9 @@ export function decodeMap(code: string): MapConfig {
       minima,
       bounds: DEFAULT_BOUNDS,
       winRadius: payload.wr ?? DEFAULT_WIN_RADIUS,
+      // Codes minted before basins had a fixed size carry no `bs`; they were all
+      // small, sparse maps, so the Medium scale reproduces how they used to look.
+      basinScale: payload.bs ?? MAP_SIZES[DEFAULT_MAP_SIZE].basinScale,
       createdAt: payload.t ?? Date.now(),
     };
   } catch {
@@ -69,18 +73,73 @@ export function decodeMap(code: string): MapConfig {
   }
 }
 
-/**
- * Generates a random MapConfig with n minima, one of which is global.
- */
-export function generateRandomMap(numMinima: number = 5): MapConfig {
-  const globalIndex = Math.floor(Math.random() * numMinima);
+// ── Map sizes ─────────────────────────────────────────────────────────────
+//
+// The play area is always the same normalized [0,1] square, so what makes a map
+// "big" is how much there is to search in it: more minima (more terrain, more
+// decoys) and a tighter summit to actually land on. The surface auto-normalises
+// its value range per map (see createMapProblem), so denser maps still use the
+// full colour ramp.
 
-  const minima: Minimum[] = Array.from({ length: numMinima }, (_, i) => ({
-    id: `m_${i}`,
-    position: {
+export type MapSizeId = 'small' | 'medium' | 'large' | 'huge';
+
+export interface MapSizePreset {
+  id: MapSizeId;
+  label: string;
+  /** Inclusive range of minima placed on a random map of this size. */
+  minima: [number, number];
+  /** Win radius, normalized — shrinks as maps grow, so a big map stays a hunt. */
+  winRadius: number;
+  /** Closest two minima may be placed (normalized), keeping cones distinguishable. */
+  minSpacing: number;
+  /**
+   * How wide one basin is (normalized distance to the middle of the value range).
+   * The size of a mountain is fixed here, by the map's size — it does not depend
+   * on how many other mountains share the map. Kept a little under `minSpacing`
+   * so neighbouring basins stay legible as separate features.
+   */
+  basinScale: number;
+}
+
+export const MAP_SIZES: Record<MapSizeId, MapSizePreset> = {
+  small:  { id: 'small',  label: 'Small',  minima: [4, 6],   winRadius: 0.05,  minSpacing: 0.20,  basinScale: 0.18 },
+  medium: { id: 'medium', label: 'Medium', minima: [8, 11],  winRadius: 0.04,  minSpacing: 0.13,  basinScale: 0.12 },
+  large:  { id: 'large',  label: 'Large',  minima: [13, 17], winRadius: 0.03,  minSpacing: 0.10,  basinScale: 0.09 },
+  huge:   { id: 'huge',   label: 'Huge',   minima: [20, 26], winRadius: 0.022, minSpacing: 0.075, basinScale: 0.068 },
+};
+
+export const MAP_SIZE_IDS: MapSizeId[] = ['small', 'medium', 'large', 'huge'];
+
+export const DEFAULT_MAP_SIZE: MapSizeId = 'medium';
+
+/**
+ * Generates a random MapConfig of the given size, one minimum of which is global.
+ *
+ * Minima are placed by rejection sampling against the size's `minSpacing`, so a
+ * dense map still reads as distinct basins instead of one merged blob. If the
+ * sampler can't fit the full count (unlucky layout), it settles for what it got
+ * rather than looping forever.
+ */
+export function generateRandomMap(size: MapSizeId = DEFAULT_MAP_SIZE): MapConfig {
+  const preset = MAP_SIZES[size] ?? MAP_SIZES[DEFAULT_MAP_SIZE];
+  const [lo, hi] = preset.minima;
+  const target = lo + Math.floor(Math.random() * (hi - lo + 1));
+
+  const positions: { x: number; y: number }[] = [];
+  const maxAttempts = target * 200;
+  for (let attempt = 0; attempt < maxAttempts && positions.length < target; attempt++) {
+    const candidate = {
       x: 0.05 + Math.random() * 0.9,
       y: 0.05 + Math.random() * 0.9,
-    },
+    };
+    const tooClose = positions.some((p) => Math.hypot(p.x - candidate.x, p.y - candidate.y) < preset.minSpacing);
+    if (!tooClose) positions.push(candidate);
+  }
+
+  const globalIndex = Math.floor(Math.random() * positions.length);
+  const minima: Minimum[] = positions.map((position, i) => ({
+    id: `m_${i}`,
+    position,
     isGlobal: i === globalIndex,
   }));
 
@@ -88,7 +147,8 @@ export function generateRandomMap(numMinima: number = 5): MapConfig {
     id: Math.random().toString(36).slice(2, 8).toUpperCase(),
     minima,
     bounds: DEFAULT_BOUNDS,
-    winRadius: DEFAULT_WIN_RADIUS,
+    winRadius: preset.winRadius,
+    basinScale: preset.basinScale,
     createdAt: Date.now(),
   };
 }
