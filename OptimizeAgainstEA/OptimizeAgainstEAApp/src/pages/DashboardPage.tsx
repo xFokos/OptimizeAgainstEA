@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import "../styles/specific/dashboard.css";
 import { ProblemSelection } from "../modules/selectProblemPage/page/ProblemSelection.tsx";
 import { EAExplainedTab } from "./EAExplainedTab.tsx";
@@ -18,7 +18,12 @@ const ROUTES: Record<ProblemId, string> = {
 };
 
 export default function DashboardPage() {
-    const [active, setActive] = useState<Section>("gameSelect");
+    // ?tab=ea — womit die Homepage direkt in die Erklärung springen kann,
+    // statt auf der Spielauswahl zu landen.
+    const [params] = useSearchParams();
+    const [active, setActive] = useState<Section>(
+        params.get("tab") === "ea" ? "eaExplained" : "gameSelect",
+    );
     const [config, setConfig] = useState<GameConfig>({ problem: undefined });
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -47,16 +52,18 @@ export default function DashboardPage() {
                     <span className="sidebar-brand-name">Optimize Against EA</span>
                 </div>
 
+                {/* EA Explained steht bewusst oben: wer neu ist, soll erst
+                    verstehen, wogegen er gleich spielt. */}
                 <nav className="sidebar-menu">
-                    <MenuItem
-                        label="Game Selection"
-                        active={active === "gameSelect"}
-                        onClick={() => handleNav("gameSelect")}
-                    />
                     <MenuItem
                         label="EA Explained"
                         active={active === "eaExplained"}
                         onClick={() => handleNav("eaExplained")}
+                    />
+                    <MenuItem
+                        label="Game Selection"
+                        active={active === "gameSelect"}
+                        onClick={() => handleNav("gameSelect")}
                     />
                 </nav>
             </aside>

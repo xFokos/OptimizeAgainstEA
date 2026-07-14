@@ -51,6 +51,15 @@
     text-shadow: 2px 2px 6px rgba(0,0,0,0.6), 0 0 60px rgba(79, 195, 247, 0.25);
 }
 
+/* Die zwei Einstiege nebeneinander — auf schmalen Screens untereinander. */
+.homepage-actions {
+    display:         flex;
+    justify-content: center;
+    align-items:     center;
+    gap:             var(--sp-4);
+    flex-wrap:       wrap;
+}
+
 .homepage-content p.subtext {
     font-size:   clamp(0.95rem, 1.5vw, 1.15rem);
     color:       var(--text-dim);

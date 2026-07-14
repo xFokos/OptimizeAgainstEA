@@ -161,6 +161,9 @@
 .game-select-launch {
     display:         flex;
     justify-content: center;
+    align-items:     center;
+    gap:             var(--sp-4);
+    flex-wrap:       wrap;
     margin-top:      var(--sp-8);
 }
 

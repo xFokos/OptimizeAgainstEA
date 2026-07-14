@@ -1,34 +1,34 @@
-import { ExplainerFlow, CrossoverVisual, MutationVisual, GenerationsVisual, GenomeVisual, SearchSpaceVisual, CreatureRosterVisual } from '../components/explainer';
+import { useMemo, useState } from 'react';
+import {
+    ExplainerFlow, CrossoverVisual, MutationVisual, GenerationsVisual,
+    PlaneRosterVisual, PlaneThrowVisual,
+    PlaneDnaSliders, PlaneDnaPreview, PLANE_SIZE_GENE, PLANE_DNA_START,
+} from '../components/explainer';
 import type { ExplainerStep } from '../components/explainer';
 
 // ─────────────────────────────────────────────────────────────────────────
-//  Generic, game-agnostic walkthrough of how an Evolutionary Algorithm
-//  works — from scratch, assuming zero prior knowledge: The Problem →
-//  Fitness → DNA → Population → Selection → Crossover → Mutation → The
-//  Loop. Deliberately NO shooter visuals here (CreatureRosterVisual instead
-//  of the game tutorials' arena canvases) — one running example carries the
-//  whole arc: breeding a creature for an obstacle course.
+//  Der generelle EA-Walkthrough auf dem Dashboard — bewusst HIGH LEVEL und
+//  spielunabhängig. Ein einziges Beispiel trägt den ganzen Bogen: einen
+//  Papierflieger falten, der möglichst weit fliegt. Das Beispiel ist genau
+//  deshalb gewählt, weil man die Wurfweite nicht ausrechnen KANN — man muss
+//  werfen und messen. Dieselbe Situation wie in den Spielen: man kann den
+//  besten Agenten nicht berechnen, nur spielen lassen.
+//
+//  Details (welche Gene, welche Fitness, welche Einstellungen) gehören NICHT
+//  hierher — die erklären die Tutorials im jeweiligen Spiel.
 // ─────────────────────────────────────────────────────────────────────────
 
-const GENOME_GENES = [
-    { label: 'Speed',    value: 0.78 },
-    { label: 'Strength', value: 0.34 },
-    { label: 'Sight',    value: 0.61 },
-    { label: 'Stealth',  value: 0.22 },
-    { label: 'Stamina',  value: 0.55 },
-];
-
 const CROSSOVER_GENES = [
-    { label: 'Speed',    parentA: 0.7, parentB: 0.2, fromA: true },
-    { label: 'Strength', parentA: 0.3, parentB: 0.8, fromA: false },
-    { label: 'Sight',    parentA: 0.6, parentB: 0.3, fromA: true },
-    { label: 'Stealth',  parentA: 0.2, parentB: 0.6, fromA: false },
-    { label: 'Stamina',  parentA: 0.5, parentB: 0.4, fromA: true },
+    { label: 'Wing width',  parentA: 0.7, parentB: 0.2, fromA: true },
+    { label: 'Fold angle',  parentA: 0.3, parentB: 0.8, fromA: false },
+    { label: 'Nose weight', parentA: 0.6, parentB: 0.3, fromA: true },
+    { label: 'Tail flap',   parentA: 0.2, parentB: 0.6, fromA: false },
+    { label: 'Balance',     parentA: 0.5, parentB: 0.4, fromA: true },
 ];
 
 const MUTATION_CHANGES = [
-    { label: 'Stealth',  before: 0.6, after: 0.75 },
-    { label: 'Stamina',  before: 0.5, after: 0.35 },
+    { label: 'Tail flap', before: 0.6, after: 0.75 },
+    { label: 'Balance',   before: 0.5, after: 0.35 },
 ];
 
 const GENERATIONS_EARLY = [
@@ -41,59 +41,71 @@ const GENERATIONS_LATER = [
     { fitness: 0.77 }, { fitness: 0.65 }, { fitness: 0.88, color: '#f97316' }, { fitness: 0.73 },
 ];
 
-const STEPS: ExplainerStep[] = [
+// Die Steps hängen an der DNA, die der Leser im DNA-Step selbst zieht — daher
+// eine Funktion und kein Modul-Konstante.
+function buildSteps(dna: number[], onGene: (i: number, v: number) => void): ExplainerStep[] {
+    return [
     {
         id:    'problem',
-        title: 'The Problem — you can\'t try everything',
-        body:  "Imagine breeding a creature for an obstacle course: how fast should it be, how strong, how sneaky? Just five traits already give millions of possible combinations — far too many to ever test, and no formula points at the best mix. The only thing you CAN do: build one creature, let it run the course, and see how it does. On the right, every bar is one design being tried — the landscape of all possibilities stays hidden.",
-        sideVisual: <SearchSpaceVisual axisLabel="every possible creature →" />,
+        title: 'The Problem — you can\'t calculate it',
+        body:  "Fold a paper plane that flies as far as possible. Go on — throw a few. How far one flies depends on how it's built: the wings, the angle of the folds, where the weight sits. Bend a wing a millimetre differently and it suddenly veers off. Nobody can tell you beforehand which fold wins — there's no formula for it, and far too many ways to fold a sheet of paper to try them all. The only thing you can do is fold one, throw it, and look.",
+        sideVisual: <PlaneThrowVisual />,
     },
     {
         id:    'fitness',
-        title: 'Fitness — grading every try',
-        body:  "So the first thing we need is a score. Send a creature through the course and it comes back with one number — its fitness: how far did it get, how fast? That's the only feedback there is; from here on, everything revolves around comparing those numbers. Every game on this site simply defines its own fitness.",
-        sideVisual: <SearchSpaceVisual showScores axisLabel="every possible creature →" />,
+        title: 'Score — Fitness',
+        body:  "You can't predict a throw — but you can measure one. Throw three planes and you get three numbers: 4.2m, 7.6m, 5.9m. The planes are gone; the numbers stay. Each plane now has a score, and that score is the only feedback you ever get: you still don't know why one flew furthest, and you don't need to — you just know it did. In evolutionary algorithms this score has a name: fitness. Same thing, fancier word.",
+        sideVisual: <PlaneThrowVisual mode="measure" />,
     },
     {
         id:    'dna',
-        title: 'DNA — a creature as numbers',
-        body:  "To breed creatures, each one is written down as a fixed list of numbers — its genes. Our creature is just these five numbers between 0 and 1; nothing more. That's the whole trick: anything you can encode as a list of numbers, you can evolve.",
-        visual: <GenomeVisual genes={GENOME_GENES} />,
+        title: 'DNA — the plane as numbers',
+        body:  "The DNA stands for the properties of a paper plane — its size, the kind of paper, the way it's folded. Each one is a number. Drag the slider and watch the plane change. In reality a plane depends on far more than the few properties we look at here.",
+        visual:     <PlaneDnaSliders dna={dna} onChange={onGene} genes={PLANE_SIZE_GENE} />,
+        sideVisual: <PlaneDnaPreview dna={dna} genes={PLANE_SIZE_GENE} />,
     },
     {
         id:    'population',
-        title: 'The Population — many creatures at once',
-        body:  "One creature alone tells you almost nothing — a single lucky or unlucky run would steer everything. So the algorithm keeps a whole population: dozens of individuals, each with its own DNA, all graded by the same fitness. Replace the whole roster with a new one, and that's the next generation — watch it on the right.",
-        sideVisual: <CreatureRosterVisual variant="lineup" count={10} />,
+        title: 'The Population — a whole batch',
+        body:  "For the algorithm we use a population — a group of slightly different paper planes, all based on the same model. Every one of them gets thrown, and every one gets its own score — its fitness. That's one generation.",
+        sideVisual: <PlaneThrowVisual mode="population" />,
     },
     {
         id:    'selection',
-        title: 'Selection — the fittest get to breed',
-        body:  "Now the breeding loop begins. The individuals with the best fitness are picked to become parents for the next generation — the rest are dropped. Watch the two parents get picked on the right.",
-        sideVisual: <CreatureRosterVisual variant="selection" count={10} />,
+        title: 'Selection — keep what flew',
+        body:  "The two that flew furthest become the parents of the next batch. The rest get thrown away. Nothing clever happens here — you simply keep what worked.",
+        sideVisual: <PlaneThrowVisual mode="selection" />,
     },
     {
         id:    'crossover',
-        title: 'Crossover — two parents, one child',
-        body:  "A child is built by taking each gene from one parent or the other — mixing successful traits from both without inventing anything new.",
+        title: 'Crossover — mix the parents',
+        body:  "A new plane is built from both parents: the wings of one, the nose of the other. Their DNA gets combined gene by gene, so good ideas from two different planes end up in the same one.",
         visual: <CrossoverVisual genes={CROSSOVER_GENES} />,
     },
     {
         id:    'mutation',
-        title: 'Mutation — small random tweaks',
-        body:  "After crossover, a few genes get nudged by a small random amount. Without this, the population could only ever recombine traits it already had — mutation is what lets it stumble onto something genuinely new.",
-        visual: <MutationVisual changes={MUTATION_CHANGES} />,
+        title: 'Mutation — bend something at random',
+        body:  "Then a few numbers get nudged a little, at random. Most of the time that makes the plane worse. But now and then it finds a fold nobody would have thought of — and without it, you could only ever reshuffle what you already had.",
+        visual:     <MutationVisual changes={MUTATION_CHANGES} />,
+        sideVisual: <PlaneRosterVisual variant="mutation" count={12} />,
     },
     {
         id:    'loop',
-        title: 'The Loop — repeat, and it gets better',
-        body:  "Select, cross over, mutate — then do it all again with the new population, generation after generation. No single step is smart on its own, but repeated enough times, the population reliably drifts toward better creatures. And that's exactly what you play against in every game on this site — only the creatures and the fitness change.",
+        title: 'The Loop — and that\'s the whole trick',
+        body:  "Throw, keep the best, mix, mutate, repeat. No single step is smart, but after enough rounds the planes fly twice as far — and nobody can explain why exactly that fold works. It just won. That's an evolutionary algorithm, and it's what you're playing against here: every game defines its own DNA and its own fitness, and its tutorial shows you which.",
         visual: <GenerationsVisual early={GENERATIONS_EARLY} later={GENERATIONS_LATER} />,
-        sideVisual: <CreatureRosterVisual variant="generations" count={10} />,
+        sideVisual: <PlaneRosterVisual variant="generations" count={12} />,
     },
-];
+    ];
+}
 
 export function EAExplainedTab() {
+    const [dna, setDna] = useState<number[]>(PLANE_DNA_START);
+    const steps = useMemo(
+        () => buildSteps(dna, (i, v) => setDna(prev => prev.map((g, j) => (j === i ? v : g)))),
+        [dna],
+    );
+
     // ExplainerFlow fills whatever box it's given (its Compi mascot is
     // anchored to that box's bottom-left) — without this wrapper, "bottom"
     // would mean the bottom of the flow's own content height, not the tab's
@@ -103,7 +115,7 @@ export function EAExplainedTab() {
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <h1 className="page-title">EA Explained</h1>
             <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-                <ExplainerFlow steps={STEPS} />
+                <ExplainerFlow steps={steps} />
             </div>
         </div>
     );

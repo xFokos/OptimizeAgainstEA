@@ -7,6 +7,8 @@ type NavigatePageButtonProps = {
 
     width?: number | string;
     height?: number | string;
+    /** Sekundäre Aktion neben einem Primary-Button. Default 'primary'. */
+    variant?: "primary" | "ghost";
 };
 
 export default function NavigatePageButton({
@@ -14,6 +16,7 @@ export default function NavigatePageButton({
                                            text,
                                              width,
                                              height,
+                                             variant = "primary",
                                        }: NavigatePageButtonProps) {
     const navigate = useNavigate();
 
@@ -28,7 +31,7 @@ export default function NavigatePageButton({
     };
 
     return (
-        <button className="btn btn--primary" style={style} onClick={handleClick}>
+        <button className={`btn btn--${variant}`} style={style} onClick={handleClick}>
             {text}
         </button>
     );

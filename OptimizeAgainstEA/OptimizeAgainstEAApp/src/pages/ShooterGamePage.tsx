@@ -12,6 +12,7 @@ import { MobileJoystickZone } from '../modules/shooterGame/components/MobileJoys
 import { MobileAimZone } from '../modules/shooterGame/components/MobileAimZone';
 import { useInput } from '../modules/shooterGame/hooks/useInput';
 import { gameStore } from '../modules/shooterGame/game/gameStore';
+import { getRaidbossActive } from '../modules/shooterGame/game/raidbossStore';
 import PageContainer from '../components/layout/PageContainer';
 
 const supportsFullscreen =
@@ -87,7 +88,13 @@ export default function ShooterGamePage() {
     // Gameplay) — der Modus steuert nur, welcher Explainer am Rundenende
     // kommt und in welche Lobby es zurückgeht.
     const tutorialMode         = locState?.tutorialMode ?? 'solo';
-    const lobbyMode            = tutorial && tutorialMode === 'raidboss' ? 'raidboss' : 'normal';
+    // In welche Lobby es zurückgeht. Eine echte Raidboss-Runde startet ohne
+    // Location-State (RaidbossLobby navigiert einfach auf /ShooterGame), also
+    // ist der Location-State allein hier nicht aussagekräftig — das Raidboss-
+    // Flag im Store ist es. Erst zur Klickzeit auslesen: ShooterCanvas setzt es
+    // beim Mount, ein zur Renderzeit berechneter Wert wäre noch 'false'.
+    const lobbyModeNow = (): 'raidboss' | 'normal' =>
+        (tutorial ? tutorialMode === 'raidboss' : getRaidbossActive()) ? 'raidboss' : 'normal';
     const { W, H }             = useViewport();
     const isMobileDevice       = Math.min(W, H) < 550;   // kleines Gerät?
     const isPortrait           = H > W;                   // hochkant?
@@ -101,12 +108,15 @@ export default function ShooterGamePage() {
     // button) should not leave a half-finished round for a later real Play
     // to accidentally restore.
     const leaveToLobby = async () => {
+        // Vor dem await lesen: der leaveHandler ist der Raidboss-Fitness-Submit
+        // und räumt dabei das Raidboss-Flag ab.
+        const mode = lobbyModeNow();
         await leaveHandlerRef.current?.();
         if (tutorial) {
             gameStore.state = null as unknown as typeof gameStore.state;
             gameStore.notify();
         }
-        navigate('/lobby/shooter', { state: { mode: lobbyMode } });
+        navigate('/lobby/shooter', { state: { mode } });
     };
 
     const { containerRef, scale } = useScaledCanvas({
@@ -152,13 +162,14 @@ export default function ShooterGamePage() {
             {(isMobileLandscape || tutorial) && (
                 <button
                     onClick={async () => {
+                        const mode = lobbyModeNow();   // vor dem await, s.o.
                         await leaveHandlerRef.current?.();
                         if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
                         if (tutorial) {
                             gameStore.state = null as unknown as typeof gameStore.state;
                             gameStore.notify();
                         }
-                        navigate('/lobby/shooter', { state: { mode: lobbyMode } });
+                        navigate('/lobby/shooter', { state: { mode } });
                     }}
                     style={{
                         position:      'fixed',

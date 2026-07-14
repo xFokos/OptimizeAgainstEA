@@ -10,12 +10,23 @@ export default function HomePage() {
                     Do you have what it takes to outsmart evolutionary algorithms?
                 </p>
 
-                <NavigatePageButton
-                    to="/dashboard"
-                    text="⇒ Configure Game"
-                    width="220px"
-                    height="50px"
-                />
+                {/* Zwei Wege hinein: direkt spielen, oder erst verstehen,
+                    wogegen man spielt. */}
+                {/* Gleichwertige Einstiege — erst verstehen oder direkt spielen. */}
+                <div className="homepage-actions">
+                    <NavigatePageButton
+                        to="/dashboard?tab=ea"
+                        text="What's an EA?"
+                        width="220px"
+                        height="50px"
+                    />
+                    <NavigatePageButton
+                        to="/dashboard"
+                        text="⇒ Configure Game"
+                        width="220px"
+                        height="50px"
+                    />
+                </div>
             </div>
         </div>
     );
