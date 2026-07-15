@@ -170,6 +170,40 @@
 /* When wrapping the EA settings drawer, fill height so the bubble centers. */
 .ea-settings-backdrop > .hint-anchor { display: flex; height: 100%; }
 
+/* Highlight glow (HintPopover `highlight` prop): a pulsing accent ring on the
+   wrapped control while its hint is showing. Non-blocking — the control stays
+   clickable and nothing else dims. Targets the actual control (button/link/.btn)
+   so a nested popover span never picks up the glow. The ring rides on box-shadow,
+   which follows the control's own border-radius automatically.
+   The --h-* tokens above are scoped to hint containers; the highlighted control
+   is page content, so redeclare them here or the keyframe box-shadow would fail
+   to resolve and silently compute to `none`. */
+.hint-anchor--highlight {
+	--h-accent:     var(--accent, #4fc3f7);
+	--h-accent-dim: var(--accent-dim, rgba(79, 195, 247, 0.14));
+}
+/* The second selector covers anchors that wrap a plain container (e.g. the
+   loader toolbar with its Your Maps / Functions toggles): glow the buttons one
+   level down, but never inside the popover bubble's own controls. */
+.hint-anchor--highlight > :is(button, a, .btn),
+.hint-anchor--highlight > :not(.hint-popover) > :is(button, a, .btn) {
+	animation: hintHighlightPulse 1.5s ease-in-out infinite;
+	position: relative;
+	z-index: 1;
+}
+@keyframes hintHighlightPulse {
+	0%, 100% { box-shadow: 0 0 0 2px var(--h-accent), 0 0 6px 1px var(--h-accent-dim); }
+	50%      { box-shadow: 0 0 0 2px var(--h-accent), 0 0 18px 6px var(--h-accent-dim); }
+}
+@media (prefers-reduced-motion: reduce) {
+	/* Keep the ring, drop the pulse. */
+	.hint-anchor--highlight > :is(button, a, .btn),
+	.hint-anchor--highlight > :not(.hint-popover) > :is(button, a, .btn) {
+		animation: none;
+		box-shadow: 0 0 0 2px var(--h-accent), 0 0 10px 2px var(--h-accent-dim);
+	}
+}
+
 .hint-popover {
 	position: absolute;
 	z-index: 150;

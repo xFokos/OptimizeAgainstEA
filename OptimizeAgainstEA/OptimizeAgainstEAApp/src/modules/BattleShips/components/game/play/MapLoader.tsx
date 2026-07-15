@@ -47,7 +47,7 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
 
   return (
     <div className="loader-with-saved">
-    <HintPopover id="loader.chooseMap" placement="bottom" show={savedMaps.length > 0}>
+    <HintPopover id="loader.chooseMap" placement="bottom" highlight show={savedMaps.length > 0}>
       <div className="loader-toolbar">
         <SavedMapsSidebar />
         <SavedFunctionsSidebar />

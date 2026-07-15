@@ -411,6 +411,15 @@ export const FUNCTION_WIN_RADIUS = 0.05;
 const WIN_VALUE_EPS = 0.04;
 const GRID = 64;            // sampling resolution for normalisation + win target
 const NORM_PERCENTILE = 0.85; // ceiling percentile — keeps mid-range structure visible
+/**
+ * Display-only heatmap colour curve for benchmark functions (see
+ * `ProblemInstance.displayExponent`). The heatmap paints `pow(evaluate, this)`,
+ * compressing the highs so more colour lands near the optimum. This is the look
+ * benchmark functions had while the heatmap applied a global 0.55 curve to every
+ * problem; that global curve was removed when surface maps were reworked to be
+ * display-ready on their own, which is why it now lives here, on the functions
+ * that still want it. Purely cosmetic — it never touches `evaluate`/`isWin`. */
+const FUNCTION_DISPLAY_EXPONENT = 0.55;
 const MARGIN = 0.18;        // keep the optimum this far from the viewport edges
 
 /** Sentinel benchmark id meaning "pick a fresh random function every play".
@@ -684,6 +693,7 @@ export function createFunctionProblem(
     evaluate,
     bounds: { xMin: 0, xMax: 1, yMin: 0, yMax: 1 },
     isWin,
+    displayExponent: FUNCTION_DISPLAY_EXPONENT,
     metadata: {
       name: fn.label,
       globalMinimum: { x: best.x, y: best.y, value: 0 },

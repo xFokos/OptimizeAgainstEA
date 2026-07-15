@@ -28,7 +28,7 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
     title: 'You are the EA',
     body:
       'In this mode you try to solve a maze like an EA would. ' +
-      'You will build a string of Inputs and then watch the probe explore the maze in that order.' +
+      'You will build a string of Inputs and then watch the probe explore the maze in that order. ' +
       'After that you can edit your string and repeat the process till you find the goal.',
     style: 'modal',
     once: true,

@@ -154,11 +154,14 @@ interface ProblemInstance {
 ```
 
 `evaluate` is the single source of truth: the player's reading, the EA's fitness,
-and the heatmap's colour all come from it, and it goes to the colour ramp
-untouched. A problem is therefore responsible for returning a value that already
-spans [0,1] sensibly — do the shaping in the engine that builds the surface
-(`functionSurface.ts` / `functionProblem.ts`), never as a display curve in the
-heatmap, which cannot know which kind of surface it is painting.
+and the heatmap's colour all come from it. Do the *gameplay* shaping in the engine
+that builds the surface (`functionSurface.ts` / `functionProblem.ts`) — never let
+a display tweak move an optimum. Surface maps' `evaluate` is display-ready, so it
+goes to the ramp untouched. The one purely-cosmetic exception is
+`ProblemInstance.displayExponent`: the heatmap colours by `pow(evaluate, exponent)`
+(default 1 = untouched). Benchmark functions set it to `0.55` to compress the
+highs — the look they had when the heatmap curved every problem — without touching
+readings, wins, or the EA. It's opt-in per problem, so it never affects a map.
 
 **GameMap props (important ones)**:
 ```ts
@@ -371,7 +374,7 @@ Persistence: `enabled` → `localStorage bs.hints.enabled`; `seen` → `sessionS
 | `BattleShips/engine/mapCodec.ts` | `MAP_SIZES` | see file | Map size presets: minima count, win radius, min spacing, **`basinScale`**. Drives random maps (`generateRandomMap(size)`) and create mode (`useGameMap(size)`) |
 | `BattleShips/engine/ea/evolutionaryAlgorithm.ts` | `WIN_POPULATION_FRACTION` | `0.10` | Fallback win % (overridden by `EAConfig.winPopulationFraction`) |
 | `BattleShips/components/game/shared/ContourLayer.tsx` | `DEFAULT_CONTOUR_CONFIG` | see file | lineCount, spacingExponent, resolution |
-| `BattleShips/components/game/shared/HeatmapLayer.tsx` | `DEFAULT_HEATMAP_CONFIG` | see file | resolution, opacity, revealRadius. The layer applies **no curve** to the value — it paints `evaluate` straight to the ramp |
+| `BattleShips/components/game/shared/HeatmapLayer.tsx` | `DEFAULT_HEATMAP_CONFIG` | see file | resolution, opacity, revealRadius, **`valueExponent`** (default `1`). It paints `pow(evaluate, valueExponent)`; at `1` the value goes straight to the ramp. Benchmark functions pass `0.55` (from `ProblemInstance.displayExponent`); surface maps leave it `1` |
 | `BattleShips/engine/colorScale.ts` | `STOPS` | see file | The colour ramp (violet = summit → red = empty ground) |
 | `BattleShips/components/game/vs-ea/replay/ReplayMap.tsx` | `DOT_MOVE_DURATION` | `0.8s` | Replay dot glide speed |
 | `src/hooks/useReplayPlayer.ts` | `autoplayIntervalMs` | `1200ms` | Dwell per frame during replay autoplay (maze overlay passes 1600) |

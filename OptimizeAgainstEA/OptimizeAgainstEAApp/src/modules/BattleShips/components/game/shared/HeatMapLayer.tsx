@@ -14,12 +14,23 @@ export interface HeatmapConfig {
     opacity: number;
     /** Reveal radius around each probe (normalized 0–1). 0 = full reveal */
     revealRadius: number;
+    /**
+     * Display-only colour curve: the pixel is coloured by `pow(value, this)`.
+     * 1 = identity (the value goes straight to the ramp — the default, and what
+     * surface maps use). Below 1 compresses the highs so more colour lands near
+     * the optimum; benchmark functions pass 0.55 here (via their
+     * `ProblemInstance.displayExponent`) to keep the look they had before the
+     * old global heatmap curve was removed. Never affects readings, wins, or the
+     * EA — it only changes what this canvas paints.
+     */
+    valueExponent: number;
 }
 
 export const DEFAULT_HEATMAP_CONFIG: HeatmapConfig = {
-    resolution:   1080,
-    opacity:      0.82,
-    revealRadius: 0.05,
+    resolution:    1080,
+    opacity:       0.82,
+    revealRadius:  0.05,
+    valueExponent: 1,
 };
 
 interface HeatmapLayerProps {
@@ -31,19 +42,23 @@ interface HeatmapLayerProps {
 /**
  * Paints a problem's surface.
  *
- * The value goes straight to the colour ramp — no curve, no rescaling, no
- * spreading it across the surface's own distribution. Every problem already
- * returns a [0,1] value designed to run through the ramp (a map by its basin
- * scale, a benchmark by its own normalisation), so re-tuning it here would only
- * fight the engine that produced it: a display curve that flatters a map's cones
- * mangles Rastrigin's ripples, and colouring by rank makes a basin's size depend
- * on how many other basins share the board.
+ * By default the value goes straight to the colour ramp — no rescaling, no
+ * spreading it across the surface's own distribution. Surface maps already
+ * return a [0,1] value shaped by their basin scale, so re-tuning it here would
+ * only fight the engine that produced it, and colouring by rank would make a
+ * basin's size depend on how many other basins share the board.
+ *
+ * The one knob is `valueExponent` (default 1 = identity): a per-problem, display
+ * -only curve of `pow(value, exponent)`. Benchmark functions pass 0.55 through it
+ * to keep the look they had when the heatmap curved every problem — cosmetic
+ * only, and opt-in, so it never touches a map.
  */
 export function HeatmapLayer({ evaluate, config: configOverride, revealPoints }: HeatmapLayerProps) {
     const cfg: HeatmapConfig = {
-        resolution:   configOverride?.resolution   ?? DEFAULT_HEATMAP_CONFIG.resolution,
-        opacity:      configOverride?.opacity      ?? DEFAULT_HEATMAP_CONFIG.opacity,
-        revealRadius: configOverride?.revealRadius ?? DEFAULT_HEATMAP_CONFIG.revealRadius,
+        resolution:    configOverride?.resolution    ?? DEFAULT_HEATMAP_CONFIG.resolution,
+        opacity:       configOverride?.opacity       ?? DEFAULT_HEATMAP_CONFIG.opacity,
+        revealRadius:  configOverride?.revealRadius  ?? DEFAULT_HEATMAP_CONFIG.revealRadius,
+        valueExponent: configOverride?.valueExponent ?? DEFAULT_HEATMAP_CONFIG.valueExponent,
     };
     const canvasRef = useRef<HTMLCanvasElement>(null);
     // Reveal mode is active whenever a points array is supplied (even if empty):
@@ -55,12 +70,15 @@ export function HeatmapLayer({ evaluate, config: configOverride, revealPoints }:
     // map — so it must not rerun when the player merely places another probe.
     const surface = useMemo(() => {
         const res = cfg.resolution;
+        const exp = cfg.valueExponent;
         const rgb = new Uint8ClampedArray(res * res * 3);
         for (let py = 0; py < res; py++) {
             const ny = py / (res - 1);
             for (let px = 0; px < res; px++) {
                 const raw = evaluate(px / (res - 1), ny);
-                const v   = raw < 0 ? 0 : raw > 1 ? 1 : raw;
+                const c   = raw < 0 ? 0 : raw > 1 ? 1 : raw;
+                // Display-only curve; exp === 1 leaves the value untouched.
+                const v   = exp === 1 ? c : Math.pow(c, exp);
                 const [r, g, b] = sampleGradient(v);
                 const idx = (py * res + px) * 3;
                 rgb[idx]     = r;
@@ -69,7 +87,7 @@ export function HeatmapLayer({ evaluate, config: configOverride, revealPoints }:
             }
         }
         return { rgb, res };
-    }, [evaluate, cfg.resolution]);
+    }, [evaluate, cfg.resolution, cfg.valueExponent]);
 
     // Paint the cached surface through the reveal mask. Only the pixels inside a
     // probe's circle are touched — the rest stay transparent — so re-revealing on

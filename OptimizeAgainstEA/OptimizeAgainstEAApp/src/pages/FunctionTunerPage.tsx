@@ -201,6 +201,7 @@ export default function FunctionTunerPage() {
         <div>
           <GameMap
             evaluateFn={problem.evaluate}
+            heatmapConfig={{ valueExponent: problem.displayExponent }}
             minima={minima}
             showMinima={showCenterDot}
             highlightGlobal

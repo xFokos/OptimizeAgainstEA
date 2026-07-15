@@ -123,7 +123,7 @@ function DualMapLoader({
 
   return (
     <div className="loader-with-saved">
-    <HintPopover id="loader.chooseMap" placement="bottom" show={hasSavedMaps}>
+    <HintPopover id="loader.chooseMap" placement="bottom" highlight show={hasSavedMaps}>
       <div className="loader-toolbar">
         <SavedMapsSidebar />
         <SavedFunctionsSidebar />
@@ -210,7 +210,8 @@ function DualMapLoader({
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
         <HintPopover
           id="vsEa.settingsButton"
-          placement="bottom"
+          placement="top"
+          highlight
           dismissAfter={6000}
           show={!hasSavedMaps || isSeen('loader.chooseMap')}
         >
@@ -431,7 +432,7 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
             <GameMap
               evaluateFn={playerProblem?.evaluate}
               revealPoints={revealPoints}
-              heatmapConfig={{ revealRadius }}
+              heatmapConfig={{ revealRadius, valueExponent: playerProblem?.displayExponent }}
               onMapClick={!showOverlay ? handleProbe : undefined}
             >
               {play.probes.map((p, i) => (
@@ -463,7 +464,7 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
           {(ea.latestReplay && ea.latestReplay.length > 0 || ea.status === 'solved') && (
             <div style={{ display: 'flex', gap: 8 }}>
               {ea.latestReplay && ea.latestReplay.length > 0 && (
-                <HintPopover id="vsEa.replayButton" placement="top-start">
+                <HintPopover id="vsEa.replayButton" placement="top" highlight>
                   <button
                     className="btn btn--blue btn--sm"
                     onClick={() => setShowReplay(true)}
@@ -475,7 +476,8 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
               {ea.generations.length > 0 && (
                 <HintPopover
                   id="vsEa.eaMovementButton"
-                  placement="top-start"
+                  placement="top"
+                  highlight
                   show={play.probes.length >= 3 && !playerWon && !eaWon}
                 >
                   <button

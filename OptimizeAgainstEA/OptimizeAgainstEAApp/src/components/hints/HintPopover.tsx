@@ -25,6 +25,13 @@ interface HintPopoverProps {
   actions?: HintAction[];
   /** If set, the bubble auto-dismisses itself after this many ms (like a toast). */
   dismissAfter?: number;
+  /**
+   * When true, the wrapped element gets a pulsing accent glow for as long as the
+   * hint is visible, drawing the eye to the control the hint is about. Purely
+   * decorative and non-blocking — the element stays fully interactive and
+   * nothing else on the page dims. Clears the moment the hint is dismissed.
+   */
+  highlight?: boolean;
 }
 
 // Nominal size used only for viewport clamping (see clampToViewport) — the
@@ -53,7 +60,7 @@ const GAP = 12;
  *   </HintPopover>
  */
 export function HintPopover({
-  id, children, placement = 'right', show = true, vars, actions, dismissAfter,
+  id, children, placement = 'right', show = true, vars, actions, dismissAfter, highlight = false,
 }: HintPopoverProps) {
   const { enabled, isSeen, markSeen } = useHints();
   const [dismissed, setDismissed] = useState(false);
@@ -114,11 +121,14 @@ export function HintPopover({
     { label: 'Got it', onClick: close, variant: 'primary' },
   ];
 
+  // Glow the wrapped control only while its hint is actually on screen.
+  const anchorClass = `hint-anchor${visible && highlight ? ' hint-anchor--highlight' : ''}`;
+
   // ── Compi presentation: mascot bubble anchored near the wrapped element ───
   if (COMPI_MODE) {
     return (
       <>
-        <span ref={anchorRef} className="hint-anchor">{children}</span>
+        <span ref={anchorRef} className={anchorClass}>{children}</span>
         {visible && def && offset && createPortal(
           <CompiBubble
             title={def.title}
@@ -135,7 +145,7 @@ export function HintPopover({
 
   // ── Plain presentation: a popover pinned to the wrapped element ────────────
   return (
-    <span className="hint-anchor">
+    <span className={anchorClass}>
       {children}
       {visible && def && (
         <span className={`hint-popover hint-popover--${placement}`} role="status">

@@ -48,6 +48,19 @@ export interface ProblemInstance {
   evaluate: (x: number, y: number) => number;
   bounds: { xMin: number; xMax: number; yMin: number; yMax: number };
   isWin: (x: number, y: number) => boolean;
+  /**
+   * Optional **display-only** colour curve for the heatmap: the layer paints
+   * `pow(evaluate, displayExponent)` instead of `evaluate`. Purely cosmetic — it
+   * touches neither the player's reading, the win check, nor the EA, all of which
+   * always read `evaluate` directly.
+   *
+   * Surface maps leave this unset (their engine already shapes `evaluate` to be
+   * display-ready, so it goes to the ramp untouched — exponent 1). Benchmark
+   * functions set it below 1 to compress the highs and keep more colour near the
+   * optimum — the look they had when the heatmap applied this curve to every
+   * problem, before that global curve was removed. See `functionProblem.ts`.
+   */
+  displayExponent?: number;
   metadata?: {
     name?: string;
     description?: string;

@@ -37,7 +37,7 @@
 \contentsline {chapter}{\numberline {7}Data Formats}{29}{chapter.7}%
 \contentsline {section}{\numberline {7.1}Peak Finder map code (v1)}{29}{section.7.1}%
 \contentsline {section}{\numberline {7.2}Maze code}{29}{section.7.2}%
-\contentsline {section}{\numberline {7.3}Function problem code}{29}{section.7.3}%
+\contentsline {section}{\numberline {7.3}Function problem code}{30}{section.7.3}%
 \contentsline {section}{\numberline {7.4}Local storage keys}{30}{section.7.4}%
 \contentsline {chapter}{\numberline {A}Extension Recipes}{31}{appendix.A}%
 \contentsline {chapter}{\numberline {B}Tunable Constants Reference}{32}{appendix.B}%
