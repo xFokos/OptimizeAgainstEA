@@ -94,7 +94,6 @@ export function MinimumPlacer({
                     minima={minima}
                     showMinima
                     evaluateFn={evaluateFn}
-                    heatmapConfig={{ colorSpread: 0 }}
                     exclusionRadius={minSpacing / 2}
                     onMapClick={isFull ? undefined : onPlace}
                     onMinimumClick={onRemove}

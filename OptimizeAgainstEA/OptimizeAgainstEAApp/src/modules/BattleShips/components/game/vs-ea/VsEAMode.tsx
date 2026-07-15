@@ -431,7 +431,7 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
             <GameMap
               evaluateFn={playerProblem?.evaluate}
               revealPoints={revealPoints}
-              heatmapConfig={{ revealRadius, colorSpread: playerProblem?.metadata?.colorSpread }}
+              heatmapConfig={{ revealRadius }}
               onMapClick={!showOverlay ? handleProbe : undefined}
             >
               {play.probes.map((p, i) => (

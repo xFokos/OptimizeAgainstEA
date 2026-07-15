@@ -153,6 +153,13 @@ interface ProblemInstance {
 }
 ```
 
+`evaluate` is the single source of truth: the player's reading, the EA's fitness,
+and the heatmap's colour all come from it, and it goes to the colour ramp
+untouched. A problem is therefore responsible for returning a value that already
+spans [0,1] sensibly — do the shaping in the engine that builds the surface
+(`functionSurface.ts` / `functionProblem.ts`), never as a display curve in the
+heatmap, which cannot know which kind of surface it is painting.
+
 **GameMap props (important ones)**:
 ```ts
 evaluateFn?:      EvalFn          // triggers ContourLayer or HeatmapLayer
@@ -364,7 +371,7 @@ Persistence: `enabled` → `localStorage bs.hints.enabled`; `seen` → `sessionS
 | `BattleShips/engine/mapCodec.ts` | `MAP_SIZES` | see file | Map size presets: minima count, win radius, min spacing, **`basinScale`**. Drives random maps (`generateRandomMap(size)`) and create mode (`useGameMap(size)`) |
 | `BattleShips/engine/ea/evolutionaryAlgorithm.ts` | `WIN_POPULATION_FRACTION` | `0.10` | Fallback win % (overridden by `EAConfig.winPopulationFraction`) |
 | `BattleShips/components/game/shared/ContourLayer.tsx` | `DEFAULT_CONTOUR_CONFIG` | see file | lineCount, spacingExponent, resolution |
-| `BattleShips/components/game/shared/HeatmapLayer.tsx` | `DEFAULT_HEATMAP_CONFIG` | see file | resolution, opacity, valueExponent, `colorSpread`. **Each problem overrides `colorSpread` via `metadata.colorSpread`**: hand-built maps set 0 (their values already run evenly through the ramp — equalising would give each colour a fixed *share of the map's area*, which is what used to shrink basins as minima were added), analytic functions set 0.95 (their values pile up wherever their maths puts them, so the ramp only reads if spread) |
+| `BattleShips/components/game/shared/HeatmapLayer.tsx` | `DEFAULT_HEATMAP_CONFIG` | see file | resolution, opacity, revealRadius. The layer applies **no curve** to the value — it paints `evaluate` straight to the ramp |
 | `BattleShips/engine/colorScale.ts` | `STOPS` | see file | The colour ramp (violet = summit → red = empty ground) |
 | `BattleShips/components/game/vs-ea/replay/ReplayMap.tsx` | `DOT_MOVE_DURATION` | `0.8s` | Replay dot glide speed |
 | `src/hooks/useReplayPlayer.ts` | `autoplayIntervalMs` | `1200ms` | Dwell per frame during replay autoplay (maze overlay passes 1600) |

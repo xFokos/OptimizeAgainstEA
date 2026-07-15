@@ -76,7 +76,6 @@ export function GlobalMinimumPicker({
               showMinima
               highlightGlobal
               evaluateFn={evaluateFn}
-              heatmapConfig={{ colorSpread: 0 }}
               onMinimumClick={onSelect}
               selectedId={selectedId}
               overlayLabel={!selectedId ? 'Click a dot to select it as the global peak' : undefined}

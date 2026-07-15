@@ -215,11 +215,6 @@ export function createMapProblem(config: MapConfig): ProblemInstance {
     isWin,
     metadata: {
       name: `Map ${config.id}`,
-      // Values already run evenly through the ramp by construction. Spreading
-      // them across the surface's distribution would hand each colour a fixed
-      // *share of the map's area* — which, split across however many basins
-      // exist, is exactly the coupling this surface was built to remove.
-      colorSpread: 0,
       globalMinimum: globalMin
         ? { x: globalMin.position.x, y: globalMin.position.y, value: 0 }
         : undefined,

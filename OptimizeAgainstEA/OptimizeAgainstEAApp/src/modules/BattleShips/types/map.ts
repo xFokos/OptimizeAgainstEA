@@ -39,6 +39,12 @@ export interface MapConfig {
 }
 
 export interface ProblemInstance {
+  /**
+   * The surface: [0,1], 0 at the global optimum. This single value is what the
+   * player reads, what the EA minimises, and what the heatmap colours — it goes
+   * to the ramp untouched, so a problem is responsible for returning a value
+   * that already spans the range sensibly.
+   */
   evaluate: (x: number, y: number) => number;
   bounds: { xMin: number; xMax: number; yMin: number; yMax: number };
   isWin: (x: number, y: number) => boolean;
@@ -48,14 +54,6 @@ export interface ProblemInstance {
     globalMinimum?: { x: number; y: number; value: number };
     /** Approximate extent of the win zone, for drawing the win ring in replays. */
     winRadius?: number;
-    /**
-     * Display hint for HeatmapLayer: how far to spread colours across this
-     * surface's value distribution. Belongs to the problem because the answer
-     * differs by kind — a hand-built map already colours evenly by construction
-     * and must NOT be equalised (that would make basins shrink as minima are
-     * added), whereas an analytic benchmark needs the spread to be legible.
-     */
-    colorSpread?: number;
   };
 }
 

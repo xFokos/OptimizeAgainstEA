@@ -660,6 +660,7 @@ export function createFunctionProblem(
     return Math.pow(norm, sharpen);
   };
 
+
   // Win on *value*, not exact location: you win once your reading reaches the
   // optimal value (within WIN_VALUE_EPS). This removes the "standing on the best
   // value but not winning" unfairness on functions with broad/flat optima, while
@@ -687,10 +688,6 @@ export function createFunctionProblem(
       name: fn.label,
       globalMinimum: { x: best.x, y: best.y, value: 0 },
       winRadius: winR,
-      // Unlike a hand-built map, a benchmark's values are piled up wherever its
-      // own maths puts them (Rastrigin's ripples, Rosenbrock's trough), so the
-      // ramp only reads if the colours are spread across that distribution.
-      colorSpread: 0.95,
     },
   };
 }
