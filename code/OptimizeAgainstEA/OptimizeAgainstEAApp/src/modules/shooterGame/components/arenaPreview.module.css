@@ -7,17 +7,29 @@
     flex-direction: column;
     align-items: center;
     gap: 10px;
+    max-width: 100%;
 }
 
 .canvas {
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    /* Das Canvas trägt eine feste Pixelbreite im width-Attribut (ARENA_SIZE).
+       Ohne diese Kappung rendert es in genau dieser Breite und schiebt schmale
+       Screens in den horizontalen Scroll — dieselbe Regel wie bei
+       .eaviz__previewCanvas (eaConceptVisuals.css). Die Höhe folgt dem
+       Seitenverhältnis, die interne Auflösung bleibt voll (also scharf). */
+    max-width: 100%;
+    height: auto;
 }
 
 .legend {
     display: flex;
     align-items: center;
+    /* Mehrere Einträge (z.B. "Candidates · Parent A · Parent B") passen schmal
+       sonst nicht in eine Zeile und machen die Box breiter als das Canvas. */
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 6px;
     font-size: 11px;
     color: rgba(255, 255, 255, 0.45);

@@ -41,6 +41,14 @@
     font-weight:    700;
     letter-spacing: 0.05em;
     color:          var(--accent);
+    padding:        0;
+    cursor:         pointer;
+    transition:     background 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.sidebar-logo:hover {
+    border-color: rgba(79, 195, 247, 0.6);
+    transform:    scale(1.05);
 }
 
 .sidebar-brand-name {

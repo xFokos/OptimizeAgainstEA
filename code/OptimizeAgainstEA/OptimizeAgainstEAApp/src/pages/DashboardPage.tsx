@@ -26,6 +26,7 @@ export default function DashboardPage() {
     );
     const [config, setConfig] = useState<GameConfig>({ problem: undefined });
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const navigate = useNavigate();
 
     function handleNav(section: Section) {
         setActive(section);
@@ -48,7 +49,14 @@ export default function DashboardPage() {
 
             <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
                 <div className="sidebar-brand">
-                    <div className="sidebar-logo">OAE</div>
+                    <button
+                        className="sidebar-logo"
+                        onClick={() => navigate("/")}
+                        aria-label="Zur Homepage"
+                        title="Zur Homepage"
+                    >
+                        OAE
+                    </button>
                     <span className="sidebar-brand-name">Optimize Against EA</span>
                 </div>
 

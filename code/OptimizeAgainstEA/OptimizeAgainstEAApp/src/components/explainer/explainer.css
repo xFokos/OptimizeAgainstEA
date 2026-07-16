@@ -357,7 +357,11 @@
 	.explainer__main  { gap: var(--sp-3, 12px); }
 	.explainer__captionTitle { font-size: 0.98rem; }
 	.explainer__captionBody  { font-size: 0.86rem; line-height: 1.45; }
-	.explainer__side canvas  { width: 190px; height: 190px; }
+	/* `height: auto` statt eines zweiten festen Werts: die Canvases sind nicht
+	   alle quadratisch (PlaneThrowVisual 360×260, PlaneDnaVisual 300×240) — ein
+	   fixes 190×190 hat die gequetscht. So gibt die Breite die Größe vor und das
+	   Seitenverhältnis bleibt. */
+	.explainer__side canvas  { width: 190px; height: auto; max-width: 100%; }
 }
 
 @keyframes explainerMascotBobMobile {
@@ -381,7 +385,7 @@
 	   the smaller canvas also frees width for the text column. */
 	.explainer__stage { gap: var(--sp-4, 16px); }
 	.explainer__captionBody { font-size: 0.86rem; line-height: 1.45; }
-	.explainer__side canvas { width: 168px; height: 168px; }
+	.explainer__side canvas { width: 168px; height: auto; max-width: 100%; }
 }
 
 /* Compact: much smaller host (e.g. an 800px game canvas overlay) — the

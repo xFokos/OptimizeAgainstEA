@@ -48,26 +48,26 @@ function buildSteps(dna: number[], onGene: (i: number, v: number) => void): Expl
     {
         id:    'problem',
         title: 'The Problem — you can\'t calculate it',
-        body:  "Fold a paper plane that flies as far as possible. Go on — throw a few. How far one flies depends on how it's built: the wings, the angle of the folds, where the weight sits. Bend a wing a millimetre differently and it suddenly veers off. Nobody can tell you beforehand which fold wins — there's no formula for it, and far too many ways to fold a sheet of paper to try them all. The only thing you can do is fold one, throw it, and look.",
+        body:  "Imagine you fold a paper plane with to goal to throw it as far as possible. How far one flies depends on how it's built: the wings, the angle of the folds and so on. Building it just a bit different leads to vastly different results. You can not know how far the plane will fly, you'll just have to try.",
         sideVisual: <PlaneThrowVisual />,
     },
     {
         id:    'fitness',
         title: 'Score — Fitness',
-        body:  "You can't predict a throw — but you can measure one. Throw three planes and you get three numbers: 4.2m, 7.6m, 5.9m. The planes are gone; the numbers stay. Each plane now has a score, and that score is the only feedback you ever get: you still don't know why one flew furthest, and you don't need to — you just know it did. In evolutionary algorithms this score has a name: fitness. Same thing, fancier word.",
+        body:  "You can't predict, but you can measure one. Throw three planes and you get three scores: 4.2m, 7.6m, 5.9m. You might not know why one flew furthest, and you don't need to. You just know it did. In evolutionary algorithms this score has a name: fitness and it's the score of how well an algorithm performed.",
         sideVisual: <PlaneThrowVisual mode="measure" />,
     },
     {
         id:    'dna',
         title: 'DNA — the plane as numbers',
-        body:  "The DNA stands for the properties of a paper plane — its size, the kind of paper, the way it's folded. Each one is a number. Drag the slider and watch the plane change. In reality a plane depends on far more than the few properties we look at here.",
+        body:  "The DNA symbolises the properties the paper plane. Its size, the kind of paper, the way it's folded. Each one is a number. Drag the slider and watch the plane change. Of course in reality a paper plane depends on far more than the few properties.",
         visual:     <PlaneDnaSliders dna={dna} onChange={onGene} genes={PLANE_SIZE_GENE} />,
         sideVisual: <PlaneDnaPreview dna={dna} genes={PLANE_SIZE_GENE} />,
     },
     {
         id:    'population',
         title: 'The Population — a whole batch',
-        body:  "For the algorithm we use a population — a group of slightly different paper planes, all based on the same model. Every one of them gets thrown, and every one gets its own score — its fitness. That's one generation.",
+        body:  "To get somewhere useful with the algorithm, we use a population — a group of slightly different paper planes, all derived from the same base model. Every one of them gets thrown, and every one gets its own score — its fitness. That's one generation.",
         sideVisual: <PlaneThrowVisual mode="population" />,
     },
     {

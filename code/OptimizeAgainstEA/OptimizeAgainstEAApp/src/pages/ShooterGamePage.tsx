@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useScaledCanvas } from '../hooks/useScaledCanvas';
 import { useOrientationLock } from '../hooks/useOrientationLock';
@@ -12,6 +12,7 @@ import { MobileJoystickZone } from '../modules/shooterGame/components/MobileJoys
 import { MobileAimZone } from '../modules/shooterGame/components/MobileAimZone';
 import { useInput } from '../modules/shooterGame/hooks/useInput';
 import { gameStore } from '../modules/shooterGame/game/gameStore';
+import { trainingReplayStore } from '../modules/shooterGame/game/trainingReplayStore';
 import { getRaidbossActive } from '../modules/shooterGame/game/raidbossStore';
 import PageContainer from '../components/layout/PageContainer';
 
@@ -99,6 +100,15 @@ export default function ShooterGamePage() {
     const isMobileDevice       = Math.min(W, H) < 550;   // kleines Gerät?
     const isPortrait           = H > W;                   // hochkant?
     const isMobileLandscape    = isMobileDevice && !isPortrait;
+    // Im Trainings-Replay wird nicht gespielt, sondern zugeschaut: die
+    // Touch-Zonen weichen den Info-Panels (Ranking links, DNA rechts) — also
+    // demselben Bild wie auf dem Desktop. Beim Schließen kommen sie zurück,
+    // weil das Overlay den Store beim Unmount leert.
+    const replayOpen = useSyncExternalStore(
+        trainingReplayStore.subscribe.bind(trainingReplayStore),
+        () => trainingReplayStore.state !== null,
+    );
+    const touchControls = isMobileLandscape && !replayOpen;
     useOrientationLock('landscape');
     const inputRef             = useInput();
     const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
@@ -132,10 +142,10 @@ export default function ShooterGamePage() {
 
             <GameLayout
                 canvasRef={containerRef}
-                touchLayout={isMobileLandscape}
+                touchLayout={touchControls}
                 focusMode={tutorial && !isMobileLandscape}
                 leftBar={
-                    isMobileLandscape
+                    touchControls
                         ? <MobileJoystickZone inputRef={inputRef} />
                         : <ShooterLeftBar
                             onAnalytics={() => navigate('/Analytics')}
@@ -143,7 +153,7 @@ export default function ShooterGamePage() {
                           />
                 }
                 sidebar={
-                    isMobileLandscape
+                    touchControls
                         ? <MobileAimZone inputRef={inputRef} />
                         : <DNADisplay />
                 }
@@ -158,8 +168,10 @@ export default function ShooterGamePage() {
             </GameLayout>
 
             {/* Zurück zur Lobby – auf Mobile immer sichtbar; auf Desktop nur im Tutorial,
-                da die linke Nav-Bar (mit ihrem eigenen Lobby-Button) dort im Fokusmodus fehlt. */}
-            {(isMobileLandscape || tutorial) && (
+                da die linke Nav-Bar (mit ihrem eigenen Lobby-Button) dort im Fokusmodus fehlt.
+                Im Trainings-Replay entfällt er: dort steht die linke Bar wieder, und
+                deren "← Game" (schließt das Replay) läge sonst genau darunter. */}
+            {(touchControls || (tutorial && !replayOpen)) && (
                 <button
                     onClick={async () => {
                         const mode = lobbyModeNow();   // vor dem await, s.o.

@@ -230,24 +230,26 @@ export function EvolutionReplayOverlay({ ghost, evaluated, onClose }: EvolutionR
                 style={{ position: 'absolute', top: 44, left: 0, display: 'block' }}
             />
 
-            {/* Steuerung */}
+            {/* Steuerung. Bewusst groß (btn--lg): das Overlay lebt im 800px-Canvas,
+                der auf Handys auf ~halbe Größe skaliert wird — kleinere Buttons
+                wären dort kaum noch zu treffen. */}
             <div style={{
-                position: 'absolute', left: 14, bottom: 14, display: 'flex', gap: 8, alignItems: 'center',
+                position: 'absolute', left: 14, bottom: 14, display: 'flex', gap: 10, alignItems: 'center',
             }}>
-                <button className="btn btn--primary btn--sm" onClick={() => (finished ? restart() : setPlaying(p => !p))}>
+                <button className="btn btn--primary btn--lg" onClick={() => (finished ? restart() : setPlaying(p => !p))}>
                     {finished ? '↻ Replay' : playing ? '❚❚ Pause' : '▶ Play'}
                 </button>
                 {SPEEDS.map(s => (
                     <button
                         key={s}
-                        className={`btn btn--sm${speed === s ? ' btn--active' : ''}`}
+                        className={`btn btn--lg${speed === s ? ' btn--active' : ''}`}
                         onClick={() => setSpeed(s)}
                     >
                         ×{s}
                     </button>
                 ))}
                 <button
-                    className={`btn btn--sm${hideOthers ? ' btn--active' : ''}`}
+                    className={`btn btn--lg${hideOthers ? ' btn--active' : ''}`}
                     onClick={() => setHideOthers(h => !h)}
                     title="Hide all candidates except the focused one"
                 >
