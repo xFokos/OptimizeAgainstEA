@@ -32,7 +32,7 @@ const fmtDate = (ts: number): string =>
  * Experiment entry screen: pick a maze — a fresh random one (at a size of
  * your choosing) or one of your saved creations — then press Play.
  */
-export function MazeSetupScreen({ onBack, onStart, icon = '🧬', title = 'EA Experiment' }: MazeSetupScreenProps) {
+export function MazeSetupScreen({ onBack, onStart, icon = '🧬', title = 'Control the EA' }: MazeSetupScreenProps) {
   const { savedMazes, removeMaze, renameMaze } = useSavedMazes();
   const [selected, setSelected] = useState<string>(RANDOM);
   const [genCols, setGenCols] = useState(DEFAULT_SIZE);
