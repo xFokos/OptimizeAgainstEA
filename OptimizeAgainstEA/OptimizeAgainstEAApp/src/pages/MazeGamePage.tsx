@@ -29,7 +29,7 @@ const MODES: GameMode[] = [
   {
     id: 'experiment',
     key: 'E',
-    label: '🧬 Experiment',
+    label: '🧬 Control the EA',
     sub: 'Watch an EA evolve paths through the maze. Tweak its settings and compare fitness functions.',
   },
 ];
