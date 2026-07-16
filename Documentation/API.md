@@ -451,8 +451,9 @@ Entity helpers live in `game/entities/` (`player.ts`, `agent.ts`, `bullet.ts`).
 | `evolve(population, agentFitness?, mutationRate?, mutationStrength?, crossoverType?, injectionDeviation?)` (`evolution.ts`) | One generation: tournament selection → uniform/single-point crossover → per-gene mutation → diversity injection |
 | `getNextAgent(population): number[]` | Picks the DNA the player faces next |
 | `presimulate(generations): Population` | Round-robin pre-warming (every agent vs every other) |
-| `presimulateAgainstGhost(generations, ghost, startPopulation, crossoverType?, hallOfFameGhost?)` | Evolves against a recording of the player's previous round — agents adapt to the player's style; optional hall-of-fame ghost adds extra pressure |
-| `EvolutionWorkerIn/Out` (`evolution.worker.ts`) | Worker protocol for running presimulation off the main thread |
+| `presimulateAgainstGhost(generations, ghost, startPopulation, crossoverType?, hallOfFameGhost?, onLastEvaluation?)` | Evolves against a recording of the player's previous round — agents adapt to the player's style; optional hall-of-fame ghost adds extra pressure. `onLastEvaluation` receives the last evaluated generation (individuals with their real ghost fitnesses) for the training replay |
+| `createGhostSim(dna, ghost): GhostSim` | Stepwise agent-vs-recording simulation — the single source of the sim rules: the fitness evaluation runs it to completion, the `EvolutionReplayOverlay` steps it frame by frame for rendering. Exposes `agent`, `agentBullets`, `playerBullets`, `stats`, `frame`, `done`, `step()` (+ exported `SimAgent`/`SimBullet` shapes) |
+| `EvolutionWorkerIn/Out` (`evolution.worker.ts`) | Worker protocol for running presimulation off the main thread; `DONE` carries the evolved population plus `evaluated?` (last evaluated presim generation, for the training replay) |
 
 ### 7.4 Stores (`game/`, observable singletons)
 
@@ -515,6 +516,7 @@ Stat results are clamped to the same ranges as the settings sliders.
 | `HordeCanvas({ scale?, externalInputRef?, touchControls?, tutorial? })` | React wiring for Horde (loop + overlays). `touchControls` (mobile landscape) switches tutorial copy to touch and hides the DNA panel. `tutorial` runs the Horde practice round: small wave (`TUTORIAL_WAVE_SIZE = 8`), coachmark steps move → aim → shoot → obstacles → mods → survive → evolve → done, then a portalled fullscreen `TutorialHordeExplainer` takeover; never resumes/persists to `hordeGameStore` |
 | `HordeDnaPanel({ bestDna, height })`, `PANEL_W = 200` | "Best DNA" side panel next to the horde canvas |
 | `DNADisplay()` | Shows the current opponent's DNA; subscribes to `gameStore` |
+| `EvolutionReplayOverlay({ ghost, evaluated, onClose })` | Training replay opened from the DNA reveal ("▶ Watch Training Replay"): all candidates of the last presim generation play live against the player's recorded round (via `createGhostSim`), one focused agent shows bullets/hits in detail, a side panel shows the real fitness ranking with the top `ELITE_COUNT` marked as elites — teaching how the next opponent DNA gets selected. Only offered when a presim actually ran |
 | `MobileJoystickZone` / `MobileAimZone` | Touch input zones |
 | `arenaAgentSim.ts` | Shared small-arena (`ARENA_SIZE = 240` px) physics for tutorial preview canvases: `stepArenaAgent(…)`, `drawArenaAgentTriangle`, `patrol(time, angSpeed, orbitR)`, `lineupSpots(count, faceDown?)`, `drawGenLabel(ctx, label, color?)`, `bulletHits`, `clamp01`, types `ArenaAgentState`/`ArenaTarget`/`ArenaBullet`, scaled `GAME_CONFIG` constants |
 | `DnaPreviewCanvas({ dna })` / `HordeDnaPreviewCanvas({ dna })` | Live agent preview driven by DNA sliders (Solo triangle / Horde blob) |

@@ -186,8 +186,10 @@ export function update(
         newBullets.push(b);
     }
 
-    // ---- Ghost Frames – nur alle 3 Frames aufzeichnen (~20fps reicht für Presim) ----
-    ghostFrameSkip = (ghostFrameSkip + 1) % 3;
+    // ---- Ghost Frames – jeden 2. Frame aufzeichnen (~30fps): feiner fürs
+    // Trainings-Replay, und die Presim-Kosten (50% mehr Sim-Schritte im
+    // Worker) sind unkritisch ----
+    ghostFrameSkip = (ghostFrameSkip + 1) % 2;
     const lastPlayerFrame: PlayerGhostFrame | null = ghostFrameSkip === 0 ? {
         position: { ...player.position },
         velocity: { ...player.velocity },

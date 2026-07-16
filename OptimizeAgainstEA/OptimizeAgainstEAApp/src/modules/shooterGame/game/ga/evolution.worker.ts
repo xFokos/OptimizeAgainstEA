@@ -1,4 +1,4 @@
-import type { Population, PlayerGhost } from '../../shooter.types';
+import type { Population, PlayerGhost, Individual } from '../../shooter.types';
 import { presimulateAgainstGhost, evolve } from './evolution';
 
 export type EvolutionWorkerIn = {
@@ -15,7 +15,10 @@ export type EvolutionWorkerIn = {
 };
 
 export type EvolutionWorkerOut =
-    | { type: 'DONE';  population: Population }
+    // `evaluated`: die zuletzt gegen den Ghost evaluierte Presim-Generation
+    // (Individuen mit echten Fitness-Werten) — Datengrundlage für das
+    // Trainings-Replay im DNA-Reveal. Fehlt, wenn keine Presim lief.
+    | { type: 'DONE';  population: Population; evaluated?: Individual[] }
     | { type: 'ERROR'; message: string };
 
 self.onmessage = (event: MessageEvent<EvolutionWorkerIn>) => {
@@ -23,13 +26,14 @@ self.onmessage = (event: MessageEvent<EvolutionWorkerIn>) => {
     if (type !== 'PRESIM') return;
 
     try {
+        let evaluated: Individual[] | undefined;
         const ghostPop = generations > 0 && ghost.frames.length > 0
-            ? presimulateAgainstGhost(generations, ghost, population, crossoverType, hofGhost)
+            ? presimulateAgainstGhost(generations, ghost, population, crossoverType, hofGhost, inds => { evaluated = inds; })
             : population;
 
         const evolved = evolve(ghostPop, realFitness, mutationRate, mutationStrength, crossoverType, injectionDeviation);
 
-        (self as unknown as Worker).postMessage({ type: 'DONE', population: evolved } satisfies EvolutionWorkerOut);
+        (self as unknown as Worker).postMessage({ type: 'DONE', population: evolved, evaluated } satisfies EvolutionWorkerOut);
     } catch (err) {
         (self as unknown as Worker).postMessage({
             type:    'ERROR',

@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gameStore } from '../../modules/shooterGame/game/gameStore';
+import { trainingReplayStore } from '../../modules/shooterGame/game/trainingReplayStore';
+import { TrainingReplayRanking } from '../../modules/shooterGame/components/EvolutionReplayOverlay';
 import type { GameState } from '../../modules/shooterGame/shooter.types';
 
 // ---- Nav Button ----
@@ -130,6 +132,13 @@ interface ShooterLeftBarProps {
 
 export function ShooterLeftBar({ onAnalytics, onLobby }: ShooterLeftBarProps) {
     const navigate = useNavigate();
+    // Solange das Trainings-Replay offen ist, zeigt die Bar dessen
+    // Fitness-Ranking statt der Round Stats (stellt sich beim Schließen
+    // automatisch zurück — das Overlay leert den Store beim Unmount).
+    const replayOpen = useSyncExternalStore(
+        trainingReplayStore.subscribe.bind(trainingReplayStore),
+        () => trainingReplayStore.state !== null,
+    );
 
     return (
         <>
@@ -148,8 +157,8 @@ export function ShooterLeftBar({ onAnalytics, onLobby }: ShooterLeftBarProps) {
                 )}
             </div>
 
-            {/* Middle – Live Stats */}
-            <LiveStats />
+            {/* Middle – Live Stats bzw. Replay-Ranking */}
+            {replayOpen ? <TrainingReplayRanking /> : <LiveStats />}
 
             {/* Bottom – Quit */}
             <div style={styles.group}>

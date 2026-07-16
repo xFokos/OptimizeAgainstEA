@@ -242,6 +242,12 @@ export interface AgentGhostFrame {
 export interface PlayerGhost {
     frames:        PlayerGhostFrame[];
     roundDuration: number;
+    /** Reale Bullet Speed des Spielers zur Aufnahmezeit (Settings + Mods).
+        Fallback: GAME_CONFIG.BULLET_SPEED. */
+    bulletSpeed?:  number;
+    /** Aktive Mods zur Aufnahmezeit — Verhaltens-Mods (Triple/Burst/Homing)
+        formen im Ghost-Training den Schuss-Plan wie im echten Spiel. */
+    activeModIds?: string[];
 }
 
 // ---- Spieler-Konfiguration ----

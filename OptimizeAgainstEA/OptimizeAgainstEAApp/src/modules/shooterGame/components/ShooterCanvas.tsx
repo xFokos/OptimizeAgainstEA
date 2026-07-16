@@ -16,11 +16,13 @@ import {
     type AgentGhostFrame,
     type PlayerGhostFrame,
     type Population,
+    type Individual,
     type CrossoverExample,
 } from '../shooter.types';
 import { CompiBubble } from '../../../components/hints';
 import { TutorialEvolutionExplainer } from './tutorialEvolutionContent';
 import { TutorialRaidbossExplainer } from './tutorialRaidbossContent';
+import { EvolutionReplayOverlay } from './EvolutionReplayOverlay';
 import { useTutorialStep } from '../hooks/useTutorialStep';
 import { makeInitialGameState } from '../game/makeGameState';
 
@@ -226,6 +228,20 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
     const pendingSubmitRef   = useRef<Promise<void>>(Promise.resolve());
     const pendingNewStateRef = useRef<GameState | null>(null);
     const revealAnimTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+    // Trainings-Replay: Player-Recording + zuletzt evaluierte Presim-Generation
+    // der gerade gelaufenen Evolution (siehe Worker) — Grundlage für den
+    // "Watch Training Replay"-Button im DNA-Reveal. null, wenn keine Presim lief.
+    const evolutionReplayRef = useRef<{ ghost: PlayerGhost; evaluated: Individual[] } | null>(null);
+    const [showTrainingReplay, setShowTrainingReplay] = useState(false);
+    // Vorgezogene Evolution: startet schon beim Rundenende (nicht erst bei
+    // "Continue"), damit der "Watch Training Replay"-Button bereits im
+    // Round-Over-Screen erscheinen kann. population === null → Worker läuft
+    // noch; startRound greift das Ergebnis ab statt selbst zu rechnen.
+    const eagerEvolutionRef = useRef<{ forRound: number; population: Population | null } | null>(null);
+    // Wird aus dem memoisierten onUpdate heraus aufgerufen — über Ref, damit
+    // die Funktion frische eaSettings sieht (gleicher Trick wie tutorialStepRef).
+    const kickOffEvolutionRef = useRef<() => void>(() => {});
+    const [replayReady, setReplayReady] = useState(false);
 
     // Im Raidboss-Modus feste Spielwerte verwenden damit Fitness-Vergleiche zwischen Spielern fair sind
     const gameShooterSettings: ShooterSettings = isRaidbossRound
@@ -499,6 +515,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
             if (next.phase === 'roundEnd') {
                 pushRoundAnalytics(next);
                 submitRaidbossOnRoundEnd(next);
+                kickOffEvolutionRef.current();
             }
         }
 
@@ -531,6 +548,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                 setPhase('roundEnd');
                 pushRoundAnalytics(next);
                 submitRaidbossOnRoundEnd(next);
+                kickOffEvolutionRef.current();
             }
         }
 
@@ -701,23 +719,80 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
             settings: gameShooterSettings,
         };
 
-        // Runde 0 oder kein Presim → direkt synchron
+        // Runde 0 → direkt synchron (keine Evolution nötig)
         if (currentState.roundNumber === 0) {
             completeRound(population);
             return;
         }
 
-        const realFitness = calculateFitness(currentState.agent.stats);
-
-        if (eaSettings.presimGenerations === 0 || playerFramesRef.current.length === 0) {
-            completeRound(evolve(population, realFitness, eaSettings.mutationRate, eaSettings.mutationStrength, eaSettings.crossoverType, eaSettings.injectionDeviation));
+        // Die Evolution wurde beim Rundenende vorgezogen (kickOffEvolution) —
+        // Ergebnis abgreifen bzw. auf den noch laufenden Worker warten.
+        const eager = eagerEvolutionRef.current;
+        if (eager && eager.forRound === currentState.roundNumber) {
+            if (eager.population) {
+                eagerEvolutionRef.current = null;
+                completeRound(eager.population);
+            } else {
+                // Worker rechnet noch — sein DONE ruft completeRound auf,
+                // da pendingRoundDataRef jetzt gesetzt ist.
+                setPhase('evolving');
+            }
             return;
         }
 
-        // Schwere Arbeit → Web Worker
+        // Fallback (Evolution wurde am Rundenende nicht gestartet, z. B.
+        // Raidboss-Pfad): synchron ohne Presim-Replay evolven.
+        evolutionReplayRef.current = null;
+        setReplayReady(false);
+        completeRound(evolve(
+            population,
+            calculateFitness(currentState.agent.stats),
+            eaSettings.mutationRate, eaSettings.mutationStrength,
+            eaSettings.crossoverType, eaSettings.injectionDeviation,
+        ));
+    };
+
+    // Evolution direkt beim Rundenende starten (aus onUpdate über
+    // kickOffEvolutionRef aufgerufen). Ergebnis landet in eagerEvolutionRef;
+    // falls "Continue" schon gedrückt wurde (pendingRoundDataRef gesetzt),
+    // wird die Runde sofort abgeschlossen. So ist das Trainings-Replay schon
+    // im Round-Over-Screen verfügbar und der "evolving"-Wartescreen entfällt
+    // meist ganz.
+    const kickOffEvolution = () => {
+        const currentState = gameStateRef.current;
+        if (!currentState || currentState.roundNumber === 0) return;
+        // Tutorial-/Raidboss-Runden evolven nicht weiter (kein Continue-Pfad)
+        if (tutorial || raidbossSlotRef.current) return;
+        if (eagerEvolutionRef.current?.forRound === currentState.roundNumber) return;
+        const population = currentState.population;
+        if (!population) return;
+
+        evolutionReplayRef.current = null;
+        setReplayReady(false);
+
+        const realFitness = calculateFitness(currentState.agent.stats);
+        const finish = (evolved: Population) => {
+            if (pendingRoundDataRef.current) {
+                eagerEvolutionRef.current = null;
+                completeRound(evolved);
+            } else {
+                eagerEvolutionRef.current = { forRound: currentState.roundNumber, population: evolved };
+            }
+        };
+
+        if (eaSettings.presimGenerations === 0 || playerFramesRef.current.length === 0) {
+            finish(evolve(population, realFitness, eaSettings.mutationRate, eaSettings.mutationStrength, eaSettings.crossoverType, eaSettings.injectionDeviation));
+            return;
+        }
+
+        // Schwere Arbeit → Web Worker. Bullet Speed + aktive Mods der gerade
+        // gespielten Runde mitgeben, damit das Ghost-Training die echte
+        // Feuerkraft des Spielers nachbildet (Triple/Burst/Homing, Speed-Mods).
         const ghost: PlayerGhost = {
             frames:        playerFramesRef.current,
             roundDuration: gameShooterSettings.roundDuration,
+            bulletSpeed:   applyMods(gameShooterSettings.playerStats, runModsStore.activeModIds).bulletSpeed,
+            activeModIds:  [...runModsStore.activeModIds],
         };
 
         const playerHitsThisRound = currentState.agent.stats.hitsReceived;
@@ -730,7 +805,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
             ? hallOfFameGhostRef.current ?? undefined
             : undefined;
 
-        setPhase('evolving');
+        eagerEvolutionRef.current = { forRound: currentState.roundNumber, population: null };
 
         evolutionWorkerRef.current?.terminate();
         const worker = new Worker(
@@ -739,11 +814,18 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
         );
         worker.onmessage = (e: MessageEvent<EvolutionWorkerOut>) => {
             if (e.data.type === 'DONE') {
-                completeRound(e.data.population);
+                // Snapshot fürs Trainings-Replay festhalten (das Ghost-Objekt
+                // überlebt das Leeren von playerFramesRef in completeRound —
+                // dort wird nur ein NEUES Array zugewiesen).
+                evolutionReplayRef.current = e.data.evaluated
+                    ? { ghost, evaluated: e.data.evaluated }
+                    : null;
+                setReplayReady(evolutionReplayRef.current !== null);
+                finish(e.data.population);
             } else {
                 console.error('[EvolutionWorker]', (e.data as { message: string }).message);
                 // Fallback: synchron ohne Presim
-                completeRound(evolve(population, realFitness, eaSettings.mutationRate, eaSettings.mutationStrength, eaSettings.crossoverType, eaSettings.injectionDeviation));
+                finish(evolve(population, realFitness, eaSettings.mutationRate, eaSettings.mutationStrength, eaSettings.crossoverType, eaSettings.injectionDeviation));
             }
             worker.terminate();
             evolutionWorkerRef.current = null;
@@ -762,6 +844,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
             injectionDeviation:  eaSettings.injectionDeviation,
         } satisfies EvolutionWorkerIn);
     };
+    kickOffEvolutionRef.current = kickOffEvolution;
 
     // Alle MOD_CHOICE_INTERVAL gespielten Runden (bewusst nicht Generationen —
     // presimGenerations lässt population.generation pro Runde um mehr als 1 springen,
@@ -865,11 +948,13 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                     left: 0,
                 }}
             >
-                <TugOfWarBar
+                {/* Im Trainings-Replay ausgeblendet — dessen Kopfzeile ist
+                    halbtransparent und liegt im selben 44px-Streifen. */}
+                {!showTrainingReplay && <TugOfWarBar
                     score={matchScore}
                     threshold={gameShooterSettings.tugWinThreshold}
                     modProgress={(isRaidbossRound || !gameShooterSettings.modChoiceEnabled) ? null : (((gameStateRef.current?.roundNumber ?? 0) - 1) % gameShooterSettings.modChoiceInterval + 1) / gameShooterSettings.modChoiceInterval}
-                />
+                />}
 
                 <canvas
                     ref={canvasRef}
@@ -914,6 +999,14 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                         <button className="btn btn--primary" style={{ fontSize: 16, padding: '14px 32px' }} onClick={applyAndPlay}>
                             Next Round →
                         </button>
+                        {/* Nur wenn die Evolution wirklich gegen das Recording trainiert
+                            hat (Presim > 0 und Ghost-Frames vorhanden) gibt es etwas
+                            zum Zuschauen. */}
+                        {evolutionReplayRef.current !== null && (
+                            <button className="btn btn--ghost" onClick={() => setShowTrainingReplay(true)}>
+                                ▶ Watch Training Replay
+                            </button>
+                        )}
                     </div>
                 ) : pendingModChoices !== null ? (
                     <div className={styles.overlay}>
@@ -1020,9 +1113,18 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                                 </button>
                             </div>
                         ) : (
-                            <button className="btn btn--primary" style={{ fontSize: 16, padding: '14px 32px' }} onClick={maybeOfferModChoice}>
-                                Continue →
-                            </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                                <button className="btn btn--primary" style={{ fontSize: 16, padding: '14px 32px' }} onClick={maybeOfferModChoice}>
+                                    Continue →
+                                </button>
+                                {/* Evolution läuft seit Rundenende im Hintergrund —
+                                    sobald sie fertig ist, gibt es das Replay dazu. */}
+                                {replayReady && evolutionReplayRef.current !== null && (
+                                    <button className="btn btn--ghost" onClick={() => setShowTrainingReplay(true)}>
+                                        ▶ Watch Training Replay
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
                 ) : phase === 'evolving' ? (
@@ -1033,6 +1135,17 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                         </p>
                     </div>
                 ) : null}
+
+                {/* Trainings-Replay über dem DNA-Reveal: alle Presim-Kandidaten
+                    spielen live gegen das Recording der letzten Runde, rechts das
+                    echte Fitness-Ranking, das die Auswahl entschieden hat. */}
+                {showTrainingReplay && evolutionReplayRef.current !== null && (
+                    <EvolutionReplayOverlay
+                        ghost={evolutionReplayRef.current.ghost}
+                        evaluated={evolutionReplayRef.current.evaluated}
+                        onClose={() => setShowTrainingReplay(false)}
+                    />
+                )}
 
                 {/* Portalled to document.body: `.wrapper` above has `transform:
                  * scale(...)`, which per spec makes it the containing block for

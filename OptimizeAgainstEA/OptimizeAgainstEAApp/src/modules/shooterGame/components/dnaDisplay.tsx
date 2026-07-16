@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { gameStore } from '../game/gameStore';
 import { getRaidbossActive } from '../game/raidbossStore';
+import { trainingReplayStore } from '../game/trainingReplayStore';
 import { DNA_NAMES, DNA_GENE_INFO } from '../shooter.types';
 
 const FONT   = 'var(--font)';
@@ -87,6 +88,30 @@ export function DNADisplay() {
     }, []);
 
     const isRaidboss = getRaidbossActive();
+
+    // Trainings-Replay offen → DNA des dort fokussierten Kandidaten zeigen
+    // (kein Delta: das ist eine Momentaufnahme der Presim-Generation, keine
+    // Rundenentwicklung). Schließt das Replay, fällt es auf Agent DNA zurück.
+    const replayUI = useSyncExternalStore(
+        trainingReplayStore.subscribe.bind(trainingReplayStore),
+        () => trainingReplayStore.state,
+    );
+
+    if (replayUI) {
+        const focusDna = replayUI.evaluated[replayUI.focusIdx]?.dna ?? [];
+        return (
+            <div style={styles.panel}>
+                <div style={{ ...styles.sectionTitle, color: '#f97316' }}>
+                    Agent #{replayUI.focusIdx + 1} DNA
+                </div>
+                <DnaString dna={focusDna} />
+
+                {DNA_NAMES.map((name, i) => (
+                    <GeneBar key={i} name={name} value={focusDna[i] ?? 0} delta={0} />
+                ))}
+            </div>
+        );
+    }
 
     return (
         <div style={styles.panel}>

@@ -1,6 +1,12 @@
-import type { Population, Individual, DNA, PlayerGhost } from '../../shooter.types';
+import type { Population, Individual, DNA, PlayerGhost, RoundStats } from '../../shooter.types';
 import { GAME_CONFIG, DNA_LENGTH, DNA_INDEX, ARENA, emptyStats } from '../../shooter.types';
 import { vec } from '../core/vec';
+import { makeLCG, type RNG } from '../../../../utils/rng';
+import { computeShotPlan } from '../../mods/modTypes';
+import { steerHomingBullet, type QueuedShot } from '../../mods/shotEngine';
+
+// Wie im echten Spiel (gameLoop.ts): max. Drehrate der Homing Rounds in rad/s.
+const HOMING_TURN_RATE = 2;
 import { updatePopulationStats, initPopulation } from './population';
 import { calculateFitness } from './fitness';
 
@@ -88,14 +94,16 @@ export function getNextAgent(population: Population): number[] {
 }
 
 // ---- Simulation Types ----
-interface SimAgent {
+// Exportiert, weil das Trainings-Replay (EvolutionReplayOverlay) die
+// Sim-Zustände zum Zeichnen liest.
+export interface SimAgent {
     pos:      { x: number; y: number };
     vel:      { x: number; y: number };
     rot:      number;
     cooldown: number;
 }
 
-interface SimBullet {
+export interface SimBullet {
     position: { x: number; y: number };
     velocity: { x: number; y: number };
     lifetime: number;
@@ -123,6 +131,7 @@ function stepAgent(
     enemy:        SimAgent,
     enemyBullets: SimBullet[],
     dt:           number,
+    rng:          RNG,
 ): [SimAgent, SimBullet | null] {
     // 1. Auf Gegner zubewegen
     const toEnemy    = vec.normalize(vec.sub(enemy.pos, agent.pos));
@@ -135,7 +144,7 @@ function stepAgent(
 
     const dodgeForce = (() => {
         if (!nearBullet) return vec.zero();
-        if (Math.random() > dna[DNA_INDEX.DODGE_WEIGHT]) return vec.zero();
+        if (rng() > dna[DNA_INDEX.DODGE_WEIGHT]) return vec.zero();
         const perp    = vec.perpendicular(vec.normalize(nearBullet.velocity));
         const toAgent = vec.sub(agent.pos, nearBullet.position);
         let side      = perp.x * toAgent.x + perp.y * toAgent.y >= 0 ? 1 : -1;
@@ -175,7 +184,7 @@ function stepAgent(
     let newBullet: SimBullet | null = null;
     agent.cooldown -= dt;
     if (agent.cooldown <= 0) {
-        const scatter  = (Math.random() - 0.5) * (1 - dna[DNA_INDEX.SHOOT_ACCURACY]) * 1.2;
+        const scatter  = (rng() - 0.5) * (1 - dna[DNA_INDEX.SHOOT_ACCURACY]) * 1.2;
         agent.cooldown = GAME_CONFIG.SHOOT_COOLDOWN_MIN +
             (1 - dna[DNA_INDEX.FIRE_RATE]) * GAME_CONFIG.SHOOT_COOLDOWN_MAX;
 
@@ -206,6 +215,8 @@ function simulateFight(dnaA: DNA, dnaB: DNA): [number, number] {
         cooldown: 0,
     };
 
+    const rng = makeLCG();
+
     let bulletsA: SimBullet[] = [];
     let bulletsB: SimBullet[] = [];
     const statsA = emptyStats();
@@ -215,8 +226,8 @@ function simulateFight(dnaA: DNA, dnaB: DNA): [number, number] {
     const steps = Math.floor(30 / dt); // 30 Sekunden simulieren
 
     for (let step = 0; step < steps; step++) {
-        const [newAgentA, bulletA] = stepAgent(dnaA, agentA, agentB, bulletsB, dt);
-        const [newAgentB, bulletB] = stepAgent(dnaB, agentB, agentA, bulletsA, dt);
+        const [newAgentA, bulletA] = stepAgent(dnaA, agentA, agentB, bulletsB, dt, rng);
+        const [newAgentB, bulletB] = stepAgent(dnaB, agentB, agentA, bulletsA, dt, rng);
 
         agentA = newAgentA;
         agentB = newAgentB;
@@ -285,7 +296,37 @@ export function presimulate(generations: number): Population {
 }
 
 // ---- Ghost Simulation ----
-function simulateAgainstGhost(dna: DNA, ghost: PlayerGhost): number {
+
+/**
+ * Schrittweise Simulation eines Agenten gegen das Player-Recording — die eine
+ * Quelle der Sim-Regeln: `simulateAgainstGhost` (Fitness-Bewertung in der
+ * Presim) läuft sie am Stück durch, das Trainings-Replay
+ * (EvolutionReplayOverlay) Frame für Frame zum Zuschauen. Ein Schritt
+ * entspricht einem Ghost-Frame (1/60 s).
+ */
+export interface GhostSim {
+    readonly agent:         SimAgent;
+    readonly agentBullets:  readonly SimBullet[];
+    readonly playerBullets: readonly SimBullet[];
+    readonly stats:         RoundStats;
+    /** Index des nächsten Ghost-Frames (= bereits simulierte Schritte). */
+    readonly frame:         number;
+    readonly done:          boolean;
+    /** Einen Ghost-Frame simulieren; no-op wenn das Recording durch ist. */
+    step(): void;
+}
+
+// Seed deterministisch aus der DNA ableiten: gleiche DNA ⇒ gleicher
+// Zufallsstrom ⇒ Fitness-Bewertung und Trainings-Replay laufen identisch ab.
+function dnaSeed(dna: DNA): number {
+    return dna.reduce(
+        (h, gene) => (Math.imul(h, 31) + Math.round(gene * 1e9)) >>> 0,
+        0x9e3779b9,
+    );
+}
+
+export function createGhostSim(dna: DNA, ghost: PlayerGhost): GhostSim {
+    const rng = makeLCG(dnaSeed(dna));
     let agent: SimAgent = {
         pos:      { x: ARENA.WIDTH - 200, y: ARENA.HEIGHT / 2 },
         vel:      vec.zero(),
@@ -293,77 +334,141 @@ function simulateAgainstGhost(dna: DNA, ghost: PlayerGhost): number {
         cooldown: 0,
     };
 
-    type TrackedBullet = SimBullet & { _id: number };
+    type TrackedBullet = SimBullet & { _id: number; homing: boolean };
 
     let agentBullets:  SimBullet[]     = [];
     let playerBullets: TrackedBullet[] = [];
     const stats        = emptyStats();
     let nextBulletId   = 0;
     const dodgedIds    = new Set<number>();
+    let step           = 0;
 
-    for (let step = 0; step < ghost.frames.length; step++) {
-        const frame = ghost.frames[step];
-        const dt    = 1 / 60;
+    // Mods des Spielers zur Aufnahmezeit: reale Bullet Speed und Schuss-Plan
+    // (Triple/Burst/Homing) — pro Trigger-Pull identisch, daher einmal berechnet.
+    const bulletSpeed = ghost.bulletSpeed ?? GAME_CONFIG.BULLET_SPEED;
+    const shotPlan    = computeShotPlan(ghost.activeModIds ?? []);
+    const queuedShots: QueuedShot[] = [];
 
-        if (frame.shot) {
-            playerBullets.push({
-                _id:      nextBulletId++,
-                position: { ...frame.position },
-                velocity: vec.scale(vec.fromAngle(frame.rotation), GAME_CONFIG.BULLET_SPEED),
-                lifetime: GAME_CONFIG.BULLET_LIFETIME,
-                radius:   GAME_CONFIG.BULLET_RADIUS,
+    // Nicht die aufgezeichnete Schussrichtung übernehmen, sondern auf die
+    // aktuelle Position DIESES Sim-Agenten zielen: der Agent läuft ja anders
+    // als der Gegner der Original-Runde, aufgezeichnete Schüsse gingen sonst
+    // systematisch ins Leere. So muss jeder Kandidat gezielten Schüssen
+    // ausweichen.
+    const fireShot = (
+        origin:           { x: number; y: number },
+        fallbackRotation: number,
+        angleOffset:      number,
+        speedMult:        number,
+        homing:           boolean,
+    ) => {
+        const toAgent = vec.sub(agent.pos, origin);
+        const aim     = vec.distance(agent.pos, origin) > 1
+            ? Math.atan2(toAgent.y, toAgent.x)
+            : fallbackRotation;
+        playerBullets.push({
+            _id:      nextBulletId++,
+            homing,
+            position: { ...origin },
+            velocity: vec.scale(vec.fromAngle(aim + angleOffset), bulletSpeed * speedMult),
+            lifetime: GAME_CONFIG.BULLET_LIFETIME,
+            radius:   GAME_CONFIG.BULLET_RADIUS,
+        });
+    };
+
+    return {
+        get agent()         { return agent; },
+        get agentBullets()  { return agentBullets; },
+        get playerBullets() { return playerBullets; },
+        get stats()         { return stats; },
+        get frame()         { return step; },
+        get done()          { return step >= ghost.frames.length; },
+
+        step() {
+            if (step >= ghost.frames.length) return;
+            const frame = ghost.frames[step];
+            const dt    = 1 / 60;
+
+            if (frame.shot) {
+                for (const shot of shotPlan) {
+                    if (shot.delay <= 0) {
+                        fireShot(frame.position, frame.rotation, shot.angleOffset, shot.speedMult, shot.homing ?? false);
+                    } else {
+                        queuedShots.push({ timer: shot.delay, angleOffset: shot.angleOffset, speedMult: shot.speedMult, homing: shot.homing ?? false });
+                    }
+                }
+            }
+
+            // Verzögerte Burst-Schüsse: feuern von der aktuellen Ghost-Position
+            // aus, wenn ihr Timer abläuft (wie queuedPlayerShots in gameLoop.ts)
+            for (let i = queuedShots.length - 1; i >= 0; i--) {
+                queuedShots[i].timer -= dt;
+                if (queuedShots[i].timer <= 0) {
+                    const q = queuedShots[i];
+                    fireShot(frame.position, frame.rotation, q.angleOffset, q.speedMult, q.homing);
+                    queuedShots.splice(i, 1);
+                }
+            }
+
+            // Homing Rounds: Player-Bullets pro Frame Richtung Agent eindrehen
+            for (const b of playerBullets) {
+                if (b.homing) steerHomingBullet(b.position, b.velocity, agent.pos, HOMING_TURN_RATE, dt);
+            }
+
+            const ghostAsEnemy: SimAgent = {
+                pos:      { ...frame.position },
+                vel:      { ...frame.velocity },
+                rot:      frame.rotation,
+                cooldown: 0,
+            };
+
+            const [newAgent, agentBullet] = stepAgent(dna, agent, ghostAsEnemy, playerBullets, dt, rng);
+            agent = newAgent;
+            if (agentBullet) {
+                agentBullets.push(agentBullet);
+                stats.bulletsFired++;
+            }
+
+            agentBullets  = moveBullets(agentBullets, dt);
+            // moveBullets verwendet { ...b } spread, daher bleibt _id bei Runtime erhalten
+            playerBullets = moveBullets(playerBullets as SimBullet[], dt) as TrackedBullet[];
+
+            // Distanz-Tracking
+            stats.distanceSum     += vec.distance(agent.pos, frame.position);
+            stats.distanceSamples += 1;
+
+            // Agent-Bullet trifft Ghost
+            agentBullets = agentBullets.filter(b => {
+                if (vec.distance(b.position, frame.position) < GAME_CONFIG.PLAYER_RADIUS + b.radius) {
+                    stats.hitsLanded++;
+                    return false;
+                }
+                return true;
             });
-        }
 
-        const ghostAsEnemy: SimAgent = {
-            pos:      { ...frame.position },
-            vel:      { ...frame.velocity },
-            rot:      frame.rotation,
-            cooldown: 0,
-        };
+            // Player-Bullet trifft Agent oder knapper Vorbeiflug
+            playerBullets = playerBullets.filter(b => {
+                const d = vec.distance(b.position, agent.pos);
+                if (d < GAME_CONFIG.AGENT_RADIUS + b.radius) {
+                    stats.hitsReceived++;
+                    return false;
+                }
+                if (d < GAME_CONFIG.NEAR_MISS_RADIUS && !dodgedIds.has(b._id)) {
+                    stats.dodgedBullets++;
+                    dodgedIds.add(b._id);
+                }
+                return true;
+            });
 
-        const [newAgent, agentBullet] = stepAgent(dna, agent, ghostAsEnemy, playerBullets, dt);
-        agent = newAgent;
-        if (agentBullet) {
-            agentBullets.push(agentBullet);
-            stats.bulletsFired++;
-        }
+            stats.timeAlive = step * dt;
+            step++;
+        },
+    };
+}
 
-        agentBullets  = moveBullets(agentBullets, dt);
-        // moveBullets verwendet { ...b } spread, daher bleibt _id bei Runtime erhalten
-        playerBullets = moveBullets(playerBullets as SimBullet[], dt) as TrackedBullet[];
-
-        // Distanz-Tracking
-        stats.distanceSum     += vec.distance(agent.pos, frame.position);
-        stats.distanceSamples += 1;
-
-        // Agent-Bullet trifft Ghost
-        agentBullets = agentBullets.filter(b => {
-            if (vec.distance(b.position, frame.position) < GAME_CONFIG.PLAYER_RADIUS + b.radius) {
-                stats.hitsLanded++;
-                return false;
-            }
-            return true;
-        });
-
-        // Player-Bullet trifft Agent oder knapper Vorbeiflug
-        playerBullets = playerBullets.filter(b => {
-            const d = vec.distance(b.position, agent.pos);
-            if (d < GAME_CONFIG.AGENT_RADIUS + b.radius) {
-                stats.hitsReceived++;
-                return false;
-            }
-            if (d < GAME_CONFIG.NEAR_MISS_RADIUS && !dodgedIds.has(b._id)) {
-                stats.dodgedBullets++;
-                dodgedIds.add(b._id);
-            }
-            return true;
-        });
-
-        stats.timeAlive = step * dt;
-    }
-
-    return calculateFitness(stats);
+function simulateAgainstGhost(dna: DNA, ghost: PlayerGhost): number {
+    const sim = createGhostSim(dna, ghost);
+    while (!sim.done) sim.step();
+    return calculateFitness(sim.stats);
 }
 
 export function presimulateAgainstGhost(
@@ -372,6 +477,11 @@ export function presimulateAgainstGhost(
     startPopulation:  Population,
     crossoverType:    'uniform' | 'single-point' = 'uniform',
     hallOfFameGhost?: PlayerGhost,
+    // Fürs Trainings-Replay: liefert die zuletzt evaluierte Generation
+    // (Individuen MIT ihren Ghost-Fitness-Werten), bevor evolve() sie durch
+    // Nachkommen ersetzt — das sind genau die Bewertungen, die die Auswahl
+    // der nächsten Gegner-DNA entschieden haben.
+    onLastEvaluation?: (individuals: Individual[]) => void,
 ): Population {
     let pop = startPopulation;
 
@@ -388,6 +498,10 @@ export function presimulateAgainstGhost(
                     : lastFitness,
             };
         });
+
+        if (i === generations - 1) {
+            onLastEvaluation?.(pop.individuals.map(ind => ({ ...ind, dna: [...ind.dna] })));
+        }
 
         pop = evolve(pop, undefined, GAME_CONFIG.MUTATION_RATE, GAME_CONFIG.MUTATION_STRENGTH, crossoverType);
     }
