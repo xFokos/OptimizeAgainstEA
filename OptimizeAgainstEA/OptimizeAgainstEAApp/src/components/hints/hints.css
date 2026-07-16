@@ -169,6 +169,9 @@
 .hint-anchor { position: relative; display: inline-block; }
 /* When wrapping the EA settings drawer, fill height so the bubble centers. */
 .ea-settings-backdrop > .hint-anchor { display: flex; height: 100%; }
+/* When wrapping a full-width control (btn--block), the shrink-wrapping
+   inline-block would collapse it to its text width — fill the row instead. */
+.hint-anchor:has(> .btn--block) { display: block; }
 
 /* Highlight glow (HintPopover `highlight` prop): a pulsing accent ring on the
    wrapped control while its hint is showing. Non-blocking — the control stays

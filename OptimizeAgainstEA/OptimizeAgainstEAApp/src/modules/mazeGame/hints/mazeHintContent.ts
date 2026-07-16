@@ -20,7 +20,12 @@ export type MazeHintId =
   | 'maze.play.readyToRun'
   | 'maze.play.firstRun'
   | 'maze.play.fitness'
-  | 'maze.play.mutation';
+  | 'maze.play.mutation'
+  | 'maze.experiment.start'
+  | 'maze.experiment.walkPlay'
+  | 'maze.experiment.evolve'
+  | 'maze.experiment.dissect'
+  | 'maze.experiment.goalReached';
 
 export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
   // ── Solve mode: blocking modal fired once the maze is loaded ─────────────
@@ -31,7 +36,7 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
       'You will build a string of Inputs and then watch the probe explore the maze in that order. ' +
       'After that you can edit your string and repeat the process till you find the goal.',
     style: 'modal',
-    once: true,
+    once: false,
     pauses: true,
   },
 
@@ -48,7 +53,7 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
       'else, so fill every slot — even a rough guess is a starting point you ' +
       'can improve on. You can submit moves by using the Buttons (or your arrow keys).',
     style: 'toast',
-    once: true,
+    once: false,
   },
 
   // ── Solve mode: a second TourSpotlight, this one on the filmstrips. Fires
@@ -62,7 +67,7 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
       'You always see your last submitted string so you know exactly where to make edits. ' +
       'Once you made all your edits here, just press Submit again.',
     style: 'toast',
-    once: true,
+    once: false,
   },
 
   // ── Solve mode: the last spotlight, on the Submit button alone, the moment
@@ -78,7 +83,7 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
       'fitness it comes back with, is what you get to work from for the next ' +
       'attempt. ',
     style: 'toast',
-    once: true,
+    once: false,
   },
 
   // ── Solve mode: fires the moment the FIRST string is submitted, spotlighting
@@ -94,7 +99,7 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
       'the buttons below to replay, pause, or step through it move by ' +
       'move. Dismiss this and the run starts.',
     style: 'toast',
-    once: true,
+    once: false,
   },
 
   // ── Solve mode: fires once the first run has animated all the way to its end,
@@ -110,7 +115,7 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
       'the same run, judged two different ways. This is the choice that decides ' +
       'what an EA hill-climbs toward — pick badly and it optimizes the wrong thing.',
     style: 'toast',
-    once: true,
+    once: false,
   },
 
   // ── Solve mode: fires once the player has changed 10% of the moves in an
@@ -122,7 +127,82 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
     body:
       'Now that you have edited your String you can resubmit and see how you improvement',
     style: 'toast',
-    once: true,
+    once: false,
     sticky: true,
+  },
+
+  // ── Experiment mode: blocking modal fired on entry, before anything runs.
+  //    The maze sits behind the "Breed first generation" overlay until the
+  //    player starts the run — this points them at the settings dock first,
+  //    since those settings shape generation 0. ──────────────────────────────
+  'maze.experiment.start': {
+    title: 'Your EA, your rules',
+    body:
+      'Here you set up an EA and watch it solve the maze on its own. ' +
+      'Before you breed the first generation, have a look at the Settings panel ' +
+      'on the right (behind the « Settings tab if it is tucked away): population ' +
+      'size, selection, crossover and mutation all shape generation 0 and the run ' +
+      'that follows. You can keep tweaking while it evolves — changes apply from ' +
+      'the next generation.',
+    style: 'modal',
+    once: false,
+    pauses: true,
+  },
+
+  // ── Experiment mode: anchored coachmark on the walk-transport play button,
+  //    fired once the first generation exists (see MazeExperimentMode).
+  //    (style/pauses are ignored for popovers; only title/body/once apply.) ───
+  'maze.experiment.walkPlay': {
+    title: 'Watch the best solution',
+    body:
+      'Press play to watch the EA\'s current best individual walk the maze, ' +
+      'move by move. The rest of the generation walks along as faint ghosts — ' +
+      'you can switch them on or off with "Show ghosts" in the Settings.',
+    style: 'toast',
+    once: false,
+  },
+
+  // ── Experiment mode: anchored coachmark on the Evolve button, fired once the
+  //    best individual's walk animation has run to its end (see walkDone in
+  //    MazeExperimentMode) — the natural "what now?" moment.
+  //    (style/pauses are ignored for popovers; only title/body/once apply.) ───
+  'maze.experiment.evolve': {
+    title: 'Breed the next generation',
+    body:
+      'With this button you breed the next generation from the current one. ' +
+      'And you can always change the EA settings between generations — ' +
+      'changes take effect with the next breeding.',
+    style: 'toast',
+    once: false,
+  },
+
+  // ── Experiment mode: anchored coachmark on the Dissect button, fired once
+  //    the second generation is bred — the first moment there is a breeding
+  //    step (gen n → gen n+1) worth dissecting.
+  //    (style/pauses are ignored for popovers; only title/body/once apply.) ───
+  'maze.experiment.dissect': {
+    title: 'See how a generation is made',
+    body:
+      'Want to know how the EA got from generation n to n+1? This opens a ' +
+      'step-by-step replay of the last breeding: which individuals were ' +
+      'selected, how they were paired and crossed over, and where mutation ' +
+      'changed the offspring.',
+    style: 'toast',
+    once: false,
+  },
+
+  // ── Experiment mode: blocking modal fired the first time the walker
+  //    visibly steps onto the goal (see MazeExperimentMode) — celebrates the
+  //    solve and nudges the player toward comparison experiments. ───────────
+  'maze.experiment.goalReached': {
+    title: 'You found a solution!',
+    body:
+      'Your probe reached the goal. Can it be done in fewer moves? ' +
+      'Try a different fitness function and see whether it finds a ' +
+      'shorter path — or rerun the same maze seed with different settings ' +
+      'and see how it goes.',
+    style: 'modal',
+    once: false,
+    pauses: true,
   },
 };
