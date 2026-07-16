@@ -81,7 +81,9 @@ export default function DashboardPage() {
                     </>
                 )}
 
-                {active === "eaExplained" && <EAExplainedTab />}
+                {active === "eaExplained" && (
+                    <EAExplainedTab onFinish={() => handleNav("gameSelect")} />
+                )}
             </main>
         </div>
     );

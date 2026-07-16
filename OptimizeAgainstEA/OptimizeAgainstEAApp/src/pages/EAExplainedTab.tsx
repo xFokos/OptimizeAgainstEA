@@ -99,7 +99,13 @@ function buildSteps(dna: number[], onGene: (i: number, v: number) => void): Expl
     ];
 }
 
-export function EAExplainedTab() {
+interface EAExplainedTabProps {
+    /** Letzter Step: "Pick a game →"-Button neben Back — wechselt zur
+     * Game Selection (vom Dashboard durchgereicht). */
+    onFinish?: () => void;
+}
+
+export function EAExplainedTab({ onFinish }: EAExplainedTabProps) {
     const [dna, setDna] = useState<number[]>(PLANE_DNA_START);
     const steps = useMemo(
         () => buildSteps(dna, (i, v) => setDna(prev => prev.map((g, j) => (j === i ? v : g)))),
@@ -115,7 +121,7 @@ export function EAExplainedTab() {
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <h1 className="page-title">EA Explained</h1>
             <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-                <ExplainerFlow steps={steps} />
+                <ExplainerFlow steps={steps} onFinish={onFinish} finishLabel="Pick a game →" />
             </div>
         </div>
     );
