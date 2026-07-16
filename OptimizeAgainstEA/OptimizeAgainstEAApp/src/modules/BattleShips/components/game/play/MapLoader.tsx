@@ -10,10 +10,9 @@ import { HintPopover } from '../../../../../components/hints';
 
 interface MapLoaderProps {
   onLoad: (loaded: DecodedProblem) => void;
-  onBack: () => void;
 }
 
-export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
+export function MapLoader({ onLoad }: MapLoaderProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
@@ -92,10 +91,6 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
         onClick={handlePlay}
       >
         ▶ Play
-      </button>
-
-      <button className="btn btn--ghost btn--sm" onClick={onBack} style={{ marginTop: 8 }}>
-        ← Back
       </button>
     </div>
     </div>

@@ -10,7 +10,7 @@ import { FitnessChart, type FitnessSeries } from '../../../BattleShips/component
 import { MazeCanvas, type MazeTrail, type MazeAgent } from '../shared/MazeCanvas';
 import { MazeEAReplayOverlay } from './MazeEAReplayOverlay';
 import { MazeEASettingsControls } from './MazeEASettingsPanel';
-import { HintToggle } from '../../../../components/hints';
+import { HintToggle, HintPopover, useHints } from '../../../../components/hints';
 import { Switch } from '../../../../components/ui/Switch';
 
 interface MazeExperimentModeProps {
@@ -167,10 +167,19 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
   // evolve) or Walk (to animate the current best).
   const [walkPlaying, setWalkPlaying] = useState(false);
   const [walkTick, setWalkTick] = useState(0);
+  // True once an autoplayed walk has run to its end — cue for the Evolve hint.
+  const [walkDone, setWalkDone] = useState(false);
   const [showGhosts, setShowGhosts] = useState(true);
   // Pre-run state: the maze sits darkened behind a Play overlay while the
   // player tunes the settings; the first generation is only bred on Play.
   const [started, setStarted] = useState(false);
+
+  // Entry modal: point the player at the settings dock before they breed
+  // generation 0 (no-ops when hints are off or it was already seen).
+  const { showHint } = useHints();
+  useEffect(() => {
+    showHint('maze.experiment.start');
+  }, [showHint]);
 
   const config: EAConfig = useMemo(
     () => ({ ...tuning, fitnessFnId }),
@@ -204,6 +213,7 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
 
   const ea = useMazeEARunner();
   const { init, step, reset, updateConfig, status, currentGeneration, generations, latestReplay } = ea;
+
 
   // Only the run's identity — maze, seed, genome length — restarts it from
   // scratch. Everything else (tuning + fitness fn) is applied to the running EA
@@ -301,6 +311,7 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
         // Reached the end (plus the end-of-walk dwell): stop autoplay instead of looping.
         if (t + 1 >= stopAt) {
           setWalkPlaying(false);
+          setWalkDone(true);
           return stopAt;
         }
         return t + 1;
@@ -311,6 +322,14 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
 
   // Rest at the end; the walker holds its final position once autoplay stops.
   const walkStep = best ? Math.min(walkTick, walkEndOf(best)) : 0;
+
+  // Solve modal the first time the walker visibly steps onto the goal — tied
+  // to the animated arrival, not to the data merely containing a solving
+  // genome (showHint no-ops on repeats since the hint is `once`).
+  const probeOnGoal = !!best && best.walk.reachedGoalAt >= 0 && walkStep >= best.walk.reachedGoalAt;
+  useEffect(() => {
+    if (probeOnGoal) showHint('maze.experiment.goalReached');
+  }, [probeOnGoal, showHint]);
 
   // Arrow keys or A/D step the walk one input left/right (pausing autoplay).
   // Ignored while a form field is focused so sliders / the seed input keep the keys.
@@ -428,7 +447,7 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
     <div className="maze-app maze-app--menu">
       <header className="maze-topbar maze-topbar--bar">
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
-        <span className="maze-topbar__title">🧬<span className="maze-topbar__title-label"> EA Experiment</span></span>
+        <span className="maze-topbar__title">🧬<span className="maze-topbar__title-label"> Control the EA</span></span>
         <HintToggle />
       </header>
 
@@ -438,22 +457,31 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
           <div className="panel panel--surface panel--md maze-panel">
             <div className="eyebrow">Evolution</div>
             <div className="maze-toolbar">
-              <button
-                className="btn btn--sm btn--primary"
-                onClick={() => step(1)}
-                disabled={!started || exhausted}
-              >
-                🧬 Evolve
-              </button>
+              <HintPopover id="maze.experiment.evolve" placement="bottom" highlight show={walkDone && generations.length < 2}>
+                <button
+                  className="btn btn--sm btn--primary"
+                  onClick={() => step(1)}
+                  disabled={!started || exhausted}
+                >
+                  🧬 Evolve
+                </button>
+              </HintPopover>
               <button className="btn btn--ghost btn--sm" onClick={restart} disabled={!started}>Reset</button>
             </div>
-            <button
-              className="btn btn--ghost btn--sm btn--block"
-              onClick={() => setShowReplay(true)}
-              disabled={!latestReplay || latestReplay.length === 0}
+            <HintPopover
+              id="maze.experiment.dissect"
+              placement="bottom"
+              highlight
+              show={generations.length >= 2 && !!latestReplay && latestReplay.length > 0}
             >
-              🔬 Dissect last generation
-            </button>
+              <button
+                className="btn btn--ghost btn--sm btn--block"
+                onClick={() => setShowReplay(true)}
+                disabled={!latestReplay || latestReplay.length === 0}
+              >
+                🔬 Dissect last generation
+              </button>
+            </HintPopover>
             <button
               className="btn btn--ghost btn--sm btn--block"
               onClick={editMaze}
@@ -523,19 +551,21 @@ export function MazeExperimentMode({ maze, onBack, onEdit }: MazeExperimentModeP
                   >
                     ◀
                   </button>
-                  <button
-                    className={`btn btn--sm ${walkPlaying ? 'btn--active' : 'btn--ghost'}`}
-                    onClick={() => {
-                      // If the walk has run to the end, restart it from the beginning.
-                      if (!walkPlaying && best && walkStep >= walkEndOf(best)) setWalkTick(0);
-                      setWalkPlaying((p) => !p);
-                    }}
-                    disabled={!best}
-                    title={walkPlaying ? 'Pause autoplay' : 'Autoplay'}
-                    aria-label={walkPlaying ? 'Pause autoplay' : 'Autoplay'}
-                  >
-                    {walkPlaying ? '▮▮' : '▷'}
-                  </button>
+                  <HintPopover id="maze.experiment.walkPlay" placement="bottom" highlight show={started && !!best && !walkDone}>
+                    <button
+                      className={`btn btn--sm ${walkPlaying ? 'btn--active' : 'btn--ghost'}`}
+                      onClick={() => {
+                        // If the walk has run to the end, restart it from the beginning.
+                        if (!walkPlaying && best && walkStep >= walkEndOf(best)) setWalkTick(0);
+                        setWalkPlaying((p) => !p);
+                      }}
+                      disabled={!best}
+                      title={walkPlaying ? 'Pause autoplay' : 'Autoplay'}
+                      aria-label={walkPlaying ? 'Pause autoplay' : 'Autoplay'}
+                    >
+                      {walkPlaying ? '▮▮' : '▷'}
+                    </button>
+                  </HintPopover>
                   <button
                     className="btn btn--ghost btn--sm"
                     onClick={() => { setWalkPlaying(false); setWalkTick(Math.min(bestEnd, walkStep + 1)); }}

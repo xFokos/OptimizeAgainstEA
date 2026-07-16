@@ -44,7 +44,7 @@ export function PlayMode({ onBack, initialCode }: PlayModeProps) {
   const handleHover  = useCallback((i: number) => setHoveredIndex(i), []);
 
   if (!loaded || !problem) {
-    return <MapLoader onLoad={handleLoad} onBack={onBack} />;
+    return <MapLoader onLoad={handleLoad} />;
   }
 
   const hasWon       = status === 'won';

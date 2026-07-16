@@ -59,12 +59,11 @@ interface DualLoaderProps {
   onConfigChange:       (patch: Partial<EAConfig>) => void;
   onRevealRadiusChange: (r: number) => void;
   onStart:              (player: DecodedProblem, ea: DecodedProblem, playerCode: string, eaCode: string) => void;
-  onBack:               () => void;
 }
 
 function DualMapLoader({
                          eaConfig, revealRadius, initialPlayerCode, initialEaCode, onConfigChange,
-                         onRevealRadiusChange, onStart, onBack,
+                         onRevealRadiusChange, onStart,
                        }: DualLoaderProps) {
   const [s, setS] = useState<DualLoaderState>({
     playerCode: initialPlayerCode ?? '', eaCode: initialEaCode ?? '', playerErr: '', eaErr: '', generatedCode: '',
@@ -207,7 +206,6 @@ function DualMapLoader({
       </div>
 
       <div className="dual-loader__actions">
-        <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
         <HintPopover
           id="vsEa.settingsButton"
           placement="top"
@@ -378,7 +376,6 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
         onConfigChange={handleConfigChange}
         onRevealRadiusChange={setRevealRadius}
         onStart={handleStart}
-        onBack={onBack}
       />
     );
   }

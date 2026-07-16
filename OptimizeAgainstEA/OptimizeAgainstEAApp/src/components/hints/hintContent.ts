@@ -32,27 +32,15 @@
 export const COMPI_MODE = true;
 
 // A game with many hints may keep them in its own module and be merged into the
-// registry at the bottom of this file — see MAZE_HINTS ('maze.*').
+// registry at the bottom of this file — see MAZE_HINTS ('maze.*') and
+// PEAKFINDER_HINTS ('selector.*' / 'create.*' / 'play.*' / 'loader.*' / 'vsEa.*').
 import { MAZE_HINTS } from '../../modules/mazeGame/hints/mazeHintContent';
 import type { MazeHintId } from '../../modules/mazeGame/hints/mazeHintContent';
+import { PEAKFINDER_HINTS } from '../../modules/BattleShips/hints/peakFinderHintContent';
+import type { PeakFinderHintId } from '../../modules/BattleShips/hints/peakFinderHintContent';
 
 /** Ids defined in this file. The full site-wide union is `HintId` below. */
 type CoreHintId =
-  | 'selector.welcome'
-  | 'create.start'
-  | 'create.place'
-  | 'create.pickGlobal'
-  | 'create.done'
-  | 'play.start'
-  | 'play.firstProbe'
-  | 'loader.chooseMap'
-  | 'vsEa.start'
-  | 'vsEa.settingsButton'
-  | 'vsEa.settingsPanel'
-  | 'vsEa.replayButton'
-  | 'vsEa.eaMovementButton'
-  | 'vsEa.playerWon'
-  | 'vsEa.eaWon'
   | 'shooter.dnaChangeDuringRound'
   | 'shooter.tour.welcome'
   | 'shooter.tour.modes'
@@ -67,7 +55,7 @@ type CoreHintId =
   | 'horde.tour.start'
   | 'functions.intro';
 
-export type HintId = CoreHintId | MazeHintId;
+export type HintId = CoreHintId | MazeHintId | PeakFinderHintId;
 
 /** Which screen corner an ambient (non-anchored) Compi bubble appears in.
  * Ignored for blocking modals (always centered) and for HintPopover-anchored
@@ -87,177 +75,6 @@ export interface HintDef {
 }
 
 const CORE_HINTS: Record<CoreHintId, HintDef> = {
-  'selector.welcome': {
-    title: 'Welcome to Peak Finder',
-    body:
-      'In this game you try to find the highest peak on an unexplored map. ' +
-      'Create your own map to get a feel for how they work, ' +
-      'play your own, random, or other players\' maps, ' +
-      'or challenge yourself against an Evolutionary Algorithm. ' +
-      'You can toggle hints anytime in the top-right corner.',
-    style: 'modal',
-    once: true,
-  },
-
-  // ── Create mode: intro modal, then one toast per phase ───────────────────
-  'create.start': {
-    title: 'Build a map',
-    body:
-      'You build your own map step by step here. ' +
-      'Start by placing mountains — scatter them strategically to trap players. ' +
-      'Select the global peak, which is the only winning spot. ' +
-      'Once you are done, you will get a code to share and play your map.',
-    style: 'modal',
-    once: true,
-    pauses: true,
-  },
-
-  // ── Create mode: one per phase, fired once on first entry this session ────
-  'create.place': {
-    title: 'Step 1 — Place Mountains',
-    body:
-      'Scatter a few decoys away from where you\'ll hide the real one — ' +
-      'the more tempting the traps, the harder the map. You need at least two.',
-    style: 'toast',
-    once: true,
-    sticky: true,
-  },
-
-  'create.pickGlobal': {
-    title: 'Step 2 — Pick the Global Peak',
-    body:
-      'Click the dot that wins the game — the true highest peak players must ' +
-      'find. Tucking it behind a cluster of tall decoys makes for a sneaky map.',
-    style: 'toast',
-    once: true,
-    sticky: true,
-  },
-
-  'create.done': {
-    title: 'Your map is ready',
-    body:
-      'Copy the code to share your map, or jump straight into Play or Vs EA ' +
-      'to try it yourself. ',
-    style: 'toast',
-    once: true,
-    sticky: true,
-  },
-
-  // ── Play mode: blocking modals (pauses = dismiss only via the button) ─────
-  'play.start': {
-    title: 'Hunt the global peak',
-    body:
-      'Somewhere on this map is a hidden global peak. Click anywhere to ' +
-      'drop a probe — it reveals the surface around that spot and reads a ' +
-      'value. Higher is better: 1 means you\'ve found it. Use the readings to ' +
-      'close in, and try to win in as few probes as possible. ',
-    style: 'modal',
-    once: true,
-    pauses: true,
-  },
-
-  'play.firstProbe': {
-    title: 'Read the surface',
-    body:
-      'That number is how close your probe is to a peak — higher means ' +
-      'closer. The colours around it show the slope: a colder colour leads to a better result. ' +
-      'Beware deceptive local peaks that look ' +
-      'good but aren\'t the true global one. There is only one true global peak.',
-    style: 'modal',
-    once: true,
-    pauses: true,
-  },
-
-  // ── Map/function loader: shown on the loader once the player has saved at
-  //    least one map. Points them to the two places they can load from. Fires
-  //    after the game-mode intro and, in Vs EA, before the EA-settings coachmark. ─
-  'loader.chooseMap': {
-    title: 'Where to find maps & functions',
-    body:
-      'Need something to load? Your own creations live under "Your Maps" at the ' +
-      'top-left, and a whole library of mathematical functions sits in the ' +
-      '"Functions" tab beside it. Open either one, copy a code, and paste it ' +
-      'here to play.',
-    style: 'toast',
-    once: true,
-  },
-
-  // ── Vs EA race: blocking modal fired once when the race screen loads ──────
-  'vsEa.start': {
-    title: 'Playing against the Algorithm',
-    body:
-      'It works the same as play mode — but now you\'re racing an evolutionary algorithm. ' +
-      'Each probe you drop lets the EA evolve its ' +
-      'population a step on its own map. Find the peak in fewer moves than ' +
-      'it takes the EA to converge, and you win. ',
-    style: 'modal',
-    once: true,
-    pauses: true,
-  },
-
-  // ── Vs EA loader: anchored coachmarks (style/pauses ignored for popovers) ──
-  'vsEa.settingsButton': {
-    title: 'Tune the EA',
-    body:
-      'Open the EA settings to change the algorithm. ' +
-      'Experiment with different settings and see how it makes a difference.',
-    style: 'toast',
-    once: true,
-  },
-
-  'vsEa.settingsPanel': {
-    title: 'EA Settings',
-    body:
-      'These settings shape how the EA searches. ' +
-      'Have fun experimenting with the values here and see how it changes the solving process.',
-    style: 'toast',
-    once: true,
-  },
-
-  // Anchored coachmark — rendered next to the replay button via <HintPopover>.
-  // (style/pauses are ignored for popovers; only title/body/once apply.)
-  'vsEa.replayButton': {
-    title: 'See what the EA did',
-    body:
-      'The EA has also made its move. To see how it evolves from ' +
-      'its current state to the next one, you can always press the "Evolution Step" button.',
-    style: 'toast',
-    once: true,
-  },
-
-  // Anchored coachmark — pinned to the "Watch EA Movement" button after a few
-  // moves. Non-blocking; stays until the player dismisses it (see HintPopover).
-  'vsEa.eaMovementButton': {
-    title: 'Watch the EA move',
-    body:
-      'You\'ve made a few moves now, and so has the EA. To see' +
-      ' how all the probes shifted across the generations, you can' +
-      ' watch the replay with the "EA Movement" button.',
-    style: 'toast',
-    once: true,
-  },
-
-  // ── End-of-race modals (one per outcome) ──────────────────────────────────
-  'vsEa.playerWon': {
-    title: 'You beat the EA!',
-    body:
-      'Despite the odds being against you, you reached the global peak first. ' +
-      'Can you keep it up though? Try adjusting the algorithm and see if you can keep beating it!',
-    style: 'modal',
-    once: true,
-  },
-
-  'vsEa.eaWon': {
-    title: 'The EA got there first',
-    body:
-      'The algorithm found the global peak first. Don\'t worry about it — ' +
-      'its tools are far more powerful than yours, which makes them great for optimization. ' +
-      'More importantly, did you understand how it got there in the first place? ' +
-      'You can watch the replay, as well as change the settings and try again.',
-    style: 'modal',
-    once: true,
-  },
-
   'shooter.dnaChangeDuringRound': {
     title: 'Settings changed mid-run',
     body:
@@ -396,4 +213,5 @@ const CORE_HINTS: Record<CoreHintId, HintDef> = {
 export const HINTS: Record<HintId, HintDef> = {
   ...CORE_HINTS,
   ...MAZE_HINTS,
+  ...PEAKFINDER_HINTS,
 };

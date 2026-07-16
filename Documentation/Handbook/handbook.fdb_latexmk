@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1783949781.69552 "handbook.tex" "handbook.pdf" "handbook" 1783949782.35425 0
+["pdflatex"] 1784220079.72055 "handbook.tex" "handbook.pdf" "handbook" 1784220081.37798 0
   "/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc" 1136849721 2971 def0b6c1f0b107b3b936def894055589 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc" 1136849721 2900 1537cc8184ad1792082cd229ecc269f4 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
@@ -118,10 +118,14 @@
   "/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1770284226 5467155 19efa205003f9ecad95fbbaa6ff24da1 ""
   "/usr/local/texlive/2025/texmf-var/web2c/pdftex/pdflatex.fmt" 1770284136 3345742 ea342a619bb03deac92fdf0d38dc7053 ""
   "/usr/local/texlive/2025/texmf.cnf" 1741450484 577 418a7058ec8e006d8704f60ecd22c938 ""
-  "handbook.aux" 1783949782.24618 6757 638c0c85c8c133dcbd5a8be980a4445f "pdflatex"
-  "handbook.out" 1783949782.24752 5426 54081b47b5c956d306b8db23f82b9aea "pdflatex"
-  "handbook.tex" 1783949684.59001 25619 58aa9b2acf45c46ab2dfd65cc44b3881 ""
-  "handbook.toc" 1783949782.24774 2994 1185cb22d417d3f2ba31cfcecc2a3e4a "pdflatex"
+  "handbook.aux" 1784220081.26595 7300 e1dd32defaa447500c5d944fb65f4dd3 "pdflatex"
+  "handbook.out" 1784220081.26708 5764 e971c9b284fe398bfa3a75afd04466d8 "pdflatex"
+  "handbook.tex" 1784220064.02151 31154 1d7a8c57e7b06d8408b63244a4ce0272 ""
+  "handbook.toc" 1784220081.26732 3105 9a13b7cd67ea4991a2fd5289f76863ee "pdflatex"
+  "screenshot/Dashboard.png" 1784219355.24485 860273 a6bca4f54495f0e1bade95a87f1ee6b5 ""
+  "screenshot/MazeSolveMode.png" 1784219712.8338 777222 ff0a4f54cc6d6b688667c2035ab30a8e ""
+  "screenshot/PeakFinderEAReplay.png" 1784219554.16738 242360 72bb39a54209e63237bb58cef12fd6fd ""
+  "screenshot/PeakFinderPlayMode.png" 1784219471.44963 490698 f91ab3ab8adff8b18b047ddc170f02c8 ""
   (generated)
   "handbook.aux"
   "handbook.log"

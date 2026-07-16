@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2026.2.5)  13 JUL 2026 15:36
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2026.2.5)  16 JUL 2026 18:41
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -478,7 +478,7 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.38 ... {7}Troubleshooting \& FAQ}{16}{chapter.7}
+l.39 ... {7}Troubleshooting \& FAQ}{19}{chapter.7}
                                                   % [1
 
 ])
@@ -505,52 +505,82 @@ Chapter 2.
 [5
 
 ]
+<screenshot/Dashboard.png, id=245, 1468.48625pt x 440.64626pt>
+File: screenshot/Dashboard.png Graphic file (type png)
+<use screenshot/Dashboard.png>
+Package pdftex.def Info: screenshot/Dashboard.png  used on input line 169.
+(pdftex.def)             Requested size: 455.24411pt x 136.59892pt.
 
-[6]
+
+[6 <./screenshot/Dashboard.png>]
 Chapter 3.
+<screenshot/PeakFinderPlayMode.png, id=258, 576.1525pt x 588.1975pt>
+File: screenshot/PeakFinderPlayMode.png Graphic file (type png)
+<use screenshot/PeakFinderPlayMode.png>
+Package pdftex.def Info: screenshot/PeakFinderPlayMode.png  used on input line 
+210.
+(pdftex.def)             Requested size: 282.24911pt x 288.15646pt.
 
 
 [7
 
-]
+ <./screenshot/PeakFinderPlayMode.png>]
 
 [8]
+<screenshot/PeakFinderEAReplay.png, id=273, 930.47626pt x 747.79375pt>
+File: screenshot/PeakFinderEAReplay.png Graphic file (type png)
+<use screenshot/PeakFinderEAReplay.png>
+Package pdftex.def Info: screenshot/PeakFinderEAReplay.png  used on input line 
+332.
+(pdftex.def)             Requested size: 386.96027pt x 310.979pt.
+
 
 [9]
-Chapter 4.
 
-
-[10
-
-]
+[10 <./screenshot/PeakFinderEAReplay.png>]
 
 [11]
-Chapter 5.
+Chapter 4.
+<screenshot/MazeSolveMode.png, id=289, 1266.7325pt x 1073.00874pt>
+File: screenshot/MazeSolveMode.png Graphic file (type png)
+<use screenshot/MazeSolveMode.png>
+Package pdftex.def Info: screenshot/MazeSolveMode.png  used on input line 407.
+(pdftex.def)             Requested size: 364.19667pt x 308.4958pt.
 
 
 [12
 
 ]
 
-[13]
-Chapter 6.
+[13 <./screenshot/MazeSolveMode.png>]
+
+[14]
+Chapter 5.
 
 
-[14
+[15
 
 ]
 
-[15]
+[16]
+Chapter 6.
+
+
+[17
+
+]
+
+[18]
 Chapter 7.
 
 
-[16
+[19
 
 ]
 Appendix A.
 
 
-[17
+[20
 
 ] (./handbook.aux)
  ***********
@@ -558,16 +588,16 @@ LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
 Package rerunfilecheck Info: File `handbook.out' has not changed.
-(rerunfilecheck)             Checksum: 54081B47B5C956D306B8DB23F82B9AEA;5426.
+(rerunfilecheck)             Checksum: E971C9B284FE398BFA3A75AFD04466D8;5764.
  ) 
 Here is how much of TeX's memory you used:
- 12076 strings out of 473190
- 187535 string characters out of 5715801
- 621826 words of memory out of 5000000
- 35104 multiletter control sequences out of 15000+600000
+ 12116 strings out of 473190
+ 188775 string characters out of 5715801
+ 622803 words of memory out of 5000000
+ 35140 multiletter control sequences out of 15000+600000
  576621 words of font info for 73 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 75i,12n,79p,322b,625s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 75i,12n,79p,387b,625s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb
 ></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><
 /usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></
@@ -584,10 +614,10 @@ e/2025/texmf-dist/fonts/type1/public/cm-super/sfsx1095.pfb></usr/local/texlive/
 25/texmf-dist/fonts/type1/public/cm-super/sftt1000.pfb></usr/local/texlive/2025
 /texmf-dist/fonts/type1/public/cm-super/sftt1095.pfb></usr/local/texlive/2025/t
 exmf-dist/fonts/type1/public/cm-super/sftt1200.pfb>
-Output written on handbook.pdf (18 pages, 361341 bytes).
+Output written on handbook.pdf (21 pages, 1608653 bytes).
 PDF statistics:
- 405 PDF objects out of 1000 (max. 8388607)
- 342 compressed objects within 4 object streams
- 67 named destinations out of 1000 (max. 500000)
- 305 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 433 PDF objects out of 1000 (max. 8388607)
+ 359 compressed objects within 4 object streams
+ 71 named destinations out of 1000 (max. 500000)
+ 333 words of extra memory for PDF output out of 10000 (max. 10000000)
 

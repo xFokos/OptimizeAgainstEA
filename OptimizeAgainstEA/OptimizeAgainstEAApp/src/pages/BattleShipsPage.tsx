@@ -35,7 +35,7 @@ export default function BattleShipsPage() {
           <HintToggle />
         </header>
         {mode === 'select' && <ModeSelector onSelect={(m) => goToMode(m)} />}
-        {mode === 'create' && <CreateMode onBack={backToSelect} onUseMap={goToMode} />}
+        {mode === 'create' && <CreateMode onUseMap={goToMode} />}
         {mode === 'play'   && <PlayMode   onBack={backToSelect} initialCode={pendingCode ?? undefined} />}
         {mode === 'vs-ea'  && <VsEAMode   onBack={backToSelect} initialCode={pendingCode ?? undefined} />}
         <HintLayer />

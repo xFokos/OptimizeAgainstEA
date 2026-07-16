@@ -14,7 +14,8 @@ Built with **React 19 + TypeScript + Vite**.
 | Philipp Sehne | Philipp.Sehne@stud-mail.uni-wuerzburg.de | s511696 |
 | David Ahrens | David.Ahrens@stud-mail.uni-wuerzburg.de | s511500 |
 
-Repository: https://gitlab2.informatik.uni-wuerzburg.de/GE/Teaching/gl2/projects/2025/b-ahrens-und-sehne
+Gitlab: https://gitlab2.informatik.uni-wuerzburg.de/GE/Teaching/gl2/projects/2025/b-ahrens-und-sehne
+Github: https://github.com/xFokos/OptimizeAgainstEA.git
 
 ---
 

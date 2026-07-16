@@ -2,7 +2,6 @@ import {Route, Routes} from "react-router-dom";
 import {SettingsProvider} from "./context/SettingsContext"; // neu
 import "./App.css";
 import HomePage from "./pages/HomePage.tsx";
-import SettingsPage from "./pages/SettingsPage.tsx";
 import GamePage from "./pages/GamePage.tsx";
 import AnalyticsPage from "./pages/AnalyticsPage.tsx";
 import DashboardPage from "./pages/DashboardPage.tsx";
@@ -20,7 +19,6 @@ export default function App() {
         <SettingsProvider>
             <Routes>
                 <Route path="/" element={<HomePage />} />
-                <Route path="/Settings" element={<SettingsPage />} />
                 <Route path="/Game" element={<GamePage />} />
                 <Route path="/Analytics" element={<AnalyticsPage />} />
                 <Route path="/PeakFinder" element={<BattleShipsPage />} />
