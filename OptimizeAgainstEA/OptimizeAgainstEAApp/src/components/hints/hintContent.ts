@@ -65,7 +65,6 @@ type CoreHintId =
   | 'horde.tour.dna'
   | 'horde.tour.map'
   | 'horde.tour.start'
-  | 'horde.mobileNotOptimized'
   | 'functions.intro';
 
 export type HintId = CoreHintId | MazeHintId;
@@ -376,17 +375,6 @@ const CORE_HINTS: Record<CoreHintId, HintDef> = {
       'run — but every couple of kills you\'ll get to pick a powerup to help ' +
       'you survive a little longer.',
     style: 'toast',
-  },
-
-  // ── Horde mode: fired once when a mobile-landscape player enters the game ─
-  'horde.mobileNotOptimized': {
-    title: 'Heads up',
-    body:
-      'Horde mode isn\'t fully optimized for mobile yet, so things may feel ' +
-      'a bit rough around the edges. We\'re working on smoothing it out!',
-    style: 'toast',
-    once: true,
-    sticky: true,
   },
 
   // ── Functions drawer: fired once the first time the player opens it ────────

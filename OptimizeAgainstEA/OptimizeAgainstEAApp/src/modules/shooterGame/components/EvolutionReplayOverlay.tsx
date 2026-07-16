@@ -74,7 +74,9 @@ export function EvolutionReplayOverlay({ ghost, evaluated, onClose }: EvolutionR
     // das Replay offen ist. Fokus-Klicks kommen aus dem Ranking zurück.
     useEffect(() => {
         trainingReplayStore.open(evaluated, bestIdx);
+        trainingReplayStore.requestClose = onClose;
         return () => trainingReplayStore.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [evaluated, bestIdx]);
 
     const replayUI = useSyncExternalStore(
@@ -86,6 +88,9 @@ export function EvolutionReplayOverlay({ ghost, evaluated, onClose }: EvolutionR
     const [playing,   setPlaying]   = useState(true);
     const [speed,     setSpeed]     = useState<number>(2);
     const [finished,  setFinished]  = useState(false);
+    // Nicht-fokussierte Kandidaten ausblenden — default AUS, denn die ganze
+    // Population zu sehen ist der Kern des Replays.
+    const [hideOthers, setHideOthers] = useState(false);
     // Nur für die HUD-Anzeige (Frame-Zähler / Fokus-Treffer) — ein grober
     // State-Tick pro ~250 ms reicht, das Canvas zeichnet unabhängig davon.
     const [, forceHud] = useState(0);
@@ -94,11 +99,13 @@ export function EvolutionReplayOverlay({ ghost, evaluated, onClose }: EvolutionR
     const simsRef     = useRef<GhostSim[]>([]);
     const playingRef  = useRef(playing);
     const speedRef    = useRef(speed);
-    const focusRef    = useRef(focusIdx);
-    const colors      = useMemo(() => rankColors(evaluated), [evaluated]);
-    const colorsRef   = useRef(colors);
-    useEffect(() => { colorsRef.current  = colors;   }, [colors]);
-    useEffect(() => { playingRef.current = playing;  }, [playing]);
+    const focusRef      = useRef(focusIdx);
+    const hideOthersRef = useRef(hideOthers);
+    const colors        = useMemo(() => rankColors(evaluated), [evaluated]);
+    const colorsRef     = useRef(colors);
+    useEffect(() => { colorsRef.current     = colors;     }, [colors]);
+    useEffect(() => { hideOthersRef.current = hideOthers; }, [hideOthers]);
+    useEffect(() => { playingRef.current    = playing;    }, [playing]);
     useEffect(() => { speedRef.current   = speed;    }, [speed]);
     useEffect(() => { focusRef.current   = focusIdx; }, [focusIdx]);
 
@@ -157,7 +164,7 @@ export function EvolutionReplayOverlay({ ghost, evaluated, onClose }: EvolutionR
                 }
             }
 
-            draw(ctx, sims, ghost, focusRef.current, colorsRef.current);
+            draw(ctx, sims, ghost, focusRef.current, colorsRef.current, hideOthersRef.current);
 
             if (ts - hudTimer > 250) {
                 hudTimer = ts;
@@ -239,7 +246,13 @@ export function EvolutionReplayOverlay({ ghost, evaluated, onClose }: EvolutionR
                         ×{s}
                     </button>
                 ))}
-                <button className="btn btn--ghost btn--sm" onClick={onClose}>Close</button>
+                <button
+                    className={`btn btn--sm${hideOthers ? ' btn--active' : ''}`}
+                    onClick={() => setHideOthers(h => !h)}
+                    title="Hide all candidates except the focused one"
+                >
+                    {hideOthers ? '👁 Show other EAs' : '👁 Hide other EAs'}
+                </button>
             </div>
         </div>
     );
@@ -325,7 +338,7 @@ export function TrainingReplayRanking() {
 
 // ---- Canvas-Zeichnung (Arena-Koordinaten, 800×800) ----
 
-function draw(ctx: CanvasRenderingContext2D, sims: GhostSim[], ghost: PlayerGhost, focusIdx: number, colors: string[]) {
+function draw(ctx: CanvasRenderingContext2D, sims: GhostSim[], ghost: PlayerGhost, focusIdx: number, colors: string[], hideOthers: boolean) {
     ctx.fillStyle = '#0f0f1a';
     ctx.fillRect(0, 0, ARENA.WIDTH, ARENA.HEIGHT);
 
@@ -344,7 +357,9 @@ function draw(ctx: CanvasRenderingContext2D, sims: GhostSim[], ghost: PlayerGhos
     ctx.stroke();
 
     // Nicht fokussierte Agenten zuerst (gedimmt), Fokus zuletzt (obendrauf)
-    sims.forEach((sim, i) => { if (i !== focusIdx) drawAgent(ctx, sim, 0.45, false, colors[i] ?? WEAK_COL); });
+    if (!hideOthers) {
+        sims.forEach((sim, i) => { if (i !== focusIdx) drawAgent(ctx, sim, 0.45, false, colors[i] ?? WEAK_COL); });
+    }
     const focus = sims[focusIdx];
     if (focus) {
         const focusCol = colors[focusIdx] ?? WEAK_COL;

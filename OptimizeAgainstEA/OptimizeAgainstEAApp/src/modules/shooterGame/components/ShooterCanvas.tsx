@@ -34,7 +34,8 @@ import type { RaidbossSlot } from '../game/raidbossStore';
 import { useInput }          from '../hooks/useInput';
 import { useTouchControls } from '../hooks/useTouchControls';
 import { useGameLoop }       from '../hooks/useGameLoop';
-import { update, resetGameLoop } from '../game/core/gameLoop';
+import { update, resetGameLoop, getShieldAngle } from '../game/core/gameLoop';
+import { SHIELD_MOD_ID } from '../mods/shotEngine';
 import { renderer }          from '../game/core/renderer';
 import { calculateFitness, calculateRaidbossFitness } from '../game/ga/fitness';
 import { gameStore }         from '../game/gameStore';
@@ -566,10 +567,15 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
         const aimLaser = (externalInputRef && state.phase === 'playing')
             ? { mouseX: externalInputRef.current.mouseX, mouseY: externalInputRef.current.mouseY }
             : null;
+        // Orbit Shield: nur in normalen Runden mit aktivem Mod (Raidboss läuft ohne Mods)
+        const shieldAngle = (!raidbossInfoRef.current && runModsStore.activeModIds.includes(SHIELD_MOD_ID))
+            ? getShieldAngle()
+            : null;
         renderer.render(
             canvasRef.current, state, raidbossInfoRef.current ?? undefined, touch, aimLaser,
             // Raidboss-Übungsrunde: Dummy in Boss-Optik, aber ohne Raidboss-HUD.
             tutorial && tutorialMode === 'raidboss',
+            shieldAngle,
         );
     }, [externalInputRef, tutorial, tutorialMode]);
 

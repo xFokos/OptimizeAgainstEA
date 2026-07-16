@@ -1,6 +1,7 @@
 import type { GameState } from '../../shooter.types';
 import type { TouchVisualState } from '../../hooks/useTouchControls';
 import { ARENA } from '../../shooter.types';
+import { SHIELD_ORB_COUNT, SHIELD_ORBIT_RADIUS, SHIELD_ORB_RADIUS } from '../../mods/shotEngine';
 
 // Alle Canvas-draw()-Calls leben hier – keine Logik, nur Zeichnen
 
@@ -88,6 +89,27 @@ export const renderer = {
         ctx.stroke();
 
         ctx.restore();
+    },
+
+    // Orbit-Shield-Mod: weiße Schild-Segmente (tangential ausgerichtete
+    // Rechtecke) + dezenter Orbit-Ring um den Spieler. Nur Optik — die
+    // Kollision bleibt kreisförmig (shieldBlocks in shotEngine.ts).
+    drawShield(ctx: CanvasRenderingContext2D, cx: number, cy: number, angle: number) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, SHIELD_ORBIT_RADIUS, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth   = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        for (let i = 0; i < SHIELD_ORB_COUNT; i++) {
+            const a = angle + (i * 2 * Math.PI) / SHIELD_ORB_COUNT;
+            ctx.save();
+            ctx.translate(cx + Math.cos(a) * SHIELD_ORBIT_RADIUS, cy + Math.sin(a) * SHIELD_ORBIT_RADIUS);
+            ctx.rotate(a + Math.PI / 2); // Längsseite tangential zur Kreisbahn
+            ctx.fillRect(-SHIELD_ORB_RADIUS, -3.5, SHIELD_ORB_RADIUS * 2, 7);
+            ctx.restore();
+        }
     },
 
     drawAgent(ctx: CanvasRenderingContext2D, state: GameState, isRaidboss = false) {
@@ -301,6 +323,8 @@ export const renderer = {
         // Nur die Boss-Optik (lila, größer, Pulsring) ohne das Raidboss-HUD —
         // für die Raidboss-Übungsrunde, wo es keine echte Gen/Individuum-Info gibt.
         bossStyle = false,
+        // Orbit-Shield-Mod aktiv → aktueller Rotationswinkel, sonst null
+        shieldAngle: number | null = null,
     ) {
         if (!canvas) return;
         const ctx = getCtx(canvas);
@@ -310,6 +334,7 @@ export const renderer = {
         renderer.drawArena(ctx);  // drawImage überschreibt den gesamten Canvas – clearRect nicht nötig
         if (aimLaser) renderer.drawAimLaser(ctx, state, aimLaser.mouseX, aimLaser.mouseY);
         renderer.drawBullets(ctx, state, isRaidboss);
+        if (shieldAngle !== null) renderer.drawShield(ctx, state.player.position.x, state.player.position.y, shieldAngle);
         renderer.drawPlayer(ctx, state);
         renderer.drawAgent(ctx, state, isRaidboss);
         renderer.drawHUD(ctx, state, raidbossInfo);

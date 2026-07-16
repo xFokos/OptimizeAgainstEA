@@ -8,7 +8,8 @@ import { hordeRunStore }  from '../horde/hordeRunStore';
 import { hordeGameStore } from '../horde/hordeGameStore';
 import { HORDE_TUTORIAL_DNA, HORDE_TUTORIAL_RAMP_DNA } from '../horde/hordeDna';
 import { resolveHordeMap, getHordeMap } from '../horde/hordeMaps';
-import { updateHorde, makeInitialState, resetHordeEngine, type HordeEA } from '../horde/hordeEngine';
+import { updateHorde, makeInitialState, resetHordeEngine, getHordeShieldAngle, type HordeEA } from '../horde/hordeEngine';
+import { SHIELD_MOD_ID } from '../mods/shotEngine';
 import { render, HC } from '../horde/hordeRender';
 import { HordeDnaPanel, PANEL_W } from './HordeDnaPanel';
 import { useInput }       from '../hooks/useInput';
@@ -267,7 +268,7 @@ export function HordeCanvas({ scale = 1, externalInputRef, touchControls = false
                 // Nicht-spielende Phasen und offener Tutorial-Coachmark: Runde
                 // eingefroren, nur den aktuellen Frame weiter rendern (kein
                 // Update, keine Step-Erkennung).
-                render(ctx, s);
+                render(ctx, s, runModsStore.activeModIds.includes(SHIELD_MOD_ID) ? getHordeShieldAngle() : null);
             } else {
                 const activeModIds       = runModsStore.activeModIds;
                 const effectivePlayerStats = applyMods(playerStatsRef.current, activeModIds);
@@ -371,7 +372,7 @@ export function HordeCanvas({ scale = 1, externalInputRef, touchControls = false
                 stateRef.current = next;
                 // Tutorial läuft nur im lokalen stateRef — nichts zu resumen.
                 if (!tutorial && next.phase !== 'dead') hordeGameStore.state = next;
-                render(ctx, next);
+                render(ctx, next, activeModIds.includes(SHIELD_MOD_ID) ? getHordeShieldAngle() : null);
             }
 
             animId = requestAnimationFrame(loop);

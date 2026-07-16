@@ -1,4 +1,5 @@
 import type { PlayerStats } from '../shooter.types';
+import { SHIELD_MOD_ID } from './shotEngine';
 
 // Selbe Grenzen wie die Slider in ShooterSettings.tsx – verhindert dass sich
 // Mods zu extremen/kaputten Werten aufstacken.
@@ -91,8 +92,11 @@ export const MOD_POOL: ModDefinition[] = [
     {
         id:          'burst-shot',
         name:        'Burst Shot',
-        description: '3 rapid shots per trigger pull',
+        description: '3 rapid shots per trigger pull — ×3 cooldown between bursts',
         icon:        '🌀',
+        // ×3 Cooldown, damit die Gesamt-Feuerrate gleich bleibt: 3 Kugeln pro
+        // Trigger-Pull, aber nicht 3× so viele Bullets pro Sekunde.
+        applyStats: s => ({ ...s, shootCooldown: clamp(s.shootCooldown * 3, SHOOT_COOLDOWN_RANGE.min, SHOOT_COOLDOWN_RANGE.max) }),
         modifyShots: shots => shots.flatMap(s => [
             { ...s, delay: s.delay },
             { ...s, delay: s.delay + 0.06 },
@@ -105,6 +109,16 @@ export const MOD_POOL: ModDefinition[] = [
         description: 'Bullets curve toward the agent',
         icon:        '🧲',
         modifyShots: shots => shots.map(s => ({ ...s, homing: true })),
+    },
+    {
+        // Rein verhaltensbasiert — weder applyStats noch modifyShots; die
+        // Engines (gameLoop.ts / hordeEngine.ts) prüfen die ID direkt und
+        // lassen drei Orbs um den Spieler kreisen. Solo/Raidboss: blockt
+        // gegnerische Bullets. Horde: zerstört Agenten bei Berührung.
+        id:          SHIELD_MOD_ID,
+        name:        'Orbit Shield',
+        description: '3 orbs circle you and block whatever they touch',
+        icon:        '🛡️',
     },
 ];
 

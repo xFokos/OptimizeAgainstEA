@@ -142,11 +142,14 @@ export function ShooterLeftBar({ onAnalytics, onLobby }: ShooterLeftBarProps) {
 
     return (
         <>
-            {/* Top – Navigation */}
+            {/* Top – Navigation. Im Trainings-Replay wird der Lobby-Button zu
+                "← Game" und schließt das Replay (statt die Seite zu verlassen). */}
             <div style={styles.group}>
                 <NavButton
-                    label="← Lobby"
-                    onClick={onLobby ?? (() => navigate('/lobby/shooter'))}
+                    label={replayOpen ? '← Game' : '← Lobby'}
+                    onClick={replayOpen
+                        ? () => trainingReplayStore.requestClose()
+                        : (onLobby ?? (() => navigate('/lobby/shooter')))}
                 />
                 {onAnalytics && (
                     <NavButton

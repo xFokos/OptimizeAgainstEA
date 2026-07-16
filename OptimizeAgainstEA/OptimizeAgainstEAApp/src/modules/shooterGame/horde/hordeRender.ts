@@ -1,13 +1,15 @@
 import { ARENA, GAME_CONFIG } from '../shooter.types';
 import type { HordeGameState } from './hordeTypes';
 import { agentRadius, agentOpacity } from './hordeEngine';
+import { SHIELD_ORB_COUNT, SHIELD_ORBIT_RADIUS, SHIELD_ORB_RADIUS } from '../mods/shotEngine';
 
 /** Horde accent color — shared by the in-game render, DNA panel, and overlays. */
 export const HC = '#fb923c';
 
 // ---- Renderer ----
 
-export function render(ctx: CanvasRenderingContext2D, state: HordeGameState) {
+// shieldAngle: Orbit-Shield-Mod aktiv → aktueller Rotationswinkel, sonst null
+export function render(ctx: CanvasRenderingContext2D, state: HordeGameState, shieldAngle: number | null = null) {
     ctx.fillStyle = '#0f0f1a';
     ctx.fillRect(0, 0, ARENA.WIDTH, ARENA.HEIGHT);
 
@@ -57,6 +59,27 @@ export function render(ctx: CanvasRenderingContext2D, state: HordeGameState) {
         ctx.fillStyle = HC; ctx.fill();
         ctx.globalAlpha = 1;
         ctx.restore();
+    }
+
+    // Orbit-Shield-Mod: weiße Schild-Segmente (tangential ausgerichtete
+    // Rechtecke) + dezenter Orbit-Ring. Nur Optik — Kollision bleibt
+    // kreisförmig (shieldBlocks in shotEngine.ts).
+    if (shieldAngle !== null) {
+        const { x: cx, y: cy } = state.player.position;
+        ctx.beginPath();
+        ctx.arc(cx, cy, SHIELD_ORBIT_RADIUS, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.lineWidth   = 1;
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        for (let i = 0; i < SHIELD_ORB_COUNT; i++) {
+            const a = shieldAngle + (i * 2 * Math.PI) / SHIELD_ORB_COUNT;
+            ctx.save();
+            ctx.translate(cx + Math.cos(a) * SHIELD_ORBIT_RADIUS, cy + Math.sin(a) * SHIELD_ORBIT_RADIUS);
+            ctx.rotate(a + Math.PI / 2); // Längsseite tangential zur Kreisbahn
+            ctx.fillRect(-SHIELD_ORB_RADIUS, -3.5, SHIELD_ORB_RADIUS * 2, 7);
+            ctx.restore();
+        }
     }
 
     // Player

@@ -3,10 +3,7 @@ import { GAME_CONFIG, DNA_LENGTH, DNA_INDEX, ARENA, emptyStats } from '../../sho
 import { vec } from '../core/vec';
 import { makeLCG, type RNG } from '../../../../utils/rng';
 import { computeShotPlan } from '../../mods/modTypes';
-import { steerHomingBullet, type QueuedShot } from '../../mods/shotEngine';
-
-// Wie im echten Spiel (gameLoop.ts): max. Drehrate der Homing Rounds in rad/s.
-const HOMING_TURN_RATE = 2;
+import { steerHomingBullet, homingActive, HOMING_TURN_RATE, type QueuedShot } from '../../mods/shotEngine';
 import { updatePopulationStats, initPopulation } from './population';
 import { calculateFitness } from './fitness';
 
@@ -166,8 +163,13 @@ function stepAgent(
     const rangeFactor   = (dist - preferredDist) / (preferredDist + 1);
     const rangeForce    = vec.scale(toEnemy, rangeFactor * 0.5);
 
-    // Bewegung
-    const combined = vec.add(vec.add(chaseForce, dodgeForce), rangeForce);
+    // Bewegung — Chase nur außerhalb der Wunschdistanz, wie updateAgent im
+    // echten Spiel (gameLoop.ts): innerhalb übernimmt allein die Range-
+    // Abstoßung, sonst überstimmt Pursuit das PREFERRED_RANGE-Gen fast
+    // vollständig (Gleichgewicht rutscht z. B. bei Pursuit 0.39 von 400px
+    // auf ~87px).
+    const chase    = dist >= preferredDist ? chaseForce : vec.zero();
+    const combined = vec.add(vec.add(chase, dodgeForce), rangeForce);
     const speed    = GAME_CONFIG.AGENT_SPEED_BASE + dna[DNA_INDEX.MOVEMENT_SPEED] * GAME_CONFIG.AGENT_SPEED_BONUS;
     agent.vel = vec.scale(vec.add(agent.vel, vec.scale(vec.normalize(combined), speed)), 0.82);
     agent.pos = vec.clamp(
@@ -409,9 +411,10 @@ export function createGhostSim(dna: DNA, ghost: PlayerGhost): GhostSim {
                 }
             }
 
-            // Homing Rounds: Player-Bullets pro Frame Richtung Agent eindrehen
+            // Homing Rounds: Player-Bullets Richtung Agent eindrehen — wie im
+            // echten Spiel nur während der ersten Flugsekunde (homingActive)
             for (const b of playerBullets) {
-                if (b.homing) steerHomingBullet(b.position, b.velocity, agent.pos, HOMING_TURN_RATE, dt);
+                if (b.homing && homingActive(b.lifetime)) steerHomingBullet(b.position, b.velocity, agent.pos, HOMING_TURN_RATE, dt);
             }
 
             const ghostAsEnemy: SimAgent = {

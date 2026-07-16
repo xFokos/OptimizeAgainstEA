@@ -10,7 +10,7 @@ import { MobileJoystickZone } from '../modules/shooterGame/components/MobileJoys
 import { MobileAimZone } from '../modules/shooterGame/components/MobileAimZone';
 import { useInput } from '../modules/shooterGame/hooks/useInput';
 import PageContainer from '../components/layout/PageContainer';
-import { HintsProvider, HintLayer, useHints } from '../components/hints';
+import { HintsProvider, HintLayer } from '../components/hints';
 
 const supportsFullscreen =
     typeof document !== 'undefined' && 'requestFullscreen' in document.documentElement;
@@ -55,16 +55,11 @@ function HordeGameContent() {
     const inputRef   = useInput();
     useOrientationLock('landscape');
     const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
-    const { showHint } = useHints();
 
     const { W, H } = useViewport();
     const isMobileDevice    = Math.min(W, H) < 550;
     const isPortrait        = H > W;
     const isMobileLandscape = isMobileDevice && !isPortrait;
-
-    useEffect(() => {
-        if (isMobileLandscape) showHint('horde.mobileNotOptimized');
-    }, [isMobileLandscape, showHint]);
 
     const { containerRef, scale } = useScaledCanvas({
         baseWidth:    ARENA.WIDTH,

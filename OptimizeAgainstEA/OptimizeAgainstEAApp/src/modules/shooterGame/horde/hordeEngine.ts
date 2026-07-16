@@ -6,8 +6,12 @@ import type { HordeGameState, HordeAgent, HordePhase, HordeMap, HordeSpawnSide, 
 import { LOOP_STEPS, LOOP_STEP_DURATION, LOOP_GENE_START, loopOffsetRad, SIZE_GENE_INDEX, OPACITY_GENE_INDEX } from './hordeDna';
 import { circleIntersectsObstacle, pushOutOfObstacles } from './hordeCollision';
 import { computeFlowField, sampleFlowField } from './hordePathfinding';
-import { computeShotPlan } from '../mods/modTypes';
-import { steerHomingBullet, type QueuedShot } from '../mods/shotEngine';
+import { computeShotPlan, applyMods } from '../mods/modTypes';
+import {
+    steerHomingBullet, shieldBlocks, homingActive,
+    HOMING_TURN_RATE, SHIELD_MOD_ID, SHIELD_SPIN_RATE,
+    type QueuedShot,
+} from '../mods/shotEngine';
 import type { HordeSettings } from '../../../context/SettingsContext';
 
 // Pure Horde game logic: per-frame update, spawn helpers, and the per-death
@@ -76,9 +80,12 @@ let bulletCounter = 0;
 let shootTimer    = 0; // countdown until the player can fire again; reset to ea.shootCooldown
 
 // Schüsse aus Verhaltens-Mods (Burst Shot etc.), zeitversetzt nach dem Trigger-Pull.
-// Meist leer → kein GC-Druck. Homing-Turn-Rate: siehe gameLoop.ts (Solo), gleicher Wert.
+// Meist leer → kein GC-Druck. Homing-Turn-Rate: geteilt mit Solo (shotEngine.ts).
 const hordeQueuedShots: QueuedShot[] = [];
-const HORDE_HOMING_TURN_RATE = 2;
+
+// Orbit-Shield-Mod: Rotationswinkel der Orbs (Anzeige + Kollision, kein GA-Einfluss)
+let shieldAngle = 0;
+export function getHordeShieldAngle() { return shieldAngle; }
 
 let agentIdCounter = 0;
 
@@ -89,6 +96,7 @@ export function resetHordeEngine() {
     bulletCounter  = 0;
     shootTimer     = 0;
     hordeQueuedShots.length = 0;
+    shieldAngle    = 0;
 }
 
 // ---- Mini-GA helpers (no rounds, just per-death offspring) ----
@@ -259,7 +267,11 @@ export function updateHorde(
 
     shootTimer = Math.max(0, shootTimer - dt);
     if (input.shoot && shootTimer === 0) {
-        shootTimer = ea.shootCooldown;
+        // Horde nutzt den eigenen Cooldown aus den HordeSettings, nicht den aus
+        // pStats — Cooldown-Mods (Rapid Fire, Burst Shot ×3) müssen deshalb hier
+        // separat auf ea.shootCooldown angewendet werden. Nur beim Trigger-Pull,
+        // nicht pro Frame.
+        shootTimer = applyMods({ ...pStats, shootCooldown: ea.shootCooldown }, activeModIds).shootCooldown;
         // Schuss-Mods (Triple Shot, Burst Shot, Homing Rounds, ...) nur beim
         // tatsächlichen Trigger-Pull berechnen – vernachlässigbare Kosten.
         for (const shot of computeShotPlan(activeModIds)) {
@@ -399,9 +411,24 @@ export function updateHorde(
     const hitIds     = new Set<number>();
     const newBullets: Bullet[] = [];
 
+    // --- Orbit Shield: in Horde schießt niemand, also blocken die Orbs die
+    // Agenten selbst — Berührung zerstört sie und zählt als Kill (füttert
+    // damit ganz normal die Mini-GA über den removeIds-Pfad unten). ---
+    if (activeModIds.includes(SHIELD_MOD_ID)) {
+        shieldAngle += SHIELD_SPIN_RATE * dt;
+        for (const a of agents) {
+            if (!a.alive) continue;
+            if (shieldBlocks(player.position, shieldAngle, a.position.x, a.position.y, agentRadius(a.dna))) {
+                hitIds.add(a.id);
+                score++;
+            }
+        }
+    }
+
     for (const b of bullets) {
-        // Homing Rounds: pro Frame Richtung nächsten lebenden Agenten eindrehen
-        if (b.homing && b.ownerId === 'player') {
+        // Homing Rounds: Richtung nächsten lebenden Agenten eindrehen — nur
+        // während der ersten Flugsekunde (homingActive), danach geradeaus
+        if (b.homing && b.ownerId === 'player' && homingActive(b.lifetime)) {
             let nearest: HordeAgent | undefined;
             let nearestD2 = Infinity;
             for (const a of agents) {
@@ -411,7 +438,7 @@ export function updateHorde(
                 const d2 = dx * dx + dy * dy;
                 if (d2 < nearestD2) { nearestD2 = d2; nearest = a; }
             }
-            if (nearest) steerHomingBullet(b.position, b.velocity, nearest.position, HORDE_HOMING_TURN_RATE, dt);
+            if (nearest) steerHomingBullet(b.position, b.velocity, nearest.position, HOMING_TURN_RATE, dt);
         }
 
         b.position.x += b.velocity.x * dt;

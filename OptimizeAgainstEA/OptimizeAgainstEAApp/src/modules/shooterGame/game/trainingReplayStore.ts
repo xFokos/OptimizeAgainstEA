@@ -18,6 +18,9 @@ export interface TrainingReplayUI {
 export const trainingReplayStore = {
     ...createListenable(),
     state: null as TrainingReplayUI | null,
+    // Schließt das offene Replay (vom Overlay gesetzt) — damit externe UI wie
+    // der "← Game"-Button in der linken Bar es zumachen kann.
+    requestClose: () => {},
 
     open(evaluated: Individual[], focusIdx: number) {
         const ranking = evaluated
@@ -35,6 +38,7 @@ export const trainingReplayStore = {
 
     close() {
         this.state = null;
+        this.requestClose = () => {};
         this.notify();
     },
 };

@@ -11,7 +11,11 @@ import {
 } from '../../shooter.types';
 import { GAME_CONFIG, ARENA } from '../../shooter.types';
 import { computeShotPlan } from '../../mods/modTypes';
-import { steerHomingBullet, type QueuedShot } from '../../mods/shotEngine';
+import {
+    steerHomingBullet, shieldBlocks, homingActive,
+    HOMING_TURN_RATE, SHIELD_MOD_ID, SHIELD_SPIN_RATE,
+    type QueuedShot,
+} from '../../mods/shotEngine';
 
 let bulletIdCounter     = 0;
 let playerShootCooldown = 0;
@@ -23,8 +27,10 @@ const dodgedBulletIdSet = new Set<string>();
 // eigentlichen Trigger-Pull abgefeuert werden. Meist leer → kein GC-Druck.
 const queuedPlayerShots: QueuedShot[] = [];
 
-// Homing-Rounds-Mod: max. Drehrate in rad/s, mit der eine Kugel Richtung Agent einlenkt
-const HOMING_TURN_RATE = 2;
+// Orbit-Shield-Mod: aktueller Rotationswinkel der Orbs. Reiner Anzeige-/
+// Kollisions-State, gehört nicht ins GameState (kein Einfluss auf die GA).
+let shieldAngle = 0;
+export function getShieldAngle() { return shieldAngle; }
 
 // Scratch-Vektoren für updateAgent – einmal allokiert, jeden Frame wiederverwendet (kein GC)
 const _agToP   = { x: 0, y: 0 };  // Agent → Spieler, normalisiert
@@ -39,6 +45,7 @@ export function resetGameLoop() {
     ghostFrameSkip      = 0;
     dodgedBulletIdSet.clear();
     queuedPlayerShots.length = 0;
+    shieldAngle = 0;
 }
 
 function spawnPlayerBullet(
@@ -147,11 +154,16 @@ export function update(
     stats.distanceSum     = (stats.distanceSum     ?? 0) + Math.sqrt(_pdx * _pdx + _pdy * _pdy);
     stats.distanceSamples = (stats.distanceSamples ?? 0) + 1;
 
+    // ---- Orbit Shield: Orbs weiterdrehen (Kollision unten im Bullet-Pass) ----
+    const shieldActive = activeModIds.includes(SHIELD_MOD_ID);
+    if (shieldActive) shieldAngle += SHIELD_SPIN_RATE * dt;
+
     // ---- Bullets bewegen + filtern + Kollision: alles in einem Pass ----
     const newBullets: Bullet[] = [];
     for (const b of bullets) {
-        // Homing Rounds: Geschwindigkeitsvektor pro Frame Richtung Agent eindrehen
-        if (b.homing && b.ownerId === 'player') {
+        // Homing Rounds: Geschwindigkeitsvektor Richtung Agent eindrehen —
+        // nur während der ersten Flugsekunde (homingActive), danach geradeaus
+        if (b.homing && b.ownerId === 'player' && homingActive(b.lifetime)) {
             steerHomingBullet(b.position, b.velocity, agent.position, HOMING_TURN_RATE, dt);
         }
 
@@ -167,6 +179,9 @@ export function update(
 
         // Kollision: inline squared-distance → kein temp-Objekt, kein sqrt
         if (b.ownerId === 'agent') {
+            // Orbit Shield: Orb-Treffer schluckt die Bullet, bevor sie den
+            // Spieler erreichen kann (zählt nicht als hitsLanded).
+            if (shieldActive && shieldBlocks(player.position, shieldAngle, b.position.x, b.position.y, b.radius)) continue;
             const dx = b.position.x - player.position.x;
             const dy = b.position.y - player.position.y;
             const r  = GAME_CONFIG.PLAYER_RADIUS + b.radius;
