@@ -3,7 +3,11 @@ import { GAME_CONFIG, DNA_LENGTH, DNA_INDEX, ARENA, emptyStats } from '../../sho
 import { vec } from '../core/vec';
 import { makeLCG, type RNG } from '../../../../utils/rng';
 import { computeShotPlan } from '../../mods/modTypes';
-import { steerHomingBullet, homingActive, HOMING_TURN_RATE, type QueuedShot } from '../../mods/shotEngine';
+import {
+    steerHomingBullet, homingActive, tryWallBounce,
+    HOMING_TURN_RATE, RICOCHET_MOD_ID, RICOCHET_BOUNCES,
+    type QueuedShot,
+} from '../../mods/shotEngine';
 import { updatePopulationStats, initPopulation } from './population';
 import { calculateFitness } from './fitness';
 
@@ -105,16 +109,23 @@ export interface SimBullet {
     velocity: { x: number; y: number };
     lifetime: number;
     radius:   number;
+    bounces?: number; // Ricochet-Mod: verbleibende Wand-Abpraller
 }
 
 // ---- Simulation Helpers ----
 function moveBullets(bullets: SimBullet[], dt: number): SimBullet[] {
     return bullets
-        .map(b => ({
-            ...b,
-            position: vec.add(b.position, vec.scale(b.velocity, dt)),
-            lifetime: b.lifetime - dt,
-        }))
+        .map(b => {
+            const moved = {
+                ...b,
+                position: vec.add(b.position, vec.scale(b.velocity, dt)),
+                velocity: { ...b.velocity },
+                lifetime: b.lifetime - dt,
+            };
+            // Ricochet Rounds: an der Wand reflektieren (no-op ohne bounces)
+            tryWallBounce(moved);
+            return moved;
+        })
         .filter(b =>
             b.lifetime > 0 &&
             b.position.x > 0 && b.position.x < ARENA.WIDTH &&
@@ -349,6 +360,7 @@ export function createGhostSim(dna: DNA, ghost: PlayerGhost): GhostSim {
     // (Triple/Burst/Homing) — pro Trigger-Pull identisch, daher einmal berechnet.
     const bulletSpeed = ghost.bulletSpeed ?? GAME_CONFIG.BULLET_SPEED;
     const shotPlan    = computeShotPlan(ghost.activeModIds ?? []);
+    const bounces     = (ghost.activeModIds ?? []).includes(RICOCHET_MOD_ID) ? RICOCHET_BOUNCES : 0;
     const queuedShots: QueuedShot[] = [];
 
     // Nicht die aufgezeichnete Schussrichtung übernehmen, sondern auf die
@@ -370,6 +382,7 @@ export function createGhostSim(dna: DNA, ghost: PlayerGhost): GhostSim {
         playerBullets.push({
             _id:      nextBulletId++,
             homing,
+            bounces,
             position: { ...origin },
             velocity: vec.scale(vec.fromAngle(aim + angleOffset), bulletSpeed * speedMult),
             lifetime: GAME_CONFIG.BULLET_LIFETIME,

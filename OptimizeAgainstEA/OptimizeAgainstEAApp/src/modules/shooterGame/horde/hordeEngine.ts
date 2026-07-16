@@ -4,12 +4,12 @@ import {
 } from '../shooter.types';
 import type { HordeGameState, HordeAgent, HordePhase, HordeMap, HordeSpawnSide, HordeObstacle } from './hordeTypes';
 import { LOOP_STEPS, LOOP_STEP_DURATION, LOOP_GENE_START, loopOffsetRad, SIZE_GENE_INDEX, OPACITY_GENE_INDEX } from './hordeDna';
-import { circleIntersectsObstacle, pushOutOfObstacles } from './hordeCollision';
+import { circleIntersectsObstacle, pushOutOfObstacles, bounceBulletOffObstacle } from './hordeCollision';
 import { computeFlowField, sampleFlowField } from './hordePathfinding';
 import { computeShotPlan, applyMods } from '../mods/modTypes';
 import {
-    steerHomingBullet, shieldBlocks, homingActive,
-    HOMING_TURN_RATE, SHIELD_MOD_ID, SHIELD_SPIN_RATE,
+    steerHomingBullet, shieldBlocks, homingActive, tryWallBounce,
+    HOMING_TURN_RATE, SHIELD_MOD_ID, SHIELD_SPIN_RATE, RICOCHET_MOD_ID, RICOCHET_BOUNCES,
     type QueuedShot,
 } from '../mods/shotEngine';
 import type { HordeSettings } from '../../../context/SettingsContext';
@@ -251,6 +251,8 @@ export function updateHorde(
     // --- Player shoots ---
     const bullets: Bullet[] = [...state.bullets];
 
+    const bounces = activeModIds.includes(RICOCHET_MOD_ID) ? RICOCHET_BOUNCES : 0;
+
     function spawnHordeBullet(angleOffset: number, speedMult: number, homing: boolean) {
         const angle = player.rotation + angleOffset;
         const speed = pStats.bulletSpeed * speedMult;
@@ -262,6 +264,7 @@ export function updateHorde(
             lifetime: GAME_CONFIG.BULLET_LIFETIME,
             radius:   GAME_CONFIG.BULLET_RADIUS,
             homing,
+            bounces,
         });
     }
 
@@ -444,9 +447,20 @@ export function updateHorde(
         b.position.x += b.velocity.x * dt;
         b.position.y += b.velocity.y * dt;
         b.lifetime   -= dt;
+        // Ricochet Rounds: an den Außenwänden reflektieren (no-op ohne bounces)
+        tryWallBounce(b);
         if (b.lifetime <= 0 || b.position.x < 0 || b.position.x > ARENA.WIDTH ||
                                 b.position.y < 0 || b.position.y > ARENA.HEIGHT) continue;
-        if (state.map.obstacles.some(o => o.blocksBullets && circleIntersectsObstacle(b.position.x, b.position.y, b.radius, o))) continue;
+        // Bullet-blockende Obstacles: mit Ricochet-Abprallern übrig → reflektieren,
+        // sonst schluckt das Obstacle die Kugel wie bisher.
+        {
+            const blocker = state.map.obstacles.find(o => o.blocksBullets && circleIntersectsObstacle(b.position.x, b.position.y, b.radius, o));
+            if (blocker) {
+                if (!b.bounces) continue;
+                b.bounces--;
+                bounceBulletOffObstacle(b, blocker);
+            }
+        }
         let hit = false;
         for (const agent of agents) {
             if (!agent.alive || hitIds.has(agent.id)) continue;

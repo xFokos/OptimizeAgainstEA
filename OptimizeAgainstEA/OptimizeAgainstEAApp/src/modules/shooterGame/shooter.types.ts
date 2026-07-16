@@ -91,6 +91,7 @@ export interface Bullet {
     lifetime: number;       // Sekunden bis sie verschwindet
     radius:   number;
     homing?:  boolean;      // Homing-Rounds-Mod: dreht pro Frame Richtung Agent ein
+    bounces?: number;       // Ricochet-Mod: verbleibende Wand-Abpraller
 }
 
 // ---- Stats & Fitness ----

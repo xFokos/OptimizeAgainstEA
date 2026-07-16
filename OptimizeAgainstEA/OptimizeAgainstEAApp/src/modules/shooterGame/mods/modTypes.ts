@@ -1,5 +1,5 @@
 import type { PlayerStats } from '../shooter.types';
-import { SHIELD_MOD_ID } from './shotEngine';
+import { SHIELD_MOD_ID, RICOCHET_MOD_ID } from './shotEngine';
 
 // Selbe Grenzen wie die Slider in ShooterSettings.tsx – verhindert dass sich
 // Mods zu extremen/kaputten Werten aufstacken.
@@ -119,6 +119,14 @@ export const MOD_POOL: ModDefinition[] = [
         name:        'Orbit Shield',
         description: '3 orbs circle you and block whatever they touch',
         icon:        '🛡️',
+    },
+    {
+        // Wie das Orbit Shield rein verhaltensbasiert: die Engines setzen beim
+        // Spawnen `bounces` auf RICOCHET_BOUNCES und rufen tryWallBounce auf.
+        id:          RICOCHET_MOD_ID,
+        name:        'Ricochet Rounds',
+        description: 'Your bullets bounce off the arena walls once',
+        icon:        '🏓',
     },
 ];
 

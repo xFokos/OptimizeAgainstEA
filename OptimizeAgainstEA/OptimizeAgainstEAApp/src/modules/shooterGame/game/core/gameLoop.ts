@@ -12,8 +12,8 @@ import {
 import { GAME_CONFIG, ARENA } from '../../shooter.types';
 import { computeShotPlan } from '../../mods/modTypes';
 import {
-    steerHomingBullet, shieldBlocks, homingActive,
-    HOMING_TURN_RATE, SHIELD_MOD_ID, SHIELD_SPIN_RATE,
+    steerHomingBullet, shieldBlocks, homingActive, tryWallBounce,
+    HOMING_TURN_RATE, SHIELD_MOD_ID, SHIELD_SPIN_RATE, RICOCHET_MOD_ID, RICOCHET_BOUNCES,
     type QueuedShot,
 } from '../../mods/shotEngine';
 
@@ -55,6 +55,7 @@ function spawnPlayerBullet(
     angleOffset: number,
     speedMult:   number,
     homing:      boolean,
+    bounces:     number,
 ) {
     const angle = player.rotation + angleOffset;
     const speed = playerStats.bulletSpeed * speedMult;
@@ -66,6 +67,7 @@ function spawnPlayerBullet(
         lifetime: GAME_CONFIG.BULLET_LIFETIME,
         radius:   GAME_CONFIG.BULLET_RADIUS,
         homing,
+        bounces,
     });
 }
 
@@ -115,13 +117,14 @@ export function update(
 
     // ---- Spieler schießt ----
     const playerShotThisFrame = input.shoot && playerShootCooldown === 0;
+    const bounces = activeModIds.includes(RICOCHET_MOD_ID) ? RICOCHET_BOUNCES : 0;
     if (playerShotThisFrame) {
         playerShootCooldown = playerStats.shootCooldown;
         // Schuss-Mods (Triple Shot, Burst Shot, ...) nur beim tatsächlichen
         // Trigger-Pull berechnen, nicht jeden Frame – vernachlässigbare Kosten.
         for (const shot of computeShotPlan(activeModIds)) {
             if (shot.delay <= 0) {
-                spawnPlayerBullet(bullets, player, playerStats, shot.angleOffset, shot.speedMult, shot.homing ?? false);
+                spawnPlayerBullet(bullets, player, playerStats, shot.angleOffset, shot.speedMult, shot.homing ?? false, bounces);
             } else {
                 queuedPlayerShots.push({ timer: shot.delay, angleOffset: shot.angleOffset, speedMult: shot.speedMult, homing: shot.homing ?? false });
             }
@@ -134,7 +137,7 @@ export function update(
             const q = queuedPlayerShots[i];
             q.timer -= dt;
             if (q.timer <= 0) {
-                spawnPlayerBullet(bullets, player, playerStats, q.angleOffset, q.speedMult, q.homing);
+                spawnPlayerBullet(bullets, player, playerStats, q.angleOffset, q.speedMult, q.homing, bounces);
                 queuedPlayerShots.splice(i, 1);
             }
         }
@@ -171,6 +174,9 @@ export function update(
         b.position.x += b.velocity.x * dt;
         b.position.y += b.velocity.y * dt;
         b.lifetime   -= dt;
+
+        // Ricochet Rounds: an der Wand reflektieren statt verwerfen (no-op ohne bounces)
+        tryWallBounce(b);
 
         // Out-of-bounds oder abgelaufen → verwerfen
         if (b.lifetime <= 0 ||

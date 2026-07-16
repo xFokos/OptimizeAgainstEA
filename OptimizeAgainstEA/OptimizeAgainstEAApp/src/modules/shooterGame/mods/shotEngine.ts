@@ -1,5 +1,5 @@
 import type { Vector2D } from '../game/core/vec';
-import { GAME_CONFIG } from '../shooter.types';
+import { GAME_CONFIG, ARENA } from '../shooter.types';
 
 // Geteilte Mechanik für Schuss-Mods, die Solo Play (gameLoop.ts) und Horde
 // (HordeCanvas.tsx) beide brauchen — die beiden Engines bleiben ansonsten
@@ -27,6 +27,36 @@ export const HOMING_DURATION = 0.5;
 /** Homt diese Kugel (gemessen an ihrer Rest-Lifetime) noch? */
 export function homingActive(lifetime: number): boolean {
     return lifetime > GAME_CONFIG.BULLET_LIFETIME - HOMING_DURATION;
+}
+
+// ---- Ricochet Rounds (Mod 'ricochet') ----
+// Spieler-Bullets prallen `bounces`-mal von den Arena-Wänden ab statt zu
+// verschwinden. Nur die Außenwände — Horde-Obstacles schlucken Bullets weiterhin.
+export const RICOCHET_MOD_ID = 'ricochet';
+export const RICOCHET_BOUNCES = 1;
+
+/** Reflektiert die Kugel an den Arena-Wänden, solange sie noch Abpraller übrig
+ *  hat (in-place, no-op für Bullets ohne `bounces`). Nach der Bewegung und vor
+ *  dem Out-of-Bounds-Verwerfen aufrufen. */
+export function tryWallBounce(b: {
+    position: Vector2D;
+    velocity: Vector2D;
+    radius:   number;
+    bounces?: number;
+}): void {
+    if (!b.bounces) return;
+    let bounced = false;
+    if (b.position.x <= b.radius && b.velocity.x < 0) {
+        b.position.x = b.radius;               b.velocity.x = -b.velocity.x; bounced = true;
+    } else if (b.position.x >= ARENA.WIDTH - b.radius && b.velocity.x > 0) {
+        b.position.x = ARENA.WIDTH - b.radius; b.velocity.x = -b.velocity.x; bounced = true;
+    }
+    if (b.position.y <= b.radius && b.velocity.y < 0) {
+        b.position.y = b.radius;                b.velocity.y = -b.velocity.y; bounced = true;
+    } else if (b.position.y >= ARENA.HEIGHT - b.radius && b.velocity.y > 0) {
+        b.position.y = ARENA.HEIGHT - b.radius; b.velocity.y = -b.velocity.y; bounced = true;
+    }
+    if (bounced) b.bounces--;
 }
 
 // ---- Orbit Shield (Mod 'orbit-shield') ----
