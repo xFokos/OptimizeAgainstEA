@@ -100,7 +100,7 @@ function HordeGameContent() {
                     ref={containerRef}
                     style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
-                    <HordeCanvas scale={scale} externalInputRef={inputRef} hideDnaPanel={isMobileLandscape} tutorial={tutorial} />
+                    <HordeCanvas scale={scale} externalInputRef={inputRef} touchControls={isMobileLandscape} tutorial={tutorial} />
                 </div>
 
                 {isMobileLandscape && (

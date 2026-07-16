@@ -234,6 +234,10 @@ export const tabStyles: Record<string, React.CSSProperties> = {
         display:      'flex',
         gap:          6,
         marginBottom: 16,
+        // Same reasoning as mobileBtnsStyle: several nowrap tab buttons in a
+        // row overflow a narrow phone; wrapping keeps them all reachable
+        // without a sideways scroll.
+        flexWrap:     'wrap',
     },
     tabActive: {
         padding:       '8px 16px',
@@ -249,10 +253,13 @@ export const tabStyles: Record<string, React.CSSProperties> = {
     },
     tabInactive: {
         padding:       '8px 16px',
-        background:    'transparent',
-        border:        '1px solid var(--border)',
+        // Filled surface + a defined border so an unselected tab still reads as
+        // a real button against the dark page, not a faint outline. The active
+        // tab's accent fill/border/text keeps the selected/unselected hierarchy.
+        background:    'var(--surface)',
+        border:        '1px solid var(--border-strong)',
         borderRadius:  'var(--r-sm)',
-        color:         'var(--text-dim)',
+        color:         'var(--text)',
         cursor:        'pointer',
         fontSize:      '13px',
         fontFamily:    'var(--font-mono)',
@@ -297,10 +304,25 @@ export const mobilePageStyle: React.CSSProperties = {
 };
 
 export const mobileBtnsStyle: React.CSSProperties = {
-    display:    'flex',
-    gap:        10,
-    flexShrink: 0,
-    paddingTop: 4,
+    display:        'flex',
+    gap:            10,
+    // Tutorial + Play sit centered as a group (the help button now lives in the
+    // left drawer, see MobileHelpBar). Capped width + auto side margins keep the
+    // pair centered instead of stretching edge-to-edge; each button takes
+    // `flex: 1` so the two come out equal-sized (colors still differ per mode).
+    justifyContent: 'center',
+    alignItems:     'stretch',
+    width:          '100%',
+    maxWidth:       440,
+    margin:         '0 auto',
+    // Buttons carry `white-space: nowrap`, so on a narrow phone the
+    // Tutorial + Play row can't shrink below its content width and
+    // overflows sideways (horizontal scroll — the one thing that must never
+    // happen). Let it wrap instead: the wide primary Play button drops onto
+    // its own line rather than pushing the row past the viewport.
+    flexWrap:       'wrap',
+    flexShrink:     0,
+    paddingTop:     4,
 };
 
 // ---- Shared Lobby Styles (same layout for all modes) ----

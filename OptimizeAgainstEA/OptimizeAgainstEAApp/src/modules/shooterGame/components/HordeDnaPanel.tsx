@@ -47,8 +47,13 @@ export function HordeDnaPanel({ bestDna, height }: { bestDna: DNA | null; height
             color:         '#fff',
             flexShrink:    0,
             overflowY:     'auto',
-            padding:       '14px 4px',
+            padding:       '14px 12px',
             boxSizing:     'border-box',
+            // Framed surface so the panel reads as its own card next to the
+            // arena instead of floating loose on the page background.
+            background:    'var(--surface)',
+            border:        '1px solid var(--border-strong)',
+            borderRadius:  'var(--r-md)',
         }}>
             <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(251,146,60,0.7)' }}>
                 Best DNA

@@ -23,7 +23,7 @@ export function Gameplay() {
             </HelpConceptCard>
             <HelpConceptCard
                 heading="Difficulty"
-                visual={<HelpModRow mods={[{ icon: '👢', name: 'Swift Boots' }, { icon: '🔫', name: 'Rapid Fire' }, { icon: '💥', name: 'Cannon' }]} />}
+                visual={<HelpModRow mods={[{ icon: '👢', name: 'Speed Boost' }, { icon: '🔫', name: 'Rapid Fire' }, { icon: '💥', name: 'Bullet Speed' }]} />}
             >
                 The DNA &amp; Wave tab controls wave size and how fast the horde evolves —
                 more agents and faster mutation both raise the pressure.

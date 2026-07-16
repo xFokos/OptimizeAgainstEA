@@ -24,7 +24,7 @@ const dodgedBulletIdSet = new Set<string>();
 const queuedPlayerShots: QueuedShot[] = [];
 
 // Homing-Rounds-Mod: max. Drehrate in rad/s, mit der eine Kugel Richtung Agent einlenkt
-const HOMING_TURN_RATE = 5;
+const HOMING_TURN_RATE = 2;
 
 // Scratch-Vektoren für updateAgent – einmal allokiert, jeden Frame wiederverwendet (kein GC)
 const _agToP   = { x: 0, y: 0 };  // Agent → Spieler, normalisiert

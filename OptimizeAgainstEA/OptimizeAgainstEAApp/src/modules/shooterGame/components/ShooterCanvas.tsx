@@ -37,7 +37,7 @@ import { renderer }          from '../game/core/renderer';
 import { calculateFitness, calculateRaidbossFitness } from '../game/ga/fitness';
 import { gameStore }         from '../game/gameStore';
 import { analyticsStore }    from '../game/analyticsStore';
-import { applyMods, MOD_POOL, type ModDefinition } from '../mods/modTypes';
+import { applyMods, MOD_POOL, isModOfferable, stackOfferLabel, type ModDefinition } from '../mods/modTypes';
 import { runModsStore }      from '../mods/runModsStore';
 import { useSettings }       from '../../../context/SettingsContext.tsx';
 import type { ShooterSettings } from '../../../context/SettingsContext.tsx';
@@ -100,11 +100,25 @@ const TUTORIAL_ROUND_DURATION = 40;
 
 type TutorialStep = 'move' | 'aim' | 'shoot' | 'done';
 
-const TUTORIAL_STEP_CONTENT: Record<TutorialStep, { title: string; body: string }> = {
-    move:  { title: 'Step 1 — Move',  body: 'Use WASD or the arrow keys to move around the arena.' },
-    aim:   { title: 'Step 2 — Aim',   body: 'Move your mouse — your reticle follows it wherever it goes.' },
-    shoot: { title: 'Step 3 — Shoot', body: 'Left-click or press Space to fire at the dummy.' },
-    done:  { title: "You've got it!", body: "Land a few hits on the dummy, then let the round finish — we'll show you what happens next." },
+// Coachmark-Texte je Eingabegerät. Auf Touch sind Zielen und Schießen dieselbe
+// Geste (der rechte Stick zielt UND feuert, siehe MobileAimZone) — deshalb dort
+// nur ein zusammengefasster "Aim & shoot"-Schritt statt getrennt aim/shoot.
+// Modul-Konstanten (kein Factory-Aufruf pro Render).
+const TUTORIAL_STEP_CONTENT: Record<'touch' | 'desktop', Record<TutorialStep, { title: string; body: string }>> = {
+    touch: {
+        move:  { title: 'Step 1 — Move',        body: 'Use the left stick to move around the arena.' },
+        aim:   { title: 'Step 2 — Aim & shoot', body: 'Use the right stick to aim — it fires on its own while you hold it. Give it a go.' },
+        // Wird auf Touch nie erreicht (aim → done direkt), muss aber im
+        // Record stehen.
+        shoot: { title: 'Step 2 — Aim & shoot', body: 'Use the right stick to aim — it fires on its own while you hold it.' },
+        done:  { title: "You've got it!",       body: "Take out a few dummies, then let the round finish — we'll show you what happens next." },
+    },
+    desktop: {
+        move:  { title: 'Step 1 — Move',  body: 'Use WASD or the arrow keys to move around the arena.' },
+        aim:   { title: 'Step 2 — Aim',   body: 'Move your mouse — your reticle follows it wherever it goes.' },
+        shoot: { title: 'Step 3 — Shoot', body: 'Left-click or press Space to fire at the dummy.' },
+        done:  { title: "You've got it!", body: "Land a few hits on the dummy, then let the round finish — we'll show you what happens next." },
+    },
 };
 
 // Fires once, on the first hit landed or taken — see scoreCoachmarkShownRef.
@@ -156,6 +170,10 @@ interface ShooterCanvasProps {
 export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tutorial = false, tutorialMode = 'solo' }: ShooterCanvasProps) => {
     const { eaSettings, shooterSettings } = useSettings();
     const navigate = useNavigate();
+    // Zone-Touch-Steuerung aktiv (Mobile-Landscape) → externalInputRef gesetzt.
+    // Steuert die geräteabhängigen Tutorial-Texte und den zusammengefassten
+    // Aim-&-Shoot-Schritt.
+    const isTouch = externalInputRef != null;
 
     const canvasRef            = useRef<HTMLCanvasElement>(null);
     const nullCanvasRef        = useRef<HTMLCanvasElement | null>(null);  // immer null → deaktiviert Canvas-Touch
@@ -227,17 +245,19 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
 
     // Tutorial step coachmarks — advanced live from `onUpdate` (refs, since that
     // callback is memoized and must not go stale), mirrored into state to
-    // render. useTutorialStep also enforces a minimum time each step stays
-    // visible, so a step a player satisfies instantly doesn't flash by unread.
+    // render. Der Hook besitzt das Pause/Gnadenfrist-Modell (advance sperrt die
+    // Erkennung, dismiss startet die Grace-Frist) — siehe useTutorialStep.ts.
     const tutorialAimOriginRef = useRef<{ x: number; y: number } | null>(null);
     const {
         stepRef: tutorialStepRef,
         step: tutorialStep,
         bubbleClosed: tutorialBubbleClosed,
         setBubbleClosed: setTutorialBubbleClosed,
-        advance: advanceTutorialStep,
-        request: requestTutorialStep,
-        tick: tickTutorialStep,
+        advance: advanceStep,
+        dismiss: dismissStep,
+        graceOver: tutorialGraceOver,
+        pausedRef: tutorialPausedRef,
+        setPaused: setTutorialPaused,
     } = useTutorialStep<TutorialStep>('move');
 
     useEffect(() => {
@@ -411,12 +431,29 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
         raidbossSlotRef.current = null;  // verhindert Doppel-Submit
     };
 
+    // Tutorial-Coachmarks pausieren die Runde: solange ein zentrierter Hinweis
+    // (Move/Aim/Shoot/Score) offen ist, friert das Spiel ein — so verdeckt Compi
+    // nie Spielfeld oder Controls, sondern erscheint mittig, das Spiel wartet.
+    // Muss exakt der Sichtbarkeitsbedingung von `tutorialCoachmark` (unten)
+    // entsprechen. In den Hook-Ref gespiegelt, weil onUpdate memoisiert ist und
+    // sonst nur den Wert vom ersten Render sähe.
+    const tutorialPaused =
+        tutorial && phase === 'playing' &&
+        (!tutorialBubbleClosed || (showScoreCoachmark && !scoreCoachmarkClosed));
+    useEffect(() => { setTutorialPaused(tutorialPaused); }, [tutorialPaused, setTutorialPaused]);
+
     // onUpdate: Spiellogik – gibt neuen State zurück
     const onUpdate = useCallback((
         state: GameState,
         dt:    number,
         input: InputState,
     ): GameState => {
+        // Pausiert: Physik + Step-Erkennung aus, State unverändert zurückgeben.
+        // Der Loop rendert den eingefrorenen Frame weiter (kein leeres Canvas
+        // hinter dem Backdrop), erst nach dem Schließen des Hinweises geht's
+        // weiter — dann erkennt onUpdate die Bewegung/das Zielen/den Schuss.
+        if (tutorialPausedRef.current) return state;
+
         // Mods gelten nur außerhalb von Raidboss-Runden (feste Stats für faire Fitness-Vergleiche)
         const effectivePlayerStats = isRaidbossRound
             ? gameShooterSettings.playerStats
@@ -425,21 +462,33 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
         const next = update(state, dt, input, effectivePlayerStats, activeModIds);
 
         if (tutorial && state.phase === 'playing') {
-            const step = tutorialStepRef.current;
-            if (step === 'move' && (input.up || input.down || input.left || input.right)) {
-                requestTutorialStep('aim');
-            } else if (step === 'aim') {
-                if (tutorialAimOriginRef.current === null) {
-                    tutorialAimOriginRef.current = { x: input.mouseX, y: input.mouseY };
-                } else {
-                    const dx = input.mouseX - tutorialAimOriginRef.current.x;
-                    const dy = input.mouseY - tutorialAimOriginRef.current.y;
-                    if (dx * dx + dy * dy > 40 * 40) requestTutorialStep('shoot');
+            // Gnadenfrist: erst einen kurzen Moment spielen lassen, bevor die
+            // Aktion den Schritt weiterschaltet — inkl. der Aim-Origin-Erfassung,
+            // damit eine Mausbewegung während der Frist nicht schon zählt.
+            // Nur wenn der aktuelle Schritt-Coachmark schon weggeklickt ist,
+            // läuft überhaupt Erkennung (sonst ist die Runde pausiert). Nach der
+            // Grace-Frist schaltet die erledigte Aktion SOFORT und deterministisch
+            // zum nächsten Schritt weiter.
+            if (tutorialGraceOver()) {
+                const step = tutorialStepRef.current;
+                if (step === 'move' && (input.up || input.down || input.left || input.right)) {
+                    advanceStep('aim');
+                } else if (step === 'aim') {
+                    if (isTouch) {
+                        // Touch: der Ziel-Stick zielt UND feuert — eine Geste
+                        // erledigt Zielen und Schießen, also direkt zu 'done'.
+                        if (input.shoot) advanceStep('done');
+                    } else if (tutorialAimOriginRef.current === null) {
+                        tutorialAimOriginRef.current = { x: input.mouseX, y: input.mouseY };
+                    } else {
+                        const dx = input.mouseX - tutorialAimOriginRef.current.x;
+                        const dy = input.mouseY - tutorialAimOriginRef.current.y;
+                        if (dx * dx + dy * dy > 40 * 40) advanceStep('shoot');
+                    }
+                } else if (step === 'shoot' && input.shoot) {
+                    advanceStep('done');
                 }
-            } else if (step === 'shoot' && input.shoot) {
-                requestTutorialStep('done');
             }
-            tickTutorialStep();
         }
 
         if (next.lastPlayerFrame) playerFramesRef.current.push(next.lastPlayerFrame);
@@ -463,7 +512,12 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                 Math.min(threshold, matchScoreRef.current + receivedDelta - landedDelta));
             matchScoreRef.current = newScore;
             setMatchScore(newScore);
-            if (tutorial && !scoreCoachmarkShownRef.current) {
+            // Score-Bar-Coachmark erst NACH dem 'done'-Schritt: sonst kann ein
+            // Treffer, der schon während move/aim/shoot fällt, ihn vor "You've
+            // got it" auslösen. Live-Check auf den aktuellen Schritt (kein
+            // Latch) — er feuert, sobald im freien Spiel nach 'done' der erste
+            // Treffer fällt, danach nie wieder (scoreCoachmarkShownRef).
+            if (tutorial && tutorialStepRef.current === 'done' && !scoreCoachmarkShownRef.current) {
                 scoreCoachmarkShownRef.current = true;
                 setShowScoreCoachmark(true);
             }
@@ -589,7 +643,10 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
 
         if (tutorial) {
             tutorialAimOriginRef.current = null;
-            advanceTutorialStep('move');
+            // advanceStep sperrt die Move-Erkennung, bis der Move-Hinweis
+            // weggeklickt ist — sonst könnte ein gehaltener Stick sie im Frame
+            // vor dem Pausieren schon auslösen.
+            advanceStep('move');
         }
 
         const currentState = gameStateRef.current!;
@@ -716,14 +773,14 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
         if (!gameShooterSettings.modChoiceEnabled) { startRound(); return; }
         const roundJustEnded = gameStateRef.current?.roundNumber ?? 0;
         const interval  = gameShooterSettings.modChoiceInterval;
-        const available = MOD_POOL.filter(m => !runModsStore.activeModIds.includes(m.id));
+        const available = MOD_POOL.filter(m => isModOfferable(m, runModsStore.activeModIds));
         if (roundJustEnded % interval !== 0 || available.length === 0) { startRound(); return; }
         const shuffled = [...available].sort(() => Math.random() - 0.5);
         setPendingModChoices(shuffled.slice(0, Math.min(MOD_CHOICE_COUNT, available.length)));
     };
 
     const chooseMod = (mod: ModDefinition) => {
-        runModsStore.toggleMod(mod.id);
+        runModsStore.addMod(mod.id);
         setPendingModChoices(null);
         startRound();
     };
@@ -748,24 +805,45 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
     // position, so without them React reuses the mounted DOM node across the
     // swap — the old bubble visibly teleports bottom-right → top-right with
     // hard-swapped text instead of leaving and letting the new one pop in.
+    // Closing a step bubble un-pauses the round and starts the grace window
+    // (see useTutorialStep) so the next step doesn't fire on the very first
+    // twitch of input.
+    const dismissTutorialStep = () => {
+        // Aim-Bezugspunkt erst nach dem Wegklicken frisch erfassen (siehe onUpdate),
+        // damit ein vorher stehen gebliebener Origin nicht sofort 40px "Bewegung"
+        // meldet.
+        tutorialAimOriginRef.current = null;
+        dismissStep();
+    };
+
+    const stepContent = TUTORIAL_STEP_CONTENT[isTouch ? 'touch' : 'desktop'];
+
+    // Both coachmarks render `blocking`: a dimmed backdrop centers them in the
+    // viewport and the round is frozen (see tutorialPaused) while they show —
+    // so Compi never sits on top of the arena or the touch controls. Each step
+    // gets a primary button because the player now must dismiss to un-pause and
+    // then perform the action (which advances to the next step, re-pausing).
     const tutorialCoachmark = (tutorial && phase === 'playing')
         ? (!tutorialBubbleClosed ? (
             <CompiBubble
                 key="tutorial-step"
-                title={TUTORIAL_STEP_CONTENT[tutorialStep].title}
-                body={TUTORIAL_STEP_CONTENT[tutorialStep].body}
-                actions={tutorialStep === 'done'
-                    ? [{ label: 'Got it', onClick: () => setTutorialBubbleClosed(true), variant: 'primary' }]
-                    : []}
-                onClose={() => setTutorialBubbleClosed(true)}
+                blocking
+                title={stepContent[tutorialStep].title}
+                body={stepContent[tutorialStep].body}
+                actions={[{
+                    label:   tutorialStep === 'done' ? 'Got it' : "Got it — let's try",
+                    onClick: dismissTutorialStep,
+                    variant: 'primary',
+                }]}
+                onClose={dismissTutorialStep}
             />
         ) : (showScoreCoachmark && !scoreCoachmarkClosed) ? (
             <CompiBubble
                 key="score-coachmark"
+                blocking
                 title={TUTORIAL_SCORE_CONTENT.title}
                 body={TUTORIAL_SCORE_CONTENT.body}
                 actions={[{ label: 'Got it', onClick: () => setScoreCoachmarkClosed(true), variant: 'primary' }]}
-                position="top-right"
                 onClose={() => setScoreCoachmarkClosed(true)}
             />
         ) : null)
@@ -778,7 +856,7 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
             position: 'relative',
         }}>
             <div
-                className={styles.wrapper}
+                className={`${styles.wrapper} arena-frame`}
                 style={{
                     transform:       `scale(${scale})`,
                     transformOrigin: 'top left',
@@ -847,6 +925,11 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                                     <span className={styles.modCardIcon}>{mod.icon}</span>
                                     <span className={styles.modCardName}>{mod.name}</span>
                                     <span className={styles.modCardDesc}>{mod.description}</span>
+                                    {mod.repeatable && (
+                                        <span style={{ marginTop: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--accent)' }}>
+                                            {stackOfferLabel(runModsStore.activeModIds, mod.id)}
+                                        </span>
+                                    )}
                                 </button>
                             ))}
                         </div>
@@ -869,11 +952,11 @@ export const ShooterCanvas = ({ scale = 1, externalInputRef, leaveHandlerRef, tu
                             </>
                         ) : (
                             <>
-                                <h2 className={styles.title}>Shooter vs GA</h2>
+                                <h2 className={styles.title}>Shooter vs EA</h2>
                                 <p className={styles.subtitle}>WASD to move · Mouse to aim · Left-click to shoot</p>
                             </>
                         )}
-                        <button className="btn btn--primary" onClick={() => startRound()}>
+                        <button className="btn btn--primary btn--lg" onClick={() => startRound()}>
                             {tutorial ? 'Start Tutorial' : 'Start Round'}
                         </button>
                     </div>

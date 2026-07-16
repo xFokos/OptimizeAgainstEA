@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { cloneElement, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { HelpButton } from '../../../components/help';
+import { HelpButton, MobileHelpBar } from '../../../components/help';
 import { gameStore } from '../game/gameStore';
 import { analyticsStore } from '../game/analyticsStore';
 import { getRaidbossStatus, claimRaidbossSlot } from '../game/raidbossStore';
@@ -170,10 +170,10 @@ export function RaidbossLobby() {
                     Once all are evaluated, the population automatically evolves to the next generation.
                 </p>
                 {statusContent}
+                <MobileHelpBar topic="shooter.raidboss" />
                 <div style={mobileBtnsStyle}>
-                    <HelpButton topic="shooter.raidboss" />
-                    <button className="btn btn--outline btn--sm" style={{ '--btn-color': RB } as React.CSSProperties} onClick={openTutorial}>Tutorial</button>
-                    <div style={{ flex: 1 }}>{playBtn}</div>
+                    <button className="btn btn--outline btn--lg" style={{ flex: 1, minWidth: 0, '--btn-color': RB } as React.CSSProperties} onClick={openTutorial}>Tutorial</button>
+                    {cloneElement(playBtn, { style: { flex: 1, minWidth: 0, '--btn-color': RB } as React.CSSProperties })}
                 </div>
                 {tutorialOverlays}
             </div>

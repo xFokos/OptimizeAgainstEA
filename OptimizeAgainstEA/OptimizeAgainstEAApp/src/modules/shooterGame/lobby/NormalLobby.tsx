@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useHints, HINTS, TourSpotlight } from '../../../components/hints';
 import type { HintId } from '../../../components/hints';
-import { HelpButton } from '../../../components/help';
+import { HelpButton, MobileHelpBar } from '../../../components/help';
 import { ShooterPlayerSection, ShooterRoundSection, ShooterDnaSection } from '../settings/ShooterSettings';
 import { useSettings, resetShooterSettings } from '../../../context/SettingsContext';
 import { EASettingsPanel } from '../../../components/settings/EASettings';
@@ -275,10 +275,10 @@ export function NormalLobby() {
                     {tabBar}
                     {tabContent}
                 </div>
+                <MobileHelpBar topic="shooter.solo" onTakeTour={startTour} />
                 <div style={mobileBtnsStyle}>
-                    <HelpButton topic="shooter.solo" onTakeTour={startTour} />
-                    <button className="btn btn--outline btn--sm" onClick={openTutorial}>Tutorial</button>
-                    <button ref={playBtnRef} className="btn btn--primary btn--lg" style={{ flex: 1 }} onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
+                    <button className="btn btn--outline btn--lg" style={{ flex: 1, minWidth: 0 }} onClick={openTutorial}>Tutorial</button>
+                    <button ref={playBtnRef} className="btn btn--primary btn--lg" style={{ flex: 1, minWidth: 0 }} onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
                         {hasActiveGame ? 'Continue →' : 'Play →'}
                     </button>
                 </div>

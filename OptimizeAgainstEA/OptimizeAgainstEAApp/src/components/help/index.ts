@@ -7,6 +7,7 @@
 import './help.css';
 
 export { HelpButton } from './HelpButton';
+export { MobileHelpBar } from './MobileHelpBar';
 export { HelpModal } from './HelpModal';
 export { HELP_TOPICS } from './helpContent';
 export type { HelpTopicId, HelpTopic } from './helpContent';

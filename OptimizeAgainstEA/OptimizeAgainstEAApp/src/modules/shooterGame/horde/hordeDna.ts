@@ -1,4 +1,4 @@
-import { DNA_LENGTH, TUTORIAL_DNA, type DNA } from '../shooter.types';
+import { DNA_LENGTH, DNA_INDEX, STARTER_DNA, TUTORIAL_DNA, type DNA } from '../shooter.types';
 
 // Horde's DNA layout beyond the shared base genes (DNA_INDEX, length DNA_LENGTH):
 //   [...base genes, ...LOOP_STEPS loop-offset genes, size, opacity, ...4 spawn-side weights]
@@ -39,4 +39,17 @@ export const HORDE_TUTORIAL_DNA: DNA = [
     ...Array.from({ length: LOOP_STEPS }, () => 0.5), // loop offsets — neutral (irrelevant at 0 speed)
     0.5, // size — average, easy to see
     0.9, // opacity — fully visible
+];
+
+// Second half of the Horde tutorial: once the player has practised against the
+// inert swarm, the dummies switch to this so there's actually something to watch
+// evolve. It's the Solo Starter DNA (the game's default enemy baseline) with a
+// bumped AGGRESSION so they visibly pursue — "default values with a bit more
+// aggression". Same layout as HORDE_TUTORIAL_DNA (base + loop + size + opacity;
+// spawn-side weights are appended per individual, so this stops before them).
+export const HORDE_TUTORIAL_RAMP_DNA: DNA = [
+    ...STARTER_DNA.map((v, i) => (i === DNA_INDEX.AGGRESSION ? 0.55 : v)),
+    ...Array.from({ length: LOOP_STEPS }, () => 0.5),
+    0.5, // size
+    0.9, // opacity
 ];

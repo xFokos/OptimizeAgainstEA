@@ -4,7 +4,7 @@ import { useSettings } from '../../../context/SettingsContext';
 import { hordeRunStore } from '../horde/hordeRunStore';
 import { hordeGameStore } from '../horde/hordeGameStore';
 import { runModsStore } from '../mods/runModsStore';
-import { MOD_POOL } from '../mods/modTypes';
+import { MOD_POOL, modStackCount } from '../mods/modTypes';
 import { LOOP_STEPS, LOOP_STEP_DURATION, LOOP_GENE_START, loopOffsetRad } from '../horde/hordeDna';
 import { useMobile } from './lobbyHooks';
 import { ovStyles, tabStyles } from './lobbyStyles';
@@ -107,7 +107,9 @@ export function HordeOverview({ onNavigateTab, presetsRef, dnaPanelRef }: HordeO
                                 <div>
                                     <span style={ovStyles.statsCompactLabel}>Active Items</span>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                                        {activeMods.map(mod => (
+                                        {activeMods.map(mod => {
+                                            const count = modStackCount(activeModIds, mod.id);
+                                            return (
                                             <span
                                                 key={mod.id}
                                                 title={`${mod.name} — ${mod.description}`}
@@ -123,9 +125,10 @@ export function HordeOverview({ onNavigateTab, presetsRef, dnaPanelRef }: HordeO
                                                     color:        'rgba(255,255,255,0.75)',
                                                 }}
                                             >
-                                                {mod.icon} {mod.name}
+                                                {mod.icon} {mod.name}{count > 1 ? ` ×${count}` : ''}
                                             </span>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </>

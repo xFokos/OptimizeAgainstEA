@@ -78,7 +78,7 @@ let shootTimer    = 0; // countdown until the player can fire again; reset to ea
 // Schüsse aus Verhaltens-Mods (Burst Shot etc.), zeitversetzt nach dem Trigger-Pull.
 // Meist leer → kein GC-Druck. Homing-Turn-Rate: siehe gameLoop.ts (Solo), gleicher Wert.
 const hordeQueuedShots: QueuedShot[] = [];
-const HORDE_HOMING_TURN_RATE = 5;
+const HORDE_HOMING_TURN_RATE = 2;
 
 let agentIdCounter = 0;
 

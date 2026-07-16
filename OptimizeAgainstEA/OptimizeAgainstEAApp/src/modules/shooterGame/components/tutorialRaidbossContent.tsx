@@ -41,26 +41,26 @@ const RAIDBOSS_STEPS: ExplainerStep[] = [
     {
         id:    'community',
         title: 'One Boss, Trained by Everyone',
-        body:  `The Raidboss isn't your personal opponent — it's one shared online population of ${POP} boss candidates, and every player of this site (the dots on the right) trains the same one.`,
+        body:  `The Raidboss isn't your personal opponent - it's one shared population of ${POP} individuals, and every player on this site (the dots on the right) share the current generation, DNA, and population.`,
         sideVisual: <RaidbossArenaVisual variant="community" count={DISPLAY_POP} />,
     },
     {
         id:    'evaluate',
         title: 'Your Round Scores One Candidate',
-        body:  "Hitting Fight hands you the next unscored candidate — your round is its exam. And it happens in parallel: while one player fights, other players' scores keep landing on the roster.",
+        body:  "Each round you play against an unevaluated individual. Unlike the solo-mode, the algorithm is not trained on recorded rounds. Instead the population is completely trained by users.",
         sideVisual: <RaidbossArenaVisual variant="evaluate" count={DISPLAY_POP} />,
     },
     {
         id:    'fitness',
         title: 'Fitness — Grading the Boss',
-        body:  "Scored from the boss's point of view: +100 per hit on you, −100 per hit taken, up to +60 for holding out the round, plus a win bonus. Beating the boss means low fitness — your wins steer what gets bred next.",
+        body:  "The score/fitness of the boss computes as: +100 per hit on you, −100 per hit taken, up to +60 for surviving against you, plus a win bonus. Beating the boss means low fitness - your wins steer which DNA passes to the next generation.",
         visual: <FitnessVisual rows={RAIDBOSS_FITNESS_EXAMPLE} />,
         sideVisual: <FitnessArenaVisual agentColor="#a855f7" agentLabel="Boss" />,
     },
     {
         id:    'generation',
         title: 'The Generation Ticks Over',
-        body:  `Once all ${POP} candidates are scored, the glowing ring marks the generation's best — then evolution runs automatically online (same selection, crossover and mutation as in Solo) and a fresh generation takes over. The more the community plays, the stronger the boss.`,
+        body:  `Once all ${POP} candidates are graded, the individuals with the best fitness get selected - then evolution runs automatically online and a fresh generation takes over. The more the community plays, the stronger the boss gets.`,
         sideVisual: <RaidbossArenaVisual variant="generation" count={DISPLAY_POP} />,
     },
 ];

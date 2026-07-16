@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { HelpTopicId } from './helpContent';
 import { HELP_TOPICS } from './helpContent';
 import compiImg from '../../assets/CompiDerpy.webp';
@@ -23,7 +24,11 @@ export function HelpModal({ topic, onClose, onTakeTour }: HelpModalProps) {
 
     const Content = tab === 'gameplay' ? def.Gameplay : def.Technical;
 
-    return (
+    // Portalled to document.body so the fixed .overlay always resolves against
+    // the viewport — when opened from the mobile help drawer (MobileHelpBar),
+    // that drawer's slide `transform` would otherwise become the containing
+    // block and trap/offset the modal inside the (sliding) panel.
+    return createPortal(
         <div className="overlay" onClick={onClose}>
             <div className="modal modal--wide help-modal" onClick={e => e.stopPropagation()}>
                 <button className="help-modal__close" onClick={onClose} aria-label="Close">×</button>
@@ -63,6 +68,7 @@ export function HelpModal({ topic, onClose, onTakeTour }: HelpModalProps) {
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }

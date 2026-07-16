@@ -5,7 +5,8 @@ While the [Handbook](Handbook/handbook.tex) is the **user manual** (how to play)
 **developer reference**: project structure, modules, and what the exported functions,
 hooks, stores and components do.
 
-> Generated 2026-07-13 from the source tree (after the "great refactoring" commit `06f6d63`).
+> Updated 2026-07-16 from the source tree (working state after commit `944b810`;
+> originally generated after the "great refactoring" commit `06f6d63`).
 > When code and this document disagree, the code wins — please update this file.
 
 ---
@@ -45,6 +46,7 @@ OptimizeAgainstEAApp/src/
 │   ├── hints/               # Hint/coachmark/tour system
 │   ├── explainer/           # Step-by-step explainer flow + EA concept visuals
 │   └── settings/            # Shared EA settings panels + slider/select rows
+├── styles/                  # Global CSS: primitives/ (buttons, panels, …), specific/ (per page), general/
 ├── modules/
 │   ├── BattleShips/         # "PeakFinder" — search-space exploration vs EA
 │   ├── mazeGame/            # EA evolving paths through a maze
@@ -79,7 +81,7 @@ Default export `App()` — the route table. All routes are wrapped in `SettingsP
 | `/HordeMapEditor` | `HordeMapEditorPage` | Custom horde map editor |
 | `/lobby/shooter` | `ShooterLobbyPage` | Shooter lobby (mode picker + 3 lobbies) |
 | `/Analytics` | `AnalyticsPage` | Solo-play round analytics |
-| `/Dashboard` | `DashboardPage` | Game picker |
+| `/Dashboard` | `DashboardPage` | Game picker + "EA Explained" tab (`?tab=ea` opens the explainer directly) |
 | `/Buttons`, `/FunctionTuner`, `/Game` | dev/legacy pages | Not linked from UI, keep them |
 
 ### `context/SettingsContext.tsx`
@@ -184,6 +186,17 @@ also provides remove and rename. `useSavedMaps` (BattleShips) and `useSavedMazes
 
 `CompiTooltip` (mascot-styled tooltip), `Switch` (toggle), `NavigatePageButton`.
 
+### CSS primitives (`styles/`)
+
+Global stylesheets, all imported once in `main.tsx`. `styles/primitives/` holds the
+shared class recipes — `buttons.css` (`.btn` + variants), `panels.css` (`.panel` +
+modifiers for surfaced boxes, and `.arena-frame`: the border/radius/shadow frame both
+game canvases apply so the play field reads as a window lifted off the background),
+`sliders.css`, `switch.css`, `compiTooltip.css`, `overlays.css` (`.overlay`/`.modal`),
+`badges.css`, `eyebrows.css`. `styles/specific/` is per-page CSS (dashboard, HomePage, …),
+`styles/general/` the app-wide base (root sizing, `.page-container`). Prefer composing
+these primitives over re-declaring their recipes inline.
+
 ### Help system (`components/help/`)
 
 Per-game help modal with the Compi mascot.
@@ -191,7 +204,8 @@ Per-game help modal with the Compi mascot.
 | Export | Description |
 |---|---|
 | `HelpButton({ topic, label?, onTakeTour? })` | Opens the help modal for a topic |
-| `HelpModal({ topic, onClose, onTakeTour })` | The modal itself; tabs per topic |
+| `MobileHelpBar({ topic, onTakeTour? })` | Mobile-only home for the (tall) help button: a slim pull-tab on the screen's left edge opens a left-sliding drawer. Lobbies mount it only in their `isMobile` branch; desktop keeps the inline `HelpButton` |
+| `HelpModal({ topic, onClose, onTakeTour })` | The modal itself; tabs per topic. Portalled to `document.body` so the fixed overlay isn't trapped by the `MobileHelpBar` drawer's slide transform |
 | `HELP_TOPICS` / `HelpTopicId` / `HelpTopic` | Topic registry (`helpContent.tsx`) |
 | `topics/SoloHelp`, `topics/RaidbossHelp`, `topics/HordeHelp` | Each exports `Gameplay()` and `Technical()` sections |
 | `helpVisuals.tsx` | Small illustrative components: `HelpConceptCard`, `HelpDnaBars`, `HelpPresetRow`, `HelpPopulationDots`, `HelpProgressDots`, `HelpMapDiagram`, `HelpModRow` |
@@ -218,18 +232,23 @@ Persistence: `enabled` → `localStorage bs.hints.enabled`; `seen` → `sessionS
 
 ### Explainer system (`components/explainer/`)
 
-Reusable step-by-step explainer flow (used by tutorials and the "What is an EA" tab).
+Reusable step-by-step explainer flow (used by the in-game tutorials and the Dashboard's "EA Explained" tab).
 
 | Export | Description |
 |---|---|
-| `ExplainerFlow({ steps, onFinish, finishLabel?, allowJump?, compact? })` | Renders `ExplainerStep[]` as a paged flow with progress |
-| `PopulationVisual`, `CrossoverVisual`, `MutationVisual`, `GenerationsVisual` | Small EA-concept illustrations (`eaConceptVisuals.tsx`) with data types `PopulationMember`, `CrossoverGene`, `MutationChange` |
+| `ExplainerFlow({ steps, onFinish?, finishLabel?, allowJump?, compact? })` | Renders `ExplainerStep[]` as a paged flow with progress dots. `compact` tucks the Compi mascot into a corner (for canvas overlays) |
+| `ExplainerStep` | `{ id, title, body, visual?, sideVisual? }` — `visual` stacks above the text, `sideVisual` sits beside it (for live demos; stacks below on narrow screens) |
+| `ExplainerPopup({ steps, onClose })` / `ExplainerHintButton({ steps, label? })` | Small "?"-triggered popup running an `ExplainerFlow`; the hint button renders the trigger + popup pair (used e.g. as `rowHints` in `EASettingsPanel`) |
+| `PopulationVisual`, `CrossoverVisual`, `MutationVisual`, `GenerationsVisual`, `FitnessVisual`, `GenomeVisual` | Small EA-concept illustrations (`eaConceptVisuals.tsx`) with data types `PopulationMember`, `CrossoverGene`, `MutationChange`, `FitnessRow`, `GenomeGene` |
+| `SearchSpaceVisual({ showScores?, axisLabel? })` | 1-D "possible solutions" axis illustration |
+| `PlaneThrowVisual({ mode? })`, `PlaneRosterVisual({ variant, count? })`, `PlaneDnaSliders({ dna, onChange, genes? })`, `PlaneDnaPreview({ dna, genes? })` + `PLANE_GENES`/`PLANE_SIZE_GENE`/`PLANE_DNA_START`/`PlaneGene` | Paper-plane example visuals for the Dashboard's `EAExplainedTab` (interactive throw animation, plane roster, live DNA sliders + preview) |
 
 ### Shared settings widgets (`components/settings/`)
 
 | Export | Description |
 |---|---|
-| `EASettingsPanel()` / `HordeEASettingsPanel()` (`EASettings.tsx`) | Ready-made panels bound to `useSettings()` |
+| `EASettingsPanel({ rowHints? })` / `HordeEASettingsPanel()` (`EASettings.tsx`) | Ready-made panels bound to `useSettings()`. `rowHints: Partial<Record<EaSettingKey, ReactNode>>` injects a per-setting "?" button (e.g. `SoloEaSettingHint`) without the shared panel importing anything game-specific |
+| `EaSettingKey` | `'mutationRate' \| 'mutationStrength' \| 'presimGenerations' \| 'populationSize' \| 'crossoverType' \| 'injectionDeviation' \| 'hallOfFame'` |
 | `SliderRow`, `SelectRow<T>`, `SegmentedRow<T>`, `Divider` (`eaControls.tsx`) | Form-row primitives used by all settings panels |
 
 ---
@@ -362,6 +381,13 @@ Structurally mirrors BattleShips: `types/ engine/ hooks/ components/ hints/`.
 Three modes: **Solo** (agents adapt to your play style), **Raidboss** (community-trained
 population via Firestore), **Horde** (steady-state EA: evolution on every death).
 
+**Tutorial flow (all three modes):** each lobby's Tutorial button starts a practice round
+(`ShooterCanvas`/`HordeCanvas` with `tutorial`) — coachmark steps teach the controls, then a
+mode-specific `ExplainerFlow` (`TutorialEvolutionExplainer` / `TutorialRaidbossExplainer` /
+`TutorialHordeExplainer`, §7.8) explains DNA, fitness and evolution with live arena visuals.
+Completion is persisted per mode (§7.1); returning players get the `TutorialChooserModal`
+(§7.9) to pick practice round or explainer directly.
+
 ### 7.1 Types & constants (`shooter.types.ts`)
 
 The single source of truth for shooter types.
@@ -379,7 +405,14 @@ The single source of truth for shooter types.
 | 6 | `FIRE_RATE` | Fire rate |
 | 7 | `BULLET_SPEED` | Bullet speed (`BULLET_SPEED_MIN`–`BULLET_SPEED_MAX`) |
 
-Also: `DNA_NAMES`, `DNA_GENE_INFO` (labels + tooltips for the UI), `STARTER_DNA`, `TUTORIAL_DNA`.
+Also: `DNA_NAMES`, `DNA_GENE_INFO` (labels + tooltips for the UI — note: `AGGRESSION` is
+*labelled* "Pursuit" in Solo/Raidboss because the gene only affects distance-closing, while
+Horde keeps the "Aggression" label via its own descriptor override), `STARTER_DNA`, `TUTORIAL_DNA`.
+
+**Tutorial persistence** — `TUTORIAL_COMPLETED_KEY` / `HORDE_TUTORIAL_COMPLETED_KEY` /
+`RAIDBOSS_TUTORIAL_COMPLETED_KEY` (localStorage) and `hasCompletedAnyTutorial()`: the controls
+are identical in all modes, so anyone who finished *any* gameplay tutorial gets the
+`TutorialChooserModal` (practice vs. explainer) instead of the forced first-run flow.
 
 **Other key exports**
 
@@ -390,7 +423,7 @@ Also: `DNA_NAMES`, `DNA_GENE_INFO` (labels + tooltips for the UI), `STARTER_DNA`
 | `Individual`, `Population` | GA population (individuals carry `dna`, `fitness`, round stats) |
 | `Entity`, `PlayerState`, `AgentState`, `Bullet` | Simulation entities |
 | `RoundStats` / `emptyStats()` | Per-round stats used by fitness |
-| `GamePhase` | `'idle' \| 'playing' \| 'roundEnd' \| 'evolving'` (+ tutorial variants if present) |
+| `GamePhase` | `'idle' \| 'playing' \| 'roundEnd' \| 'evolving'` |
 | `GameState` | Full simulation state (player, agent, bullets, stats, ghostFrames, phase, …) |
 | `InputState` | Keyboard/mouse/touch input snapshot |
 | `PlayerGhostFrame` / `AgentGhostFrame` / `PlayerGhost` | Recorded round used as EA training data |
@@ -438,7 +471,7 @@ All built on `createListenable()`; components read `.state`/fields directly and 
 | `useGameLoop({ … })` | `requestAnimationFrame` loop; calls `update()` and drives `gameStore` |
 | `useInput()` | Keyboard + mouse → `RefObject<InputState>` |
 | `useTouchControls(inputRef, canvasRef)` | Mobile joystick/aim touch input; returns `RefObject<TouchVisualState>` for rendering the joystick overlay |
-| `useTutorialStep<T extends string>(initial)` | Small state machine for tutorial step sequences |
+| `useTutorialStep<T extends string>(initial)` | Owns the practice-round coachmark model shared by ShooterCanvas/HordeCanvas: current step (`step`/`stepRef`), `advance(next)` (switches + locks detection), `dismiss()` (un-pauses + starts a 1.7 s grace window), `graceOver()`, and the loop-readable `pausedRef`/`setPaused` |
 
 ### 7.6 Horde mode (`horde/`)
 
@@ -451,7 +484,7 @@ Steady-state EA: agents spawn in waves, each death breeds a replacement.
 | `makeInitialState(pop, map)`, `resetHordeEngine()` | `hordeEngine.ts` | State construction / module-state reset |
 | `agentRadius(dna)`, `agentOpacity(dna)` | `hordeEngine.ts` | Derived visuals from horde-only genes |
 | `render(ctx, state)`, `HC = '#fb923c'` | `hordeRender.ts` | Canvas rendering; `HC` is the horde accent color |
-| Gene layout | `hordeDna.ts` | Horde DNA = shared 8 genes + `LOOP_STEPS = 4` movement-loop genes (from `LOOP_GENE_START`, step duration 0.6 s, max ±70° per step via `loopOffsetRad`) + `SIZE_GENE_INDEX` + `OPACITY_GENE_INDEX`; total `HORDE_STARTER_DNA_LENGTH`; `HORDE_TUTORIAL_DNA` |
+| Gene layout | `hordeDna.ts` | Horde DNA = shared 8 genes + `LOOP_STEPS = 4` movement-loop genes (from `LOOP_GENE_START`, `LOOP_STEP_DURATION = 0.6` s, max ±70° per step via `loopOffsetRad` / `LOOP_MAX_ANGLE_RAD`) + `SIZE_GENE_INDEX` + `OPACITY_GENE_INDEX`; total `HORDE_STARTER_DNA_LENGTH`. Tutorial DNAs: `HORDE_TUTORIAL_DNA` (inert dummies) and `HORDE_TUTORIAL_RAMP_DNA` (Starter DNA with bumped AGGRESSION — what the dummies switch to for the tutorial's "watch it evolve" half) |
 | `HORDE_MAPS`, `getHordeMap(id)`, `CUSTOM_MAP_ID`, `buildCustomHordeMap(obstacles, spawnSides, playerSpawn)`, `resolveHordeMap(mapId, customObstacles, customSpawnSides, customPlayerSpawn)` | `hordeMaps.ts` | Built-in maps + resolution of the user-built custom map |
 | `computeFlowField(obstacles, targetX, targetY): FlowField`, `sampleFlowField(field, x, y)` | `hordePathfinding.ts` | Flow-field BFS from the player's cell; agents follow the sampled direction |
 | `circleIntersectsObstacle(x, y, r, o)`, `pushOutOfObstacles(x, y, r, obstacles)` | `hordeCollision.ts` | Obstacle collision |
@@ -460,26 +493,38 @@ Steady-state EA: agents spawn in waves, each death breeds a replacement.
 
 ### 7.7 Run mods / powerups (`mods/`)
 
+Two kinds of mods (`ModDefinition`): **stat mods** (`applyStats`, `repeatable: true` — stackable
+up to `MAX_MOD_STACKS = 5`, effect multiplies per copy: Speed Boost, Rapid Fire, Bullet Speed)
+and **behaviour mods** (`modifyShots`, one-off: Triple Shot, Burst Shot, Homing Rounds).
+Stat results are clamped to the same ranges as the settings sliders.
+
 | Export | Description |
 |---|---|
-| `MOD_POOL: ModDefinition[]` (`modTypes.ts`) | All available powerups |
-| `applyMods(base: PlayerStats, activeIds): PlayerStats` | Applies stat-modifying mods |
-| `computeShotPlan(activeIds): ShotPlanEntry[]` | Multi-shot/spread plan from active mods |
+| `MOD_POOL: ModDefinition[]`, `MAX_MOD_STACKS` (`modTypes.ts`) | All available powerups + stack cap |
+| `applyMods(base: PlayerStats, activeIds): PlayerStats` | Applies stat mods (runs once per entry in `activeIds`, so stacks compound automatically) |
+| `computeShotPlan(activeIds): ShotPlanEntry[]` | Multi-shot/spread plan from active behaviour mods (hard-capped at 12 shots per trigger) |
+| `modStackCount(activeIds, id)` / `isModOfferable(mod, activeIds)` / `stackOfferLabel(activeIds, id)` | Stack counting / whether a mod may still be offered / the "Stack → ×N" vs "Stackable" badge text on offer cards |
 | `steerHomingBullet(…)` + `QueuedShot` (`shotEngine.ts`) | Special-shot behavior (homing etc.) |
-| `runModsStore` | Active mod ids for the current run; `toggleMod(id)`, `reset()` (listenable) |
+| `runModsStore` | Active mod ids for the current run — a **multiset** (stackable mods appear once per stack). `addMod(id)` (one stack, respects the cap), `removeMod(id)` (one copy), `toggleMod(id)` (on/off for the settings grid), `count(id)`, `reset()` (listenable; always assigns a fresh array) |
 
 ### 7.8 Components (`components/`)
 
 | Component | Description |
 |---|---|
-| `ShooterCanvas({ scale?, externalInputRef?, leaveHandlerRef?, tutorial? })` | Main Solo/Raidboss canvas; owns the game loop wiring, reads `gameStore` |
-| `HordeCanvas({ scale?, externalInputRef?, hideDnaPanel?, tutorial? })` | React wiring for Horde (loop + overlays + tutorial) |
+| `ShooterCanvas({ scale?, externalInputRef?, leaveHandlerRef?, tutorial?, tutorialMode? })` | Main Solo/Raidboss canvas; owns the game loop wiring, reads `gameStore`. `tutorial` runs the practice round (passive target, single round, coachmark steps move → aim → shoot → done); `tutorialMode: 'solo' \| 'raidboss'` only picks which explainer shows at round end and which lobby it returns to |
+| `HordeCanvas({ scale?, externalInputRef?, touchControls?, tutorial? })` | React wiring for Horde (loop + overlays). `touchControls` (mobile landscape) switches tutorial copy to touch and hides the DNA panel. `tutorial` runs the Horde practice round: small wave (`TUTORIAL_WAVE_SIZE = 8`), coachmark steps move → aim → shoot → obstacles → mods → survive → evolve → done, then a portalled fullscreen `TutorialHordeExplainer` takeover; never resumes/persists to `hordeGameStore` |
 | `HordeDnaPanel({ bestDna, height })`, `PANEL_W = 200` | "Best DNA" side panel next to the horde canvas |
 | `DNADisplay()` | Shows the current opponent's DNA; subscribes to `gameStore` |
 | `MobileJoystickZone` / `MobileAimZone` | Touch input zones |
-| `arenaAgentSim.ts` | Shared small-arena (240 px) physics for tutorial preview canvases: `stepArenaAgent(agent, dna, target, dt, cooldown, extraForce…)`, `drawArenaAgentTriangle`, scaled constants |
-| `DnaPreviewCanvas({ dna })` / `GhostArenaVisual({ canShoot? })` | Tutorial explainer visuals |
-| `tutorialEvolutionContent.tsx` | `TutorialEvolutionExplainer` — the evolution explainer flow in the tutorial |
+| `arenaAgentSim.ts` | Shared small-arena (`ARENA_SIZE = 240` px) physics for tutorial preview canvases: `stepArenaAgent(…)`, `drawArenaAgentTriangle`, `patrol(time, angSpeed, orbitR)`, `lineupSpots(count, faceDown?)`, `drawGenLabel(ctx, label, color?)`, `bulletHits`, `clamp01`, types `ArenaAgentState`/`ArenaTarget`/`ArenaBullet`, scaled `GAME_CONFIG` constants |
+| `DnaPreviewCanvas({ dna })` / `HordeDnaPreviewCanvas({ dna })` | Live agent preview driven by DNA sliders (Solo triangle / Horde blob) |
+| `GhostArenaVisual({ variant?, count? })` | Solo-tutorial arena animation; `variant: 'replay' \| 'lineup' \| 'selection' \| 'nextgen'` |
+| `FitnessArenaVisual({ agentColor?, agentLabel? })` | Fitness-scoring arena animation (reused by Solo and Raidboss explainers) |
+| `RaidbossArenaVisual({ variant, count, startGen? })` | Raidboss explainer animation; `variant: 'community' \| 'evaluate' \| 'generation'` |
+| `HordeArenaVisual({ variant })` | Horde explainer animation; `variant: 'fitness' \| 'evolution' \| 'elites'` |
+| `tutorialEvolutionContent.tsx` | `TutorialEvolutionExplainer({ onFinish?, finishLabel? })` — Solo evolution explainer flow; `SoloDnaExplainerHint()`; `SoloEaSettingHint({ topic: SoloEaSettingTopic })` — per-setting "?" popups plugged into `EASettingsPanel`'s `rowHints` |
+| `tutorialRaidbossContent.tsx` | `TutorialRaidbossExplainer({ onFinish?, finishLabel? })` — community population / fitness / generation-tick explainer |
+| `tutorialHordeContent.tsx` | `TutorialHordeExplainer({ onFinish?, finishLabel? })` — Horde DNA (body genes, movement loop) + steady-state evolution explainer with interactive sliders |
 
 ### 7.9 Lobby (`lobby/`)
 
@@ -488,19 +533,22 @@ Split by concern after the refactoring:
 | Export | File | Description |
 |---|---|---|
 | `ShooterLobbyPage` (default) | `ShooterLobbyPage.tsx` | Root: mode picker + mounts the three lobbies (re-exported by `pages/lobby/ShooterLobbyPage.tsx`) |
-| `NormalLobby`, `RaidbossLobby`, `HordeLobby({ initialTab? })` | own files | Per-mode lobby with tabs |
+| `NormalLobby`, `RaidbossLobby`, `HordeLobby({ initialTab? })` | own files | Per-mode lobby with tabs. Each lobby's Tutorial button checks `hasCompletedAnyTutorial()`: returning players get the `TutorialChooserModal`, brand-new players go straight into the practice round. On mobile the lobbies mount `MobileHelpBar` instead of the inline `HelpButton` |
+| `TutorialChooserModal({ onPractice, onExplainer, onClose, accent })` | `TutorialChooserModal.tsx` | "Practice round or explainer?" chooser shown to players who already finished a tutorial |
 | `SoloPlayOverview`, `HordeOverview` | own files | Overview tabs (preset picker, DNA panel, last-run stats) |
 | `TopBar({ onBack })` | `TopBar.tsx` | Lobby top bar |
 | `DnaGeneRow({ label, tooltip, value, delta })` | `DnaGeneRow.tsx` | Read-only gene stat bar |
-| `SHOOTER_MODES`, `PRESETS`/`PresetId`, `HORDE_PRESETS`/`HordePresetId`, `LOBBY_TABS`/`LobbyTab`(+labels), `HORDE_TABS`/`HordeTab`(+labels), `HORDE_BAR_GENES`, `HORDE_LOOP_GENES`, `HORDE_EDITABLE_GENES` | `lobbyConstants.ts` | Modes, difficulty presets, tab definitions, horde gene descriptors |
+| `LobbyMode`, `SHOOTER_MODES`, `PRESETS`/`PresetId`, `HORDE_PRESETS`/`HordePresetId`, `LOBBY_TABS`/`LobbyTab`(+labels), `HORDE_TABS`/`HordeTab`(+labels), `HORDE_BAR_GENES`, `HORDE_LOOP_GENES`, `HORDE_EDITABLE_GENES` | `lobbyConstants.ts` | Modes, difficulty presets, tab definitions, horde gene descriptors |
 | `useMobile(bp = 768)`, `useZoom(referenceH = 900, minZoom = 0.72)`, `enterGameFullscreen()` | `lobbyHooks.ts` | Responsive/zoom helpers |
 | `lobbyStyles`, `tabStyles`, `ovStyles`, `mobilePageStyle`, `mobileBtnsStyle` | `lobbyStyles.ts` | Shared inline-style objects |
 | `previews/` | `ShooterPreview`, `RaidbossPreview`, `HordePreview`, `HordeMapPreview({ map })`, `previewShared.ts` (`PREVIEW_W/H = 400`, `PreviewAgent`, `PreviewBullet`) | Animated mode preview canvases |
 
 ### 7.10 Settings UI (`settings/ShooterSettings.tsx`)
 
-`ShooterSettingsPanel` plus reusable sections: `ShooterDnaSection` (gene sliders, takes
-`DnaGeneDescriptor[]`), `ShooterPlayerSection`, `ShooterRoundSection`, `HordeWaveSection`.
+`ShooterSettingsPanel` plus reusable sections:
+`ShooterDnaSection({ dna, onChange, onBeforeChange?, genes?: DnaGeneDescriptor[] })` (gene
+sliders — also reused by the tutorial explainers with live preview canvases),
+`ShooterPlayerSection`, `ShooterRoundSection({ onBeforeChange?, locked? })`, `HordeWaveSection`.
 
 ---
 
@@ -510,19 +558,19 @@ Thin components in `src/pages/` that assemble modules into layouts:
 
 | Page | Description |
 |---|---|
-| `DashboardPage` | Game picker; exports `ProblemId`, `GameConfig` |
+| `DashboardPage` | Sidebar with two tabs — "EA Explained" (deliberately first) and "Game Selection"; `?tab=ea` query param jumps straight to the explainer. Exports `ProblemId`, `GameConfig` |
 | `BattleShipsPage` | Hosts the BattleShips module (mode state machine) |
 | `MazeGamePage` | Hosts the maze module |
-| `ShooterGamePage` | Solo/Raidboss game (GameLayout + ShooterCanvas) |
+| `ShooterGamePage` | Solo/Raidboss game (GameLayout + ShooterCanvas). Reads `location.state` for `tutorial`/`tutorialMode`; leaving resolves the target lobby at click time via the raidboss-active flag (a real Raidboss round starts without location state) |
 | `HordeGamePage` | Horde game |
 | `HordeMapEditorPage` | Custom horde map editor (writes `HordeSettings.customObstacles/…`) |
 | `AnalyticsPage` | Charts over `analyticsStore.rounds` |
-| `EAExplainedTab` | "What is an EA" explainer (uses `components/explainer/`) |
-| `SettingsPage`, `HomePage` | Settings / landing |
+| `EAExplainedTab` | High-level, game-agnostic EA walkthrough built on one running example: folding a paper plane that flies as far as possible (you can't calculate the best fold — only throw and measure). Uses the `Plane*` visuals from `components/explainer/`, including an interactive DNA-slider step; game-specific details stay in the per-game tutorials |
+| `SettingsPage`, `HomePage` | Settings / landing. `HomePage` offers two entries: "What's an EA?" (→ `/Dashboard?tab=ea`) and "⇒ Configure Game" (→ `/Dashboard`) |
 | `ButtonsPage`, `FunctionTunerPage`, `GamePage` | Dev/legacy pages — not linked, keep them |
 
-`modules/selectProblemPage/` provides `ProblemSelection` and `SelectionOverview`
-used by the dashboard.
+`modules/selectProblemPage/` provides `ProblemSelection` used by the dashboard
+(the old `SelectionOverview` was removed).
 
 ---
 

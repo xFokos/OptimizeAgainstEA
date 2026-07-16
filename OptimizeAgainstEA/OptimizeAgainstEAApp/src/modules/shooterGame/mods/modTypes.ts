@@ -35,77 +35,48 @@ export interface ModDefinition {
     // Verhaltens-Mods: verändern was pro Trigger-Pull tatsächlich abgefeuert wird
     // (Spread, zusätzliche Schüsse, verzögerte Bursts, ...).
     modifyShots?: (shots: ShotPlanEntry[]) => ShotPlanEntry[];
+    // Stapelbar: Stat-Boosts dürfen mehrfach genommen werden (bis MAX_MOD_STACKS)
+    // und multiplizieren ihren Effekt pro Kopie – applyMods läuft ohnehin einmal
+    // pro Eintrag in activeModIds, also stackt es von selbst. Verhaltens-Mods
+    // bleiben einmalig: ihr modifyShots doppelt anzuwenden wäre kaputt/sinnlos.
+    repeatable?:  boolean;
 }
 
+// Wie oft ein stapelbarer Mod maximal genommen werden kann. Die Stat-Clamps
+// (Move 600 / Bullet 1000 / Cooldown 0.05) deckeln den Effekt zwar ohnehin,
+// aber ein harter Cap hält den ×N-Badge lesbar und stoppt tote Angebote.
+export const MAX_MOD_STACKS = 5;
+
 export const MOD_POOL: ModDefinition[] = [
+    // ── Klare Stat-Boosts: genau ein Item pro Stat, bewusst kräftig dosiert
+    //    damit der Effekt sofort spürbar ist. Ersetzt die früheren flavory
+    //    Tweaks (Swift Boots, Cannon Rounds, Sniper Barrel, …), die stark
+    //    genug klangen, aber real kaum einen Unterschied gemacht haben. ──
     {
-        id:          'swift-boots',
-        name:        'Swift Boots',
-        description: '+20% Move Speed',
+        id:          'speed-boost',
+        name:        'Speed Boost',
+        description: '+40% Move Speed',
         icon:        '👢',
-        applyStats: s => ({ ...s, moveSpeed: clamp(s.moveSpeed * 1.2, MOVE_SPEED_RANGE.min, MOVE_SPEED_RANGE.max) }),
+        repeatable:  true,
+        applyStats: s => ({ ...s, moveSpeed: clamp(s.moveSpeed * 1.4, MOVE_SPEED_RANGE.min, MOVE_SPEED_RANGE.max) }),
     },
     {
         id:          'rapid-fire',
         name:        'Rapid Fire',
-        description: '-20% Shoot Cooldown',
+        description: '-35% Shoot Cooldown',
         icon:        '🔫',
-        applyStats: s => ({ ...s, shootCooldown: clamp(s.shootCooldown * 0.8, SHOOT_COOLDOWN_RANGE.min, SHOOT_COOLDOWN_RANGE.max) }),
+        repeatable:  true,
+        applyStats: s => ({ ...s, shootCooldown: clamp(s.shootCooldown * 0.65, SHOOT_COOLDOWN_RANGE.min, SHOOT_COOLDOWN_RANGE.max) }),
     },
     {
-        id:          'cannon-rounds',
-        name:        'Cannon Rounds',
-        description: '+25% Bullet Speed',
+        id:          'bullet-speed',
+        name:        'Bullet Speed',
+        description: '+60% Bullet Speed',
         icon:        '💥',
-        applyStats: s => ({ ...s, bulletSpeed: clamp(s.bulletSpeed * 1.25, BULLET_SPEED_RANGE.min, BULLET_SPEED_RANGE.max) }),
+        repeatable:  true,
+        applyStats: s => ({ ...s, bulletSpeed: clamp(s.bulletSpeed * 1.6, BULLET_SPEED_RANGE.min, BULLET_SPEED_RANGE.max) }),
     },
-    {
-        id:          'twitch-reflex',
-        name:        'Twitch Reflex',
-        description: '+10% Move Speed, -10% Shoot Cooldown',
-        icon:        '⚡',
-        applyStats: s => ({
-            ...s,
-            moveSpeed:     clamp(s.moveSpeed * 1.1, MOVE_SPEED_RANGE.min, MOVE_SPEED_RANGE.max),
-            shootCooldown: clamp(s.shootCooldown * 0.9, SHOOT_COOLDOWN_RANGE.min, SHOOT_COOLDOWN_RANGE.max),
-        }),
-    },
-    {
-        id:          'sniper-barrel',
-        name:        'Sniper Barrel',
-        description: '+35% Bullet Speed, -10% Move Speed',
-        icon:        '🎯',
-        applyStats: s => ({
-            ...s,
-            bulletSpeed: clamp(s.bulletSpeed * 1.35, BULLET_SPEED_RANGE.min, BULLET_SPEED_RANGE.max),
-            moveSpeed:   clamp(s.moveSpeed * 0.9, MOVE_SPEED_RANGE.min, MOVE_SPEED_RANGE.max),
-        }),
-    },
-    {
-        id:          'trigger-happy',
-        name:        'Trigger Happy',
-        description: '-30% Shoot Cooldown, -10% Bullet Speed',
-        icon:        '🔥',
-        applyStats: s => ({
-            ...s,
-            shootCooldown: clamp(s.shootCooldown * 0.7, SHOOT_COOLDOWN_RANGE.min, SHOOT_COOLDOWN_RANGE.max),
-            bulletSpeed:   clamp(s.bulletSpeed * 0.9, BULLET_SPEED_RANGE.min, BULLET_SPEED_RANGE.max),
-        }),
-    },
-    {
-        id:          'marathon-legs',
-        name:        'Marathon Legs',
-        description: '+35% Move Speed',
-        icon:        '🏃',
-        applyStats: s => ({ ...s, moveSpeed: clamp(s.moveSpeed * 1.35, MOVE_SPEED_RANGE.min, MOVE_SPEED_RANGE.max) }),
-    },
-    {
-        id:          'heavy-slugs',
-        name:        'Heavy Slugs',
-        description: '+45% Bullet Speed',
-        icon:        '🧱',
-        applyStats: s => ({ ...s, bulletSpeed: clamp(s.bulletSpeed * 1.45, BULLET_SPEED_RANGE.min, BULLET_SPEED_RANGE.max) }),
-    },
+    // ── Verhaltens-Mods: verändern was pro Trigger-Pull abgefeuert wird. ──
     {
         id:          'triple-shot',
         name:        'Triple Shot',
@@ -136,6 +107,30 @@ export const MOD_POOL: ModDefinition[] = [
         modifyShots: shots => shots.map(s => ({ ...s, homing: true })),
     },
 ];
+
+// Badge-Text auf der Powerup-Karte eines stapelbaren Mods: welche Stack-Stufe
+// der Pick ergäbe — bzw. schlicht "Stackable", solange noch keiner aktiv ist.
+// Zentral, damit Solo- und Horde-Auswahl-Overlay denselben Wortlaut zeigen.
+export function stackOfferLabel(activeIds: string[], id: string): string {
+    const count = modStackCount(activeIds, id);
+    return count > 0 ? `Stack → ×${Math.min(count + 1, MAX_MOD_STACKS)}` : 'Stackable';
+}
+
+// Wie viele Kopien eines Mods aktuell aktiv sind (0 = nicht aktiv). Für nicht
+// stapelbare Mods immer 0 oder 1.
+export function modStackCount(activeIds: string[], id: string): number {
+    let n = 0;
+    for (const m of activeIds) if (m === id) n++;
+    return n;
+}
+
+// Darf dieser Mod (noch) angeboten bzw. hinzugefügt werden? Stapelbare bis zum
+// Cap, einmalige nur wenn noch nicht aktiv.
+export function isModOfferable(mod: ModDefinition, activeIds: string[]): boolean {
+    return mod.repeatable
+        ? modStackCount(activeIds, mod.id) < MAX_MOD_STACKS
+        : !activeIds.includes(mod.id);
+}
 
 export function applyMods(base: PlayerStats, activeIds: string[]): PlayerStats {
     let result = base;

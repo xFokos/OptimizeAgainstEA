@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { cloneElement, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useHints, HINTS, TourSpotlight } from '../../../components/hints';
 import type { HintId } from '../../../components/hints';
-import { HelpButton } from '../../../components/help';
+import { HelpButton, MobileHelpBar } from '../../../components/help';
 import { ShooterPlayerSection, ShooterDnaSection, HordeWaveSection } from '../settings/ShooterSettings';
 import { useSettings, resetShooterSettings } from '../../../context/SettingsContext';
 import { HordeEASettingsPanel } from '../../../components/settings/EASettings';
@@ -301,10 +301,10 @@ export function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
                     {tabBar}
                     {tabContent}
                 </div>
+                <MobileHelpBar topic="shooter.horde" onTakeTour={startTour} />
                 <div style={mobileBtnsStyle}>
-                    <HelpButton topic="shooter.horde" onTakeTour={startTour} />
-                    <button className="btn btn--outline btn--sm" style={{ '--btn-color': HO } as React.CSSProperties} onClick={openTutorial}>Tutorial</button>
-                    <div style={{ flex: 1 }}>{playBtn}</div>
+                    <button className="btn btn--outline btn--lg" style={{ flex: 1, minWidth: 0, '--btn-color': HO } as React.CSSProperties} onClick={openTutorial}>Tutorial</button>
+                    {cloneElement(playBtn, { style: { flex: 1, minWidth: 0, '--btn-color': HO } as React.CSSProperties })}
                 </div>
                 {tourOverlay}
                 {tutorialOverlays}

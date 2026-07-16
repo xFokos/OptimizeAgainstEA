@@ -36,10 +36,13 @@
     }
 }
 
-/* Landscape phone (Handy quer = Twin-Stick): schmale Touch-Zonen */
+/* Landscape phone (Handy quer = Twin-Stick): Touch-Zonen.
+   Bewusst großzügig — der Canvas ist quadratisch und wird ohnehin von der
+   (kleinen) Höhe begrenzt, also bleibt horizontal genug Platz; die breiteren
+   Zonen geben mehr Freiraum zum Steuern und Schießen. */
 @media (orientation: landscape) and (max-height: 500px) {
     .root {
-        grid-template-columns: 155px 1fr 155px;
+        grid-template-columns: 190px 1fr 190px;
     }
     /* panels wieder sichtbar falls vorher ausgeblendet */
     .leftBar,

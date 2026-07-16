@@ -157,11 +157,18 @@
 	display:         flex;
 	flex-direction:  column;
 	align-items:     center;
-	justify-content: center;
+	/* `safe center` centers while there's room but falls back to top-aligned
+	   when the step is taller than the host — so a long step (EA "Problem", the
+	   in-game tutorial steps) scrolls fully into reach instead of being clipped
+	   at the top with its Back/Next buttons off-screen. */
+	justify-content: safe center;
+	overflow-y:      auto;
+	min-height:      0;
 	gap:             var(--sp-6, 24px);
 	width:           100%;
 	margin:          0 auto;
-	padding:         0 var(--sp-4, 16px);
+	padding:         var(--sp-4, 16px);
+	box-sizing:      border-box;
 }
 
 /* ── Progress dots — also the jump-to-step control ────────────────────────── */
@@ -313,26 +320,68 @@
 	.explainer__stage, .explainer__mascot { animation: none; }
 }
 
-/* Narrow screens: no room for a corner mascot without covering the card —
-   drop it back into flow, above the progress dots, smaller. */
-@media (max-width: 640px) {
+/* Anything short of a wide desktop: the absolute corner mascot overlaps the
+   centered card. The step content is centered and up to 960px wide (split
+   steps), and the mascot claims ~236px on the left — so it only clears the
+   card on very wide viewports (≈1440px+). Below that, drop Compi into normal
+   flow above the progress dots so he can never sit on top of the text/buttons.
+   This is what tablets hit (768–1366px), which the old 640px rule missed. */
+@media (max-width: 1439px) {
+	.explainer { flex-direction: column; align-items: center; }
 	.explainer__mascot {
 		position:  static;
 		order:     -1;
-		width:     72px;
+		top:       auto;
+		width:     84px;
 		margin-bottom: var(--sp-2, 8px);
 		/* Drop the -50% vertical centering trick — in normal flow it would
 		   just shift Compi up into whatever comes before him. */
 		transform: scaleX(-1);
 		animation: explainerMascotBobMobile 3.2s ease-in-out infinite;
 	}
-	.explainer { flex-direction: column; align-items: center; }
-	.explainer__body { padding: 0; }
+}
+
+/* Phones: shrink Compi a touch more and reclaim horizontal padding for the
+   visuals (24px each side eats a lot of the canvas width on a ~360px screen). */
+@media (max-width: 640px) {
+	.explainer__mascot { width: 72px; }
+	/* Full width for the visuals (no side padding) but keep a little top/bottom
+	   room so scrolled content doesn't sit flush to the edge. */
+	.explainer__body { padding: var(--sp-3, 12px) 0; gap: var(--sp-3, 12px); }
+	.explainer__visual { padding: var(--sp-4, 16px); }
+	/* Down-scale the stacked step content just enough to clear a phone screen
+	   without scrolling — the desktop layout is untouched. Tighter gaps + a
+	   slightly smaller caption + a shrunk preview canvas (rendered at full
+	   internal resolution, only displayed smaller, so it stays crisp). */
+	.explainer__stage { gap: var(--sp-3, 12px); }
+	.explainer__main  { gap: var(--sp-3, 12px); }
+	.explainer__captionTitle { font-size: 0.98rem; }
+	.explainer__captionBody  { font-size: 0.86rem; line-height: 1.45; }
+	.explainer__side canvas  { width: 190px; height: 190px; }
 }
 
 @keyframes explainerMascotBobMobile {
 	0%, 100% { transform: scaleX(-1) translateY(0); }
 	50%      { transform: scaleX(-1) translateY(-6px); }
+}
+
+/* Short viewports — most often a phone held sideways (the shooter tutorial is
+   landscape-locked, and the takeover host runs there too). There's no vertical
+   room for the absolute corner mascot without it sitting on top of the step
+   text/actions, so drop it entirely and tighten the vertical rhythm. Keyed on
+   height, not width: a landscape phone is wide but only ~400px tall, so the
+   640px width rule above never catches it. */
+@media (max-height: 600px) {
+	.explainer__mascot { display: none; }
+	.explainer__body   { gap: var(--sp-3, 12px); padding: var(--sp-3, 12px); }
+	.explainer-takeover { padding: var(--sp-4, 16px) var(--sp-3, 12px); }
+	/* Height-starved: the preview canvas is the tallest single element, so
+	   shrink it hardest here to keep the whole step on one screen. When the
+	   split layout still sits side-by-side (wide-but-short landscape phone)
+	   the smaller canvas also frees width for the text column. */
+	.explainer__stage { gap: var(--sp-4, 16px); }
+	.explainer__captionBody { font-size: 0.86rem; line-height: 1.45; }
+	.explainer__side canvas { width: 168px; height: 168px; }
 }
 
 /* Compact: much smaller host (e.g. an 800px game canvas overlay) — the

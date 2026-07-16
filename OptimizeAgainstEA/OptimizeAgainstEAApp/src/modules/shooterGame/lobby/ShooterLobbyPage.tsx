@@ -52,7 +52,10 @@ function ShooterLobbyContent() {
         <PageContainer>
             <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
                 <TopBar onBack={() => setMode(null)} />
-                <div style={{ flex: 1, minHeight: 0, overflow: isMobile ? 'auto' : 'hidden' }}>
+                {/* Horizontal scroll is never wanted (it clips nothing important
+                    on these layouts and reads as broken on a phone); only the
+                    vertical axis may scroll, and only on mobile. */}
+                <div style={{ flex: 1, minHeight: 0, overflowX: 'hidden', overflowY: isMobile ? 'auto' : 'hidden' }}>
                     {mode === 'normal'   && <NormalLobby />}
                     {mode === 'raidboss' && <RaidbossLobby />}
                     {mode === 'horde'    && <HordeLobby initialTab={locationState?.hordeTab} />}

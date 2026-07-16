@@ -1,7 +1,7 @@
 import { useSyncExternalStore, type CSSProperties } from 'react';
 import { useSettings, resetShooterSettings } from '../../../context/SettingsContext';
 import { DNA_INDEX, DNA_NAMES, DNA_GENE_INFO } from '../shooter.types';
-import { MOD_POOL } from '../mods/modTypes';
+import { MOD_POOL, MAX_MOD_STACKS, modStackCount } from '../mods/modTypes';
 import { runModsStore } from '../mods/runModsStore';
 import { Switch } from '../../../components/ui/Switch';
 import { CompiTooltip } from '../../../components/ui/CompiTooltip';
@@ -207,17 +207,41 @@ function ModSlotGrid() {
             <h4 style={modStyles.title}>Mods</h4>
             <div style={modStyles.grid}>
                 {MOD_POOL.map(mod => {
-                    const active = activeModIds.includes(mod.id);
+                    const count   = modStackCount(activeModIds, mod.id);
+                    const active  = count > 0;
+                    const atCap   = mod.repeatable && count >= MAX_MOD_STACKS;
+                    const tooltip = mod.repeatable
+                        ? `${mod.name} — ${mod.description} · stapelbar bis ×${MAX_MOD_STACKS}`
+                        : `${mod.name} — ${mod.description}`;
                     return (
-                        <CompiTooltip key={mod.id} text={`${mod.name} — ${mod.description}`}>
-                            <button
-                                type="button"
-                                onClick={() => runModsStore.toggleMod(mod.id)}
-                                style={{ ...modStyles.slot, ...(active ? modStyles.slotActive : modStyles.slotInactive) }}
-                            >
-                                <span style={modStyles.slotIcon}>{mod.icon}</span>
-                                <span style={modStyles.slotName}>{mod.name}</span>
-                            </button>
+                        <CompiTooltip key={mod.id} text={tooltip}>
+                            <div style={modStyles.slotWrap}>
+                                <button
+                                    type="button"
+                                    onClick={() => mod.repeatable ? runModsStore.addMod(mod.id) : runModsStore.toggleMod(mod.id)}
+                                    style={{
+                                        ...modStyles.slot,
+                                        ...(active ? modStyles.slotActive : modStyles.slotInactive),
+                                        ...(atCap ? { cursor: 'default' } : {}),
+                                    }}
+                                >
+                                    <span style={modStyles.slotIcon}>{mod.icon}</span>
+                                    <span style={modStyles.slotName}>{mod.name}</span>
+                                </button>
+                                {mod.repeatable && count > 0 && (
+                                    <>
+                                        <span style={modStyles.stackBadge}>×{count}</span>
+                                        <button
+                                            type="button"
+                                            aria-label={`${mod.name} entfernen`}
+                                            onClick={() => runModsStore.removeMod(mod.id)}
+                                            style={modStyles.stackMinus}
+                                        >
+                                            −
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </CompiTooltip>
                     );
                 })}
@@ -243,6 +267,49 @@ const modStyles: Record<string, CSSProperties> = {
         display:               'grid',
         gridTemplateColumns:   'repeat(auto-fill, 64px)',
         gap:                   '8px',
+    },
+    slotWrap: {
+        position:     'relative',
+        display:      'inline-block',
+        width:        '64px',
+        height:       '64px',
+    },
+    stackBadge: {
+        position:      'absolute',
+        top:           '-6px',
+        right:         '-6px',
+        minWidth:      '18px',
+        height:        '18px',
+        padding:       '0 4px',
+        borderRadius:  '999px',
+        background:    'var(--accent)',
+        color:         '#0b0b0f',
+        fontSize:      '11px',
+        fontWeight:    700,
+        lineHeight:    '18px',
+        textAlign:     'center',
+        pointerEvents: 'none',
+        boxShadow:     '0 0 6px color-mix(in srgb, var(--accent) 60%, transparent)',
+    },
+    stackMinus: {
+        position:      'absolute',
+        top:           '-6px',
+        left:          '-6px',
+        width:         '18px',
+        height:        '18px',
+        borderRadius:  '999px',
+        border:        '1px solid #ef4444',
+        background:    '#ef4444',
+        color:         '#fff',
+        fontSize:      '14px',
+        fontWeight:    700,
+        lineHeight:    1,
+        cursor:        'pointer',
+        display:       'flex',
+        alignItems:    'center',
+        justifyContent:'center',
+        padding:       0,
+        boxShadow:     '0 0 6px rgba(239,68,68,0.55)',
     },
     slot: {
         display:        'flex',

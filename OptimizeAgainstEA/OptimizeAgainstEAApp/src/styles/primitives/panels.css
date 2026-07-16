@@ -49,3 +49,14 @@
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
+
+/* Arena frame — the game-canvas window (ShooterCanvas wrapper, HordeCanvas
+   frame): border + soft shadow so the play field reads as a distinct window
+   lifted off the page background rather than bleeding into it. Sizing and
+   positioning stay with the component; only the frame recipe lives here. */
+.arena-frame {
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}

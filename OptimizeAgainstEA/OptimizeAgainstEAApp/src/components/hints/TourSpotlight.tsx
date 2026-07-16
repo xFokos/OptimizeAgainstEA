@@ -49,6 +49,12 @@ export function TourSpotlight({ targetRef, title, body, actions, onAdvance, onSk
       const el = targetRef.current;
       if (el) setRect(el.getBoundingClientRect());
     };
+    // Guide the user to the highlighted element: if it's scrolled off-screen
+    // (common on phones/tablets where a lobby column scrolls), bring it into
+    // view before spotlighting it — otherwise the cutout + tooltip land
+    // outside the viewport and the step looks broken. The `scroll` listener
+    // below (capture: true) keeps the hole tracking the target as it settles.
+    targetRef.current?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
     measure();
     window.addEventListener('resize', measure);
     window.addEventListener('scroll', measure, true);

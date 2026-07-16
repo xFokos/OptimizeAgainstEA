@@ -67,6 +67,12 @@
 	border-radius: 12px;
 	background:    rgba(255, 255, 255, 0.03);
 	border:        1px solid rgba(255, 255, 255, 0.1);
+	/* Canvases carry a fixed pixel width/height attribute (240–360px). Without
+	   this they render at that intrinsic width and overflow narrow phones,
+	   forcing horizontal page scroll. Cap to the container and let the aspect
+	   ratio drive the height. */
+	max-width:     100%;
+	height:        auto;
 }
 .eaviz__previewLegend {
 	display:     flex;

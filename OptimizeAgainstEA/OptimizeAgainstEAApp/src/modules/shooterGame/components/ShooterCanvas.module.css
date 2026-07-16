@@ -1,9 +1,9 @@
+/* Frame recipe (border/radius/shadow) comes from the shared `.arena-frame`
+   primitive (styles/primitives/panels.css) — applied alongside this class. */
 .wrapper {
     position: absolute;
     width: 800px;
     height: 844px; /* 800 canvas + 44 tug bar */
-    border-radius: 8px;
-    overflow: hidden;
     outline: none;
 }
 
@@ -135,7 +135,10 @@
 
 .title {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 28px;
+    /* Großzügig bemessen: das ganze Canvas wird per transform runterskaliert
+       (auf Mobile deutlich), die Overlay-Texte schrumpfen also mit — was hier
+       normal wirkt, ist auf dem Handy sonst kaum lesbar. */
+    font-size: 40px;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.9);
     margin: 0;
@@ -196,11 +199,11 @@
    (see src/styles/primitives/buttons.css); the Continue button is sized up
    inline for this reveal (see ShooterCanvas.tsx) rather than in the global class. */
 
+/* Auf kleinen Viewports NICHT zusätzlich schrumpfen: der Canvas-Scale
+   verkleinert die Overlay-UI dort ohnehin schon — kleinere px-Werte hier
+   würden doppelt schrumpfen und unlesbar werden. Nur die Abstände enger. */
 @media (max-width: 768px) {
-    .title    { font-size: 22px; }
-    .subtitle { font-size: 11px; }
     .overlay  { gap: 12px; padding: 16px; }
-    .roundStatCount { font-size: 36px; }
 }
 
 /* ---- Mod Choice ---- */
