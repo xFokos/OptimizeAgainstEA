@@ -20,7 +20,7 @@ Repository: https://gitlab2.informatik.uni-wuerzburg.de/GE/Teaching/gl2/projects
 
 ## Presentation of results
 
-> [OptimizeAgainstEA.web.app](OptimizeAgainstEA.web.app)
+> https://optimizeagainstea.web.app
 
 A live deployment is configured via Firebase Hosting (Firebase project `optimizeagainstea`).
 
@@ -28,16 +28,18 @@ A live deployment is configured via Firebase Hosting (Firebase project `optimize
 
 ## What's inside
 
-The app is a single React SPA with multiple routed mini-games. The most developed games are:
+The app is a single React SPA with multiple routed mini-games:
 
 | Route | Game | Concept |
 |---|---|---|
-| `/PeakFinder` | **Peak Finder** | Probe a hidden function surface to find its global minimum — play solo or against an EA, with a full step-by-step EA replay viewer |
-| `/ShooterGame` | **Shooter Game** | A genetic algorithm evolves enemy agent behaviour each round, adapting to the player's style |
-| `/MazeGame` | **Maze Game** | EA-based maze solving / Experimentation Playground |
+| `/PeakFinder` | **Peak Finder** | Probe a hidden function surface (14 analytic benchmark functions, largely from the BBOB suite, or procedurally generated maps) to find its global minimum — play solo, create your own maps, or race a configurable EA with a full step-by-step replay viewer |
+| `/MazeExplorer` | **Maze Explorer** | A GA evolves move sequences through a maze — an experimentation playground for EA parameters on a combinatorial problem |
+| `/ShooterGame` | **Shooter Game** | A genetic algorithm evolves enemy agent behaviour each round, adapting to the player's style (Solo + community Raidboss mode) |
+| `/HordeGame` | **Horde Mode** | Steady-state EA: a horde of enemies evolves per death while the player survives; includes a custom map editor (`/HordeMapEditor`) |
 
+Supporting routes: `/` (home), `/Dashboard` (game selection), `/lobby/shooter` (shooter mode picker), `/Analytics` (Solo-play round analytics). Dev-/legacy-only routes (not linked from the UI): `/Buttons`, `/FunctionTuner`, `/Game`.
 
-Additional routes exist for navigation and tooling: `/` (home), `/Dashboard` (game selection), /functionTuner (Adjusting Maths Functions for peakfinder).
+Shared infrastructure across all games: a toggleable hint/coachmark system with the "Compi" mascot, per-game tutorials, an "EA Explained" teaching section, and EA settings panels (population size, generations, crossover/mutation rates, mutation strength & decay, and selection/crossover/mutation strategies).
 
 ---
 
@@ -124,18 +126,17 @@ Vite, TypeScript, ESLint (with `typescript-eslint`, `eslint-plugin-react-hooks`,
 
 ### Assets
 
-The following background / image assets are bundled under `OptimizeAgainstEAApp/src/assets/`:
+All bundled image assets, their location and origin:
 
+| Asset | Used for | Type / Source |
+|---|---|---|
+| `src/assets/CompiDerpy.webp` | "Compi" mascot (help modal, hint bubbles, tooltips, tutorials) | Original artwork (self-made) |
+| `public/logo.png` | Site logo / favicon | Original artwork (self-made) |
+| `public/PaperPlane.png`, `PaperPlane2.png`, `PaperPlane3.png` | Paper-plane visuals in the EA explainer flow | Original artwork (self-made) |
+| `public/game-shooter.png` | Shooter card on the dashboard | Screenshot of our own game |
+| `public/game-peakfinder.png` | Peak Finder card on the dashboard | Composite: Google Maps screenshot overlaid with the game's own heatmap rendering (map imagery © Google) |
+| `src/assets/Maze_Explorer.webp` | Maze Explorer card on the dashboard | Composite: maze image found via Google (source/license unverified) combined with original pizza artwork |
 
-> 🔴 **TODO:** Clarify and reference the **source and license** of every image asset in `src/assets/` (self-made, stock, generated, etc.). Any asset that is not original work must be attributed with its source and license here. Placeholder/test backgrounds (`TestBG1/2`) should be replaced or removed before final submission.
+All other visuals — heatmaps, contour lines, population dots, the shooter arena, maze rendering, charts — are drawn programmatically (canvas/CSS/Recharts); there are no further sprite or texture assets. No audio assets are used.
 
----
-
-## What's not built yet
-
-- **Mobile layout** — responsive breakpoints exist but are not fully tested below 640px.
-- **Analytic function problems** (Rastrigin, Ackley, Rosenbrock) for Peak Finder — the problem abstraction is ready, the functions are not yet wired in.
-- **Shooter population overlay** — visualizing all individuals on the canvas during the evolution phase.
-- Several routes (Map Game, Dashboard, Analytics, Jump Game, problem selection) are still partly scaffolding.
-
-> This list is non-exhaustive; the project is actively being extended.
+**Font:** [Inter](https://fonts.google.com/specimen/Inter) is loaded from Google Fonts (SIL Open Font License 1.1).
