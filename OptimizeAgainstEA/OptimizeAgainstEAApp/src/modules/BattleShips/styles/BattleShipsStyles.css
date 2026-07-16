@@ -36,8 +36,19 @@
 
 	/* Max width of the map square in play & vs-ea modes.
 	   Fluid: shrinks with the viewport on small screens. */
-	--map-max-width: min(480px, 92vw);
+	--map-max-width: min(560px, 92vw);
 	--map-min-width: 200px;
+
+	/* The map is a square (aspect-ratio 1/1) sized by its *width*, so on a short
+	   desktop window its height overflows and the whole mode scrolls. On PC we
+	   also cap the map width by the viewport *height* minus everything stacked
+	   around it in that mode (top bar, page padding, per-mode headers/controls),
+	   so a whole mode always fits on one screen. One knob per mode because each
+	   mode stacks a different amount of chrome above/below the map. See the
+	   "FIT-TO-VIEWPORT HEIGHT" block below. */
+	--map-vchrome-play:   200px;   /* page pad + mode topbar + controls + gaps */
+	--map-vchrome-vsea:   220px;   /* page pad + race topbar + panel header + replay row */
+	--map-vchrome-create: 195px;   /* page pad + create topbar + gaps + map hint */
 
 	/* Play mode: sidebar | chart-col | map */
 	--play-sidebar-width:   160px;   /* sidebar width */
@@ -352,6 +363,13 @@ html, body, #root {
 .map-loader__play              { width: 100%; justify-content: center; }
 
 /* ─────────────────────────────────────────────
+   MAP SIZE PICKER (shared: map loader + vs-ea loader)
+───────────────────────────────────────────── */
+.map-size-picker          { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); width: 100%; }
+.map-size-picker__label   { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); font-family: var(--font-mono); }
+.map-size-picker__options { display: flex; gap: var(--sp-2); flex-wrap: wrap; justify-content: center; }
+
+/* ─────────────────────────────────────────────
    SAVED MAPS SIDEBAR (loader screens)
 ───────────────────────────────────────────── */
 .loader-with-saved {
@@ -381,12 +399,19 @@ html, body, #root {
    now full-width card. */
 @media (min-width: 900px) {
 	.loader-with-saved { margin-bottom: 0; }
-	.loader-toolbar {
+	/* The toolbar is wrapped in a HintPopover anchor span. Fix the *span* (not
+	   the toolbar) to the corner, and keep the toolbar static inside it —
+	   otherwise the anchor is a zero-size in-flow element and the hint bubble
+	   would point at empty space instead of the buttons. The bare .loader-toolbar
+	   rule stays as a fallback for toolbars rendered without a hint wrapper. */
+	.loader-toolbar,
+	.hint-anchor:has(> .loader-toolbar) {
 		position: fixed;
 		top: calc(var(--peak-topbar-h) + var(--sp-3));
 		left: var(--page-padding);
 		z-index: 50;
 	}
+	.hint-anchor > .loader-toolbar { position: static; }
 }
 
 /* Toggle button — flows above the loader, pinned to the left edge so the
@@ -1050,6 +1075,35 @@ html, body, #root {
 }
 
 /* ─────────────────────────────────────────────
+   FIT-TO-VIEWPORT HEIGHT (PC)
+   The maps are squares sized by width, so a tall map can overflow a short
+   window and force the page to scroll. On pointer-sized screens (i.e. once each
+   mode is in its side-by-side desktop layout, before it stacks) also cap the map
+   width by the leftover viewport *height*, so Play / Vs-EA / Create each fit on
+   one screen with no scrolling. `min()` only ever shrinks the map — on tall
+   windows the width knob still wins, so nothing changes there. The thresholds
+   match each mode's stacking break so the cap only applies while the map sits
+   beside its other column (stacked/mobile layouts are intentionally scrollable).
+───────────────────────────────────────────── */
+
+/* Play stacks at 900px → apply the height cap only above it. */
+@media (min-width: 901px) {
+	.play-map-wrap {
+		width: min(var(--map-max-width), calc(100dvh - var(--map-vchrome-play)));
+	}
+}
+
+/* Vs-EA race and Create both stack at 768px. */
+@media (min-width: 769px) {
+	.vsea-panel {
+		width: min(var(--map-max-width), calc(100dvh - var(--map-vchrome-vsea)));
+	}
+	.create-step__map-wrap {
+		max-width: min(var(--map-max-width), calc(100dvh - var(--map-vchrome-create)));
+	}
+}
+
+/* ─────────────────────────────────────────────
    LARGE-SCREEN SCALING
    PeakFinder's whole layout is driven by the size knobs in :root, and the
    content is already centered by .app's flex centering. On laptops (incl. the
@@ -1066,7 +1120,7 @@ html, body, #root {
 /* ≥ 1800px — external monitors larger than any MacBook built-in display. */
 @media (min-width: 1800px) {
 	:root {
-		--map-max-width: min(600px, 42vw);
+		--map-max-width: min(720px, 42vw);
 		--play-chart-width: 620px;
 		--play-sidebar-width: 200px;
 		--selector-max-width: 880px;
@@ -1088,7 +1142,7 @@ html, body, #root {
 /* ≥ 2400px — 1440p (2560px) and 4K. Grow further to fill the extra room. */
 @media (min-width: 2400px) {
 	:root {
-		--map-max-width: min(760px, 40vw);
+		--map-max-width: min(880px, 40vw);
 		--play-chart-width: 780px;
 		--play-sidebar-width: 240px;
 		--selector-max-width: 1040px;

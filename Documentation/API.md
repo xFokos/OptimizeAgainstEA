@@ -263,7 +263,7 @@ global minimum, competing against an EA. Three modes: **Create**, **Play**, **Vs
 | Export | File | Description |
 |---|---|---|
 | `Coordinate`, `Minimum`, `MapConfig`, `ProbeResult` | `map.ts` | Map-domain primitives |
-| `ProblemInstance` | `map.ts` | **The** abstraction game modes hold (never a raw `MapConfig`): `{ evaluate(x,y): number (0 = global min); bounds; isWin(x,y); metadata? }` |
+| `ProblemInstance` | `map.ts` | **The** abstraction game modes hold (never a raw `MapConfig`): `{ evaluate(x,y): number (0 = global min); bounds; isWin(x,y); displayExponent?; metadata? }`. `evaluate` is the single source of truth (reading + EA fitness + heatmap colour). `displayExponent` is a display-only heatmap curve (`value^exp`, default 1 = untouched; benchmark functions use 0.55) — never affects readings/wins/EA |
 | `GameMode` (`'select'\|'create'\|'play'\|'vs-ea'`), `CreateStep`, `GameSession` | `game.ts` | Mode state |
 | `Individual`, `Generation`, `EAConfig`, `DEFAULT_EA_CONFIG` | `ea.ts` | EA domain. Defaults: population 40, maxGen 200, crossoverRate 0.8, mutationRate 0.3, strength 0.25, decay 0.97, win fraction 0.10 |
 | `SelectionStrategy` = `'tournament'\|'roulette'\|'elitist'`; `CrossoverStrategy` = `'uniform'\|'arithmetic'\|'singlePoint'`; `MutationStrategy` = `'gaussian'\|'uniform'\|'cauchy'` | `ea.ts` | Strategy ids |
@@ -277,10 +277,10 @@ global minimum, competing against an EA. Three modes: **Create**, **Play**, **Vs
 
 | Export | File | Description |
 |---|---|---|
-| `createMapProblem(config: MapConfig): ProblemInstance` | `functionSurface.ts` | Builds the surface from placed minima. Tunables: `DISTANCE_SCALE = 0.7`, `LOCAL_MIN_FLOOR_MIN/MAX = 0.03/0.1`; helpers `defaultLocalFloor`, `effectiveFloor`, `floorToCenterValue` |
+| `createMapProblem(config: MapConfig): ProblemInstance` | `functionSurface.ts` | Builds the surface from placed minima: smooth-min blended cones, then exponential saturation `v = 1 − 2^(−(basinsAway^FAR_FALLOFF))` against the map's own `basinScale` (so adding minima no longer resizes basins). Tunables: `FAR_FALLOFF = 1.3`, `SMOOTH_K = 0.12`, `LOCAL_MIN_FLOOR_MIN/MAX = 0.18/0.55` (fractions of `basinScale`), `FALLBACK_BASIN_SCALE`; helpers `defaultLocalFloor`, `effectiveFloor(minimum, basinScale)` |
 | `createFunctionProblem(spec, sharpenOverride?): ProblemInstance` | `functionProblem.ts` | Analytic benchmark problems (Sphere, Rastrigin, …). `BENCHMARK_FUNCTIONS`, categories (`'simple'\|'normal'\|'complex'\|'quirky'`), `functionsInCategory`, `proceduralFunction(seed)`, spec builders `randomFunctionSpec` / `randomSurfaceSpec` / `proceduralSurfaceSpec` / `resolveSpec`, codec `encodeFunctionCode`/`decodeFunctionCode`, `FUNCTION_WIN_RADIUS = 0.05` |
 | `buildProblemFromSource(source)` / `decodeProblem(code)` / `decodeProblemOrNull(code?)` | `problemCode.ts` | Unified entry: turns a share code (map **or** function) into a `ProblemInstance`; `DecodedProblem` carries the `ProblemSource` union |
-| `encodeMap` / `decodeMap` / `generateRandomMap(numMinima = 5)` | `mapCodec.ts` | Base64-URL-safe map share codes, format `{ v: 1, id, m: [[x,y,isGlobal],…], wr, t }` |
+| `encodeMap` / `decodeMap` / `generateRandomMap(size = 'medium')` | `mapCodec.ts` | Base64-URL-safe map share codes, format `{ v: 1, id, m: [[x,y,isGlobal,floor?],…], wr, bs?, t }` (`bs` = `basinScale`, optional; legacy codes fall back to the Medium preset). Size presets in `MAP_SIZES` (`'small'\|'medium'\|'large'\|'huge'`) fix minima count, win radius, spacing and `basinScale` |
 | `copyCode` / `pasteCode` | `codeClipboard.ts` | Clipboard helpers with fallbacks |
 
 **Rendering & math helpers**

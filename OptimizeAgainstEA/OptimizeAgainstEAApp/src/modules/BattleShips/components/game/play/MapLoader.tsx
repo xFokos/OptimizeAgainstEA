@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { encodeMap, generateRandomMap } from '../../../engine/mapCodec';
+import { encodeMap, generateRandomMap, DEFAULT_MAP_SIZE, type MapSizeId } from '../../../engine/mapCodec';
 import { decodeProblem, type DecodedProblem } from '../../../engine/problemCode';
 import { copyCode, pasteCode } from '../../../engine/codeClipboard';
+import { MapSizePicker } from '../shared/MapSizePicker';
 import { SavedMapsSidebar } from '../shared/SavedMapsSidebar';
 import { SavedFunctionsSidebar } from '../shared/SavedFunctionsSidebar';
 import { useSavedMaps } from '../../../hooks/useSavedMaps';
@@ -16,6 +17,7 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [size, setSize] = useState<MapSizeId>(DEFAULT_MAP_SIZE);
   const { savedMaps } = useSavedMaps();
 
   const handlePlay = () => {
@@ -29,8 +31,7 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
   // Generate a random map, drop its code into the field, and copy it to the
   // clipboard so the player can share it. They press Play to start.
   const handleRandom = () => {
-    const numMinima = 4 + Math.floor(Math.random() * 5); // 4–8
-    const newCode = encodeMap(generateRandomMap(numMinima));
+    const newCode = encodeMap(generateRandomMap(size));
     setCode(newCode);
     setError('');
     void copyCode(newCode);
@@ -46,7 +47,7 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
 
   return (
     <div className="loader-with-saved">
-    <HintPopover id="loader.chooseMap" placement="bottom" show={savedMaps.length > 0}>
+    <HintPopover id="loader.chooseMap" placement="bottom" highlight show={savedMaps.length > 0}>
       <div className="loader-toolbar">
         <SavedMapsSidebar />
         <SavedFunctionsSidebar />
@@ -57,6 +58,8 @@ export function MapLoader({ onLoad, onBack }: MapLoaderProps) {
       <p className="map-loader__desc">
         Generate a random map, or paste a code from a friend, then press Play.
       </p>
+
+      <MapSizePicker value={size} onChange={setSize} />
 
       <button className="btn btn--ghost map-loader__random" onClick={handleRandom}>
         🎲 Generate Random Map

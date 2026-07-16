@@ -10,12 +10,18 @@ const NORMAL_PRESET = EA_PRESETS.find((p) => p.id === 'normal')!;
 const GENS_PER_PROBE = 1;
 import { decodeProblem, type DecodedProblem } from '../../../engine/problemCode';
 import { valueToHeight } from '../../../engine/height';
-import { encodeMap, generateRandomMap } from '../../../engine/mapCodec';
+import {
+  encodeMap,
+  generateRandomMap,
+  DEFAULT_MAP_SIZE,
+  type MapSizeId,
+} from '../../../engine/mapCodec';
 import { copyCode, pasteCode } from '../../../engine/codeClipboard';
 import { usePlaySession } from '../../../hooks/usePlaySession';
 import { useEARunner } from '../../../hooks/useEARunner';
 import { useSavedMaps } from '../../../hooks/useSavedMaps';
 import { GameMap } from '../shared/GameMap';
+import { MapSizePicker } from '../shared/MapSizePicker';
 import { SavedMapsSidebar } from '../shared/SavedMapsSidebar';
 import { SavedFunctionsSidebar } from '../shared/SavedFunctionsSidebar';
 import { ProbeMarker } from '../play/ProbeMarker';
@@ -64,6 +70,7 @@ function DualMapLoader({
     playerCode: initialPlayerCode ?? '', eaCode: initialEaCode ?? '', playerErr: '', eaErr: '', generatedCode: '',
   });
   const [showSettings, setShowSettings] = useState(false);
+  const [size, setSize] = useState<MapSizeId>(DEFAULT_MAP_SIZE);
   // The "where to find maps" hint only makes sense once the player has created a
   // map of their own; the EA-settings coachmark then waits until that hint has
   // been dismissed so the two don't overlap (and so it comes second).
@@ -80,8 +87,7 @@ function DualMapLoader({
   };
 
   const handleGenerate = () => {
-    const map  = generateRandomMap(5 + Math.floor(Math.random() * 4));
-    const code = encodeMap(map);
+    const code = encodeMap(generateRandomMap(size));
     setS((prev) => ({ ...prev, generatedCode: code, playerErr: '', eaErr: '' }));
   };
 
@@ -117,7 +123,7 @@ function DualMapLoader({
 
   return (
     <div className="loader-with-saved">
-    <HintPopover id="loader.chooseMap" placement="bottom" show={hasSavedMaps}>
+    <HintPopover id="loader.chooseMap" placement="bottom" highlight show={hasSavedMaps}>
       <div className="loader-toolbar">
         <SavedMapsSidebar />
         <SavedFunctionsSidebar />
@@ -129,6 +135,8 @@ function DualMapLoader({
         Load a map for yourself and one for the EA — or generate a random map
         and paste the same code into both.
       </p>
+
+      <MapSizePicker value={size} onChange={setSize} />
 
       <div className="dual-loader__generate-row">
         <button className="btn btn--ghost" onClick={handleGenerate}>
@@ -202,7 +210,8 @@ function DualMapLoader({
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Back</button>
         <HintPopover
           id="vsEa.settingsButton"
-          placement="bottom"
+          placement="top"
+          highlight
           dismissAfter={6000}
           show={!hasSavedMaps || isSeen('loader.chooseMap')}
         >
@@ -423,7 +432,7 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
             <GameMap
               evaluateFn={playerProblem?.evaluate}
               revealPoints={revealPoints}
-              heatmapConfig={{ revealRadius }}
+              heatmapConfig={{ revealRadius, valueExponent: playerProblem?.displayExponent }}
               onMapClick={!showOverlay ? handleProbe : undefined}
             >
               {play.probes.map((p, i) => (
@@ -455,7 +464,7 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
           {(ea.latestReplay && ea.latestReplay.length > 0 || ea.status === 'solved') && (
             <div style={{ display: 'flex', gap: 8 }}>
               {ea.latestReplay && ea.latestReplay.length > 0 && (
-                <HintPopover id="vsEa.replayButton" placement="top-start">
+                <HintPopover id="vsEa.replayButton" placement="top" highlight>
                   <button
                     className="btn btn--blue btn--sm"
                     onClick={() => setShowReplay(true)}
@@ -467,7 +476,8 @@ export function VsEAMode({ onBack, initialCode }: VsEAModeProps) {
               {ea.generations.length > 0 && (
                 <HintPopover
                   id="vsEa.eaMovementButton"
-                  placement="top-start"
+                  placement="top"
+                  highlight
                   show={play.probes.length >= 3 && !playerWon && !eaWon}
                 >
                   <button

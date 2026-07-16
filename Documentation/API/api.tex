@@ -393,6 +393,7 @@ interface ProblemInstance {
   evaluate: (x: number, y: number) => number; // 0 = global min, 1 = far away
   bounds:   { xMin: number; xMax: number; yMin: number; yMax: number };
   isWin:    (x: number, y: number) => boolean;
+  displayExponent?: number; // display-only heatmap colour curve; see Notes
   metadata?: { name?: string;
                description?: string;
                globalMinimum?: { x: number; y: number; value: number };
@@ -402,7 +403,15 @@ interface ProblemInstance {
 \apifield{Notes}Implemented by \ts{createMapProblem}
 (\srcfile{engine/functionSurface.ts}) and \ts{createFunctionProblem}
 (\srcfile{engine/functionProblem.ts}). New problem sources only need to
-produce this shape.
+produce this shape. \ts{evaluate} is the single source of truth --- the
+player's reading, the EA's fitness and the heatmap colour all come from it
+--- so a problem must return a value that already spans $[0,1]$ sensibly;
+do any shaping in the surface engine, never as a display curve.
+\ts{displayExponent} is the one purely-cosmetic exception: when set, the
+heatmap colours by $\ts{evaluate}^{\,\ts{displayExponent}}$ instead of
+\ts{evaluate} (default 1 = untouched), without ever affecting readings,
+wins or the EA. Surface maps leave it unset; benchmark functions set it to
+0.55 to keep more colour near the optimum.
 \end{apientry}
 
 \begin{apientry}{Coordinate, Minimum, MapConfig, ProbeResult}{types/map.ts}
@@ -412,24 +421,30 @@ interface Minimum {
   id: string;
   position: Coordinate;
   isGlobal: boolean;  // exactly one minimum per map is the global one
-  floor?: number;     // explicit depth of a local minimum; see Notes
+  floor?: number;     // depth of a local minimum, as a fraction of basinScale
 }
 interface MapConfig {
   id: string;               // 6-char uppercase share id
   minima: Minimum[];
   bounds: { xMin: number; xMax: number; yMin: number; yMax: number };
   winRadius: number;        // normalized radius around the global minimum
+  basinScale?: number;      // basin width (normalized); see Notes
   createdAt: number;        // epoch ms
 }
 interface ProbeResult { position: Coordinate; value: number; isWin: boolean }
 \end{lstlisting}
-\apifield{Notes}\ts{Minimum.floor} is the surface value added on top of
-the distance term in \ts{createMapProblem} --- lower = deeper, more
-deceptive. When omitted, a position-seeded pseudo-random floor in
-$[\ts{LOCAL\_MIN\_FLOOR\_MIN}, \ts{LOCAL\_MIN\_FLOOR\_MAX}] = [0.03, 0.1]$
+\apifield{Notes}\ts{Minimum.floor} is the local minimum's depth
+\emph{as a fraction of the map's \ts{basinScale}} (not an absolute value),
+so a decoy is equally deceptive on a Small map (wide basins) and a Huge one
+(narrow basins) --- lower = deeper, more deceptive. When omitted, a
+position-seeded pseudo-random fraction in
+$[\ts{LOCAL\_MIN\_FLOOR\_MIN}, \ts{LOCAL\_MIN\_FLOOR\_MAX}] = [0.18, 0.55]$
 is used, so the same map code always yields the same floors. The floor is
-ignored (always 0) for the global minimum. \ts{bounds} is always the unit
-square today.
+ignored (always 0) for the global minimum. \ts{basinScale} is how wide one
+minimum's basin is in normalized units; it comes from the size preset
+(\ts{MAP\_SIZES}) and fixes a basin's size to the map rather than to how
+many minima share it. Legacy codes without it fall back to the Medium
+preset's scale. \ts{bounds} is always the unit square today.
 \end{apientry}
 
 \begin{apientry}{EAConfig (worked example)}{types/ea.ts}
@@ -486,21 +501,37 @@ generation index so it can apply the decayed strength
 
 \begin{apientry}{createMapProblem}{engine/functionSurface.ts}
 \ts{createMapProblem(config: MapConfig): ProblemInstance} --- builds the
-smooth surface from the placed minima. The value at $(x, y)$ is
+smooth surface from the placed minima. First a raw cone surface
+$s(x,y) = \mathrm{smoothMin}_{\,m\,\in\,\mathrm{minima}}
+\bigl(d((x,y),m) + \mathit{floor}_m\bigr)$ blends the per-minimum cones with
+a polynomial smooth-minimum (Quilez) so the terrain has no creases along
+Voronoi seams; $\mathit{floor}_m$ is 0 for the global minimum and the
+explicit or seeded fractional floor (times \ts{basinScale}) for locals.
+That raw distance is then mapped to $[0,1)$ against the map's own
+\ts{basinScale} by exponential saturation:
 \[
-  v(x, y) \;=\; \min\Bigl(1,\;\; \min_{m\,\in\,\mathrm{minima}}
-  \bigl(d\bigl((x,y),\, m\bigr) + \mathit{floor}_m\bigr) \,/\, \ts{DISTANCE\_SCALE}\Bigr),
+  v(x, y) \;=\; 1 - 2^{-\,b(x,y)^{\ts{FAR\_FALLOFF}}},
+  \qquad
+  b(x,y) \;=\; \frac{s(x,y) - s_{\min}}{\ts{basinScale}},
 \]
-where $\mathit{floor}_m$ is 0 for the global minimum and the explicit or
-position-seeded floor for local minima --- so only the global minimum can
-reach the perfect reading 0. \ts{isWin} tests
+where $s_{\min}$ is the deepest minimum centre (so the summit reads 0). One
+basin away $\Rightarrow$ $b=1 \Rightarrow v=0.5$; the map saturates toward
+(never reaching) 1, so the far field always keeps a usable gradient.
+Crucially $v$ never consults the surface's own value range, which is why
+adding minima no longer resizes basins. The mapping is monotone in
+distance, so it moves no optimum and changes nothing for the EA beyond the
+scale of the fitness numbers, and deterministic in \ts{config}, so the main
+thread and the EA worker build identical surfaces. \ts{isWin} tests
 \ts{isWithinRadius(point, global, config.winRadius)}.
-\apifield{Notes}Tunables: \ts{DISTANCE\_SCALE} (0.7; lower = values rise
-faster around minima), \ts{LOCAL\_MIN\_FLOOR\_MIN/MAX} (0.03/0.1). Helper
-exports: \ts{defaultLocalFloor(position)} (the seeded floor an untouched
-node gets --- shown in the create UI), \ts{effectiveFloor(minimum)}, and
-\ts{floorToCenterValue(floor)} (the value a probe reads exactly at a
-minimum's center).
+\apifield{Notes}Tunables: \ts{FAR\_FALLOFF} (1.3; how steeply open ground
+climbs once outside a basin), \ts{SMOOTH\_K} (0.12; widest smooth-min blend,
+capped per-map against the tightest minima gap and reduced further if it
+would sink a local minimum below the global),
+\ts{LOCAL\_MIN\_FLOOR\_MIN/MAX} (0.18/0.55, as fractions of \ts{basinScale}).
+Helper exports: \ts{defaultLocalFloor(position)} (the seeded fractional
+floor an untouched node gets --- shown in the create UI) and
+\ts{effectiveFloor(minimum, basinScale)} (the floor in map units). Legacy
+maps without a \ts{basinScale} fall back to \ts{FALLBACK\_BASIN\_SCALE}.
 \end{apientry}
 
 \begin{apientry}{functionProblem}{engine/functionProblem.ts}
@@ -532,9 +563,12 @@ and pins the win target to the lowest sampled point. Winning is
 \emph{value}-based: \ts{isWin} fires once \ts{evaluate} $\leq$
 \ts{WIN\_VALUE\_EPS} (0.04), not at an exact coordinate;
 \ts{metadata.winRadius} reports the measured extent of that zone for
-replay overlays. Everything is deterministic in the spec (procedural
-surfaces in \ts{seed}), so the main thread and the EA worker rebuild
-identical surfaces.
+replay overlays. It also sets \ts{displayExponent} = 0.55 so the heatmap
+compresses the highs and keeps more colour near the optimum (a display-only
+curve --- see \ts{ProblemInstance}); the sharpening exponent above shapes
+\ts{evaluate} itself and is separate. Everything is deterministic in the
+spec (procedural surfaces in \ts{seed}), so the main thread and the EA
+worker rebuild identical surfaces.
 \end{apientry}
 
 \begin{apientry}{buildContours}{engine/contours.ts}
@@ -586,14 +620,16 @@ sampling or EA logic.
 \begin{lstlisting}
 encodeMap(config: MapConfig): string  // URL-safe base64 share code
 decodeMap(code: string): MapConfig    // throws Error('Invalid map code')
-generateRandomMap(numMinima: number = 5): MapConfig
+generateRandomMap(size: MapSizeId = 'medium'): MapConfig
 \end{lstlisting}
 Map share-codes; format specification in Chapter~\ref{ch:api-formats}.
 \ts{decodeMap} rejects unknown format versions and any unparsable input
 with a single \ts{Invalid map code} error; missing \ts{wr}/\ts{t} fields
-fall back to 0.04 / \ts{Date.now()}. \ts{generateRandomMap} places
-\ts{numMinima} minima uniformly in $[0.05, 0.95]^2$ and promotes a random
-one to global.
+fall back to 0.04 / \ts{Date.now()}, and a missing \ts{bs} to the Medium
+preset's \ts{basinScale}. \ts{generateRandomMap} takes a size preset
+(\ts{MAP\_SIZES}: \ts{'small' | 'medium' | 'large' | 'huge'}, each fixing a
+minima count, win radius, min spacing and \ts{basinScale}), places that
+many minima with the preset's spacing and promotes a random one to global.
 \end{apientry}
 
 \begin{apientry}{problemCode}{engine/problemCode.ts}
@@ -877,7 +913,11 @@ contour-style views. Defaults: \ts{DEFAULT\_CONTOUR\_CONFIG} =
 \ts{\{ lineCount: 24, spacingExponent: 2.5, resolution: 100,
 revealRadius: 0.1 \}}; \ts{DEFAULT\_HEATMAP\_CONFIG} =
 \ts{\{ resolution: 1080, opacity: 0.82, revealRadius: 0.05,
-valueExponent: 0.55 \}}.
+valueExponent: 1 \}}. \ts{valueExponent} is the display curve applied as
+$\ts{value}^{\,\ts{valueExponent}}$ before colouring; 1 sends the value
+straight to the ramp (what surface maps use), while callers pass a
+problem's \ts{displayExponent} through it (benchmark functions use 0.55).
+It only affects colour --- never readings, wins or the EA.
 \end{apientry}
 
 \begin{apientry}{EAReplayOverlay / ReplayMap / IndividualList}
@@ -1463,12 +1503,16 @@ a URL-safe Base64 encoding of
   "id": "ABC123",              // map id
   "m": [[x, y, isGlobal, floor?], ...],  // minima (normalized coords)
   "wr": 0.04,                  // win radius (fraction of map width)
+  "bs": 0.12,                  // basinScale (optional; see below)
   "t": 1699999999999 }         // timestamp
 \end{lstlisting}
 
 The optional 4th tuple entry (\ts{floor}) is only present for local minima
 with an explicit depth --- omitting it keeps older codes valid and
-round-trips untouched (random-floor) nodes unchanged. Coordinates are
+round-trips untouched (random-floor) nodes unchanged; the stored floor is a
+fraction of \ts{basinScale}. The optional \ts{bs} (basin scale) is written
+only when present on the config; older codes without it decode with the
+Medium preset's \ts{basinScale}, so they stay valid. Coordinates are
 rounded to 4 decimals. \ts{decodeMap} throws a single
 \ts{Error('Invalid map code')} for anything unparsable or with an unknown
 \ts{v}; a missing \ts{wr} defaults to 0.04 and a missing \ts{t} to

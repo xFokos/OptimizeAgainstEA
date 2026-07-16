@@ -1,21 +1,25 @@
 import { useState, useCallback } from 'react';
 import type { Minimum, MapConfig, Coordinate } from '../types/map.ts';
-import { encodeMap } from '../engine/mapCodec';
+import { encodeMap, MAP_SIZES, DEFAULT_MAP_SIZE, type MapSizeId } from '../engine/mapCodec';
 
-const WIN_RADIUS = 0.04;
 const DEFAULT_BOUNDS = { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
-
-/** Minimum allowed distance between any two minima (normalized 0–1). */
-export const MIN_SPACING = 0.12;
-
-/** Maximum minima a creator can place. Raise or lower this freely. */
-export const MAX_MINIMA = 12;
 
 function generateId(): string {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-export function useGameMap(maxMinima: number = MAX_MINIMA) {
+/**
+ * Create-mode map state. `size` picks the same presets a random map uses — how
+ * many mountains fit, how close together they may stand, and how tight the
+ * summit is. Growing or shrinking the size mid-build never discards what's
+ * already placed: it only changes what may be added from here on (so shrinking
+ * below the current count simply means the map is full).
+ */
+export function useGameMap(size: MapSizeId = DEFAULT_MAP_SIZE) {
+  const preset = MAP_SIZES[size] ?? MAP_SIZES[DEFAULT_MAP_SIZE];
+  const maxMinima = preset.minima[1];
+  const minSpacing = preset.minSpacing;
+
   const [minima, setMinima] = useState<Minimum[]>([]);
   const [mapId, setMapId] = useState(() => generateId());
 
@@ -25,12 +29,12 @@ export function useGameMap(maxMinima: number = MAX_MINIMA) {
       const tooClose = prev.some((m) => {
         const dx = m.position.x - position.x;
         const dy = m.position.y - position.y;
-        return Math.sqrt(dx * dx + dy * dy) < MIN_SPACING;
+        return Math.sqrt(dx * dx + dy * dy) < minSpacing;
       });
       if (tooClose) return prev;
       return [...prev, { id: `m_${Date.now()}`, position, isGlobal: false }];
     });
-  }, [maxMinima]);
+  }, [maxMinima, minSpacing]);
 
   const removeMinimum = useCallback((id: string) => {
     setMinima((prev) => prev.filter((m) => m.id !== id));
@@ -67,10 +71,11 @@ export function useGameMap(maxMinima: number = MAX_MINIMA) {
       id: mapId,
       minima,
       bounds: DEFAULT_BOUNDS,
-      winRadius: WIN_RADIUS,
+      winRadius: preset.winRadius,
+      basinScale: preset.basinScale,
       createdAt: Date.now(),
     };
-  }, [mapId, minima]);
+  }, [mapId, minima, preset.winRadius, preset.basinScale]);
 
   const getCode = useCallback((): string => {
     return encodeMap(getMapConfig());
@@ -84,7 +89,8 @@ export function useGameMap(maxMinima: number = MAX_MINIMA) {
     minima,
     mapId,
     maxMinima,
-    minSpacing: MIN_SPACING,
+    minSpacing,
+    winRadius: preset.winRadius,
     isFull,
     hasGlobal,
     globalMinimum,
