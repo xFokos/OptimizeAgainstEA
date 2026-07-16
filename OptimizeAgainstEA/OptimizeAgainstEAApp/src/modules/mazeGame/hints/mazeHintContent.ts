@@ -169,7 +169,7 @@ export const MAZE_HINTS: Record<MazeHintId, HintDef> = {
   'maze.experiment.evolve': {
     title: 'Breed the next generation',
     body:
-      'With this button you breed the next generation from the current one. ' +
+      'With the evolve button you breed the next generation from the current one. ' +
       'And you can always change the EA settings between generations — ' +
       'changes take effect with the next breeding.',
     style: 'toast',
