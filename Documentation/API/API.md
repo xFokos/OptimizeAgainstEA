@@ -5,7 +5,7 @@ While the [Handbook](Handbook/handbook.tex) is the **user manual** (how to play)
 **developer reference**: project structure, modules, and what the exported functions,
 hooks, stores and components do.
 
-> Updated 2026-07-16 from the source tree (working state after commit `944b810`;
+> Updated 2026-07-17 from the source tree (working state after commit `944b810`;
 > originally generated after the "great refactoring" commit `06f6d63`).
 > When code and this document disagree, the code wins — please update this file.
 
@@ -203,11 +203,11 @@ Per-game help modal with the Compi mascot.
 
 | Export | Description |
 |---|---|
-| `HelpButton({ topic, label?, onTakeTour? })` | Opens the help modal for a topic |
-| `MobileHelpBar({ topic, onTakeTour? })` | Mobile-only home for the (tall) help button: a slim pull-tab on the screen's left edge opens a left-sliding drawer. Lobbies mount it only in their `isMobile` branch; desktop keeps the inline `HelpButton` |
-| `HelpModal({ topic, onClose, onTakeTour })` | The modal itself; tabs per topic. Portalled to `document.body` so the fixed overlay isn't trapped by the `MobileHelpBar` drawer's slide transform |
+| `HelpButton({ topic, label?, onTakeTour?, onOpenTutorial? })` | Opens the help modal for a topic |
+| `MobileHelpBar({ topic, onTakeTour?, onOpenTutorial? })` | Mobile-only home for the (tall) help button: a slim pull-tab on the screen's left edge opens a left-sliding drawer. Lobbies mount it only in their `isMobile` branch; desktop keeps the inline `HelpButton` |
+| `HelpModal({ topic, onClose, onTakeTour, onOpenTutorial })` | The modal itself — one view per topic, no tabs. `onOpenTutorial` renders a "🔧 Technical Tutorial" button that closes the modal and opens the mode's `ExplainerFlow`; lobbies pass their `setExplainerOpen(true)`. Portalled to `document.body` so the fixed overlay isn't trapped by the `MobileHelpBar` drawer's slide transform |
 | `HELP_TOPICS` / `HelpTopicId` / `HelpTopic` | Topic registry (`helpContent.tsx`) |
-| `topics/SoloHelp`, `topics/RaidbossHelp`, `topics/HordeHelp` | Each exports `Gameplay()` and `Technical()` sections |
+| `topics/SoloHelp`, `topics/RaidbossHelp`, `topics/HordeHelp` | Each exports a single `Content()` section — the general picture only. Depth (genes, selection/crossover/mutation, pre-simulation) lives in the mode's technical tutorial, reachable via `onOpenTutorial` |
 | `helpVisuals.tsx` | Small illustrative components: `HelpConceptCard`, `HelpDnaBars`, `HelpPresetRow`, `HelpPopulationDots`, `HelpProgressDots`, `HelpMapDiagram`, `HelpModRow` |
 
 ### Hint system (`components/hints/`)
@@ -464,6 +464,7 @@ All built on `createListenable()`; components read `.state`/fields directly and 
 | `gameStore` | Holds the live `GameState` outside React (game loop writes, canvas + `DNADisplay` read) |
 | `analyticsStore` | `rounds: RoundRecord[]` ring buffer (default max 20) for `/Analytics`; `push(record)`, `clear()` |
 | `raidbossStore` | Firestore-backed community population. Types `RaidbossIndividual`, `RaidbossDoc`, `RaidbossSlot`; API: `getRaidbossStatus()`, `claimRaidbossSlot()`, `submitRaidbossFitness(index, fitness, claimedDoc)`, `consumePendingSlot()`, active-flag `get/set/subscribeRaidbossActive` |
+| `trainingReplayStore` | `TrainingReplayUI \| null` — non-null exactly while the training replay is open, which is what the side panels key off (see `EvolutionReplayOverlay`). Holds `evaluated`, `ranking` (indices, best first) and `focusIdx`; API: `open(evaluated, focusIdx)`, `setFocus(idx)`, `close()`, plus `requestClose` (set by the overlay so outside UI — the left bar's "← Game" — can close it) |
 
 ### 7.5 Hooks (`hooks/`)
 
@@ -516,9 +517,11 @@ Stat results are clamped to the same ranges as the settings sliders.
 | `HordeCanvas({ scale?, externalInputRef?, touchControls?, tutorial? })` | React wiring for Horde (loop + overlays). `touchControls` (mobile landscape) switches tutorial copy to touch and hides the DNA panel. `tutorial` runs the Horde practice round: small wave (`TUTORIAL_WAVE_SIZE = 8`), coachmark steps move → aim → shoot → obstacles → mods → survive → evolve → done, then a portalled fullscreen `TutorialHordeExplainer` takeover; never resumes/persists to `hordeGameStore` |
 | `HordeDnaPanel({ bestDna, height })`, `PANEL_W = 200` | "Best DNA" side panel next to the horde canvas |
 | `DNADisplay()` | Shows the current opponent's DNA; subscribes to `gameStore` |
-| `EvolutionReplayOverlay({ ghost, evaluated, onClose })` | Training replay opened from the DNA reveal ("▶ Watch Training Replay"): all candidates of the last presim generation play live against the player's recorded round (via `createGhostSim`), one focused agent shows bullets/hits in detail, a side panel shows the real fitness ranking with the top `ELITE_COUNT` marked as elites — teaching how the next opponent DNA gets selected. Only offered when a presim actually ran |
-| `MobileJoystickZone` / `MobileAimZone` | Touch input zones |
+| `EvolutionReplayOverlay({ ghost, evaluated, onClose })` | Training replay opened from the DNA reveal ("▶ Watch Training Replay"): all candidates of the last presim generation play live against the player's recorded round (via `createGhostSim`), one focused agent shows bullets/hits in detail — teaching how the next opponent DNA gets selected. Only offered when a presim actually ran. Opens `trainingReplayStore` on mount and clears it on unmount; the panels beside the arena render from that store rather than from props, so the ranking never covers the arena |
+| `TrainingReplayRanking()` | The fitness ranking itself (same file), rendered by `ShooterLeftBar` while `trainingReplayStore` is open — in place of the live round stats. Top `ELITE_COUNT` marked as elites, ranks 1/2 badged PARENT A/B in the DNA reveal's colours; clicking an entry sets the focused candidate |
+| `MobileJoystickZone` / `MobileAimZone` | Touch input zones. `ShooterGamePage` swaps them out for `ShooterLeftBar`/`DNADisplay` while the training replay is open — there's nothing to steer, so mobile gets the desktop's ranking + DNA panels instead |
 | `arenaAgentSim.ts` | Shared small-arena (`ARENA_SIZE = 240` px) physics for tutorial preview canvases: `stepArenaAgent(…)`, `drawArenaAgentTriangle`, `patrol(time, angSpeed, orbitR)`, `lineupSpots(count, faceDown?)`, `drawGenLabel(ctx, label, color?)`, `bulletHits`, `clamp01`, types `ArenaAgentState`/`ArenaTarget`/`ArenaBullet`, scaled `GAME_CONFIG` constants |
+| `arenaPreview.module.css` | Shared look for every arena preview above (`.preview`/`.canvas`/`.legend`). The canvases carry a fixed `width`/`height` attribute, so `.canvas` caps them with `max-width: 100%; height: auto` — without it they render at their intrinsic width and force horizontal page scroll on narrow screens. Internal resolution stays full, only the display size shrinks. Same rule as `.eaviz__previewCanvas` in `eaConceptVisuals.css`; new preview canvases should use one of the two rather than re-solving it |
 | `DnaPreviewCanvas({ dna })` / `HordeDnaPreviewCanvas({ dna })` | Live agent preview driven by DNA sliders (Solo triangle / Horde blob) |
 | `GhostArenaVisual({ variant?, count? })` | Solo-tutorial arena animation; `variant: 'replay' \| 'lineup' \| 'selection' \| 'nextgen'` |
 | `FitnessArenaVisual({ agentColor?, agentLabel? })` | Fitness-scoring arena animation (reused by Solo and Raidboss explainers) |
@@ -560,10 +563,10 @@ Thin components in `src/pages/` that assemble modules into layouts:
 
 | Page | Description |
 |---|---|
-| `DashboardPage` | Sidebar with two tabs — "EA Explained" (deliberately first) and "Game Selection"; `?tab=ea` query param jumps straight to the explainer. Exports `ProblemId`, `GameConfig` |
+| `DashboardPage` | Sidebar with two tabs — "EA Explained" (deliberately first) and "Game Selection"; `?tab=ea` query param jumps straight to the explainer. The sidebar's OAE logo is a button back to the homepage (`/`). Exports `ProblemId`, `GameConfig` |
 | `BattleShipsPage` | Hosts the BattleShips module (mode state machine) |
 | `MazeGamePage` | Hosts the maze module |
-| `ShooterGamePage` | Solo/Raidboss game (GameLayout + ShooterCanvas). Reads `location.state` for `tutorial`/`tutorialMode`; leaving resolves the target lobby at click time via the raidboss-active flag (a real Raidboss round starts without location state) |
+| `ShooterGamePage` | Solo/Raidboss game (GameLayout + ShooterCanvas). Reads `location.state` for `tutorial`/`tutorialMode`; leaving resolves the target lobby at click time via the raidboss-active flag (a real Raidboss round starts without location state). Subscribes to `trainingReplayStore`: while the replay is open the mobile touch zones give way to `ShooterLeftBar`/`DNADisplay` and the fixed "← Lobby" button is dropped (the left bar's "← Game" sits in that same corner and closes the replay instead of leaving the page) |
 | `HordeGamePage` | Horde game |
 | `HordeMapEditorPage` | Custom horde map editor (writes `HordeSettings.customObstacles/…`) |
 | `AnalyticsPage` | Charts over `analyticsStore.rounds` |

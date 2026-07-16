@@ -275,7 +275,7 @@ export function NormalLobby() {
                     {tabBar}
                     {tabContent}
                 </div>
-                <MobileHelpBar topic="shooter.solo" onTakeTour={startTour} />
+                <MobileHelpBar topic="shooter.solo" onTakeTour={startTour} onOpenTutorial={() => setExplainerOpen(true)} />
                 <div style={mobileBtnsStyle}>
                     <button className="btn btn--outline btn--lg" style={{ flex: 1, minWidth: 0 }} onClick={openTutorial}>Tutorial</button>
                     <button ref={playBtnRef} className="btn btn--primary btn--lg" style={{ flex: 1, minWidth: 0 }} onClick={async () => { await enterGameFullscreen(); navigate('/ShooterGame'); }}>
@@ -300,7 +300,7 @@ export function NormalLobby() {
                     <div style={lobbyStyles.previewLabel}>Live Preview</div>
                 </div>
                 <div style={{ ...lobbyStyles.leftTopHelpSlot, flexDirection: 'column', gap: 8 }}>
-                    <HelpButton topic="shooter.solo" className="btn btn--outline btn--block help-button" onTakeTour={startTour} />
+                    <HelpButton topic="shooter.solo" className="btn btn--outline btn--block help-button" onTakeTour={startTour} onOpenTutorial={() => setExplainerOpen(true)} />
                 </div>
             </div>
 

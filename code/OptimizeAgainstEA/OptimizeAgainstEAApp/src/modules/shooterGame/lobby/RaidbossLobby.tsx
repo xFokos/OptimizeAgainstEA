@@ -170,7 +170,7 @@ export function RaidbossLobby() {
                     Once all are evaluated, the population automatically evolves to the next generation.
                 </p>
                 {statusContent}
-                <MobileHelpBar topic="shooter.raidboss" />
+                <MobileHelpBar topic="shooter.raidboss" onOpenTutorial={() => setExplainerOpen(true)} />
                 <div style={mobileBtnsStyle}>
                     <button className="btn btn--outline btn--lg" style={{ flex: 1, minWidth: 0, '--btn-color': RB } as React.CSSProperties} onClick={openTutorial}>Tutorial</button>
                     {cloneElement(playBtn, { style: { flex: 1, minWidth: 0, '--btn-color': RB } as React.CSSProperties })}
@@ -192,7 +192,7 @@ export function RaidbossLobby() {
                     <div style={lobbyStyles.previewLabel}>Boss Preview</div>
                 </div>
                 <div style={lobbyStyles.leftTopHelpSlot}>
-                    <HelpButton topic="shooter.raidboss" className="btn btn--outline btn--block help-button" />
+                    <HelpButton topic="shooter.raidboss" className="btn btn--outline btn--block help-button" onOpenTutorial={() => setExplainerOpen(true)} />
                 </div>
             </div>
 

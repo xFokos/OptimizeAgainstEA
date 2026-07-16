@@ -236,9 +236,10 @@ button.help-button {
     color:        var(--text);
 }
 
-.help-modal__tabs {
-    display: flex;
-    gap:     8px;
+.help-modal__actions {
+    display:   flex;
+    flex-wrap: wrap;
+    gap:       8px;
 }
 
 .help-modal__body {

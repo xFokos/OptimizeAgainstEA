@@ -301,7 +301,7 @@ export function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
                     {tabBar}
                     {tabContent}
                 </div>
-                <MobileHelpBar topic="shooter.horde" onTakeTour={startTour} />
+                <MobileHelpBar topic="shooter.horde" onTakeTour={startTour} onOpenTutorial={() => setExplainerOpen(true)} />
                 <div style={mobileBtnsStyle}>
                     <button className="btn btn--outline btn--lg" style={{ flex: 1, minWidth: 0, '--btn-color': HO } as React.CSSProperties} onClick={openTutorial}>Tutorial</button>
                     {cloneElement(playBtn, { style: { flex: 1, minWidth: 0, '--btn-color': HO } as React.CSSProperties })}
@@ -328,7 +328,7 @@ export function HordeLobby({ initialTab }: { initialTab?: HordeTab }) {
                     </div>
                 </div>
                 <div style={lobbyStyles.leftTopHelpSlot}>
-                    <HelpButton topic="shooter.horde" className="btn btn--outline btn--block help-button" onTakeTour={startTour} />
+                    <HelpButton topic="shooter.horde" className="btn btn--outline btn--block help-button" onTakeTour={startTour} onOpenTutorial={() => setExplainerOpen(true)} />
                 </div>
             </div>
 

@@ -5,6 +5,7 @@ import { HelpButton } from './HelpButton';
 interface MobileHelpBarProps {
     topic:       HelpTopicId;
     onTakeTour?: () => void;
+    onOpenTutorial?: () => void;
 }
 
 /**
@@ -15,7 +16,7 @@ interface MobileHelpBarProps {
  * Dashboard's navigation sidebar (see dashboard.css). The lobbies mount this
  * only in their `isMobile` branch; the desktop layout keeps the inline button.
  */
-export function MobileHelpBar({ topic, onTakeTour }: MobileHelpBarProps) {
+export function MobileHelpBar({ topic, onTakeTour, onOpenTutorial }: MobileHelpBarProps) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -40,7 +41,7 @@ export function MobileHelpBar({ topic, onTakeTour }: MobileHelpBarProps) {
                     drawer at the same time so closing the modal lands back in the
                     lobby, not on a stale open drawer. */}
                 <div onClick={() => setOpen(false)}>
-                    <HelpButton topic={topic} onTakeTour={onTakeTour} />
+                    <HelpButton topic={topic} onTakeTour={onTakeTour} onOpenTutorial={onOpenTutorial} />
                 </div>
             </aside>
         </>

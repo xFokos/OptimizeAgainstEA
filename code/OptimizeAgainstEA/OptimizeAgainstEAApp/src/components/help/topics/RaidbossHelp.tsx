@@ -1,32 +1,22 @@
 import { HelpConceptCard, HelpProgressDots } from '../helpVisuals';
 
-export function Gameplay() {
+export function Content() {
     return (
         <>
             <HelpConceptCard heading="Objective" visual={<HelpProgressDots total={12} done={7} />}>
-                One shared boss population is trained by every player on the server.
-                Fighting it evaluates the next individual nobody has tested yet.
+                Controls are the same as Solo Play — but the boss isn't yours. One shared
+                population is trained by every player on the server, and your fight tests
+                the next individual nobody has faced yet.
+            </HelpConceptCard>
+            <HelpConceptCard heading="You are the fitness test">
+                Normally an algorithm like this needs a machine to simulate every fight.
+                Here your round <em>is</em> the score — how the boss does against you is
+                what decides whether its DNA gets passed on.
             </HelpConceptCard>
             <HelpConceptCard heading="Shared progress">
-                Controls are the same as Solo Play. Once everyone's fought every
-                individual in a generation, the whole population evolves at once —
-                today's boss may be tougher than yesterday's.
-            </HelpConceptCard>
-        </>
-    );
-}
-
-export function Technical() {
-    return (
-        <>
-            <HelpConceptCard heading="Distributed evaluation" visual={<HelpProgressDots total={12} done={4} />}>
-                A genetic algorithm normally needs one machine to simulate every fight.
-                Here, each player's round <em>is</em> one fitness sample — evaluation is
-                crowdsourced instead of simulated.
-            </HelpConceptCard>
-            <HelpConceptCard heading="Raidboss fitness">
-                Fitness rewards net hits, same as Solo Play, plus a survival bonus — a
-                boss that holds its ground scores well even in a close fight.
+                Once every individual has been fought, the whole population evolves at
+                once. Today's boss may be tougher than yesterday's — and everyone who
+                played had a hand in it.
             </HelpConceptCard>
         </>
     );

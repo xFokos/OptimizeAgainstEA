@@ -1,4 +1,4 @@
-import { HelpConceptCard, HelpDnaBars, HelpPresetRow, HelpPopulationDots } from '../helpVisuals';
+import { HelpConceptCard, HelpDnaBars, HelpPresetRow } from '../helpVisuals';
 
 const DIFFICULTY_PRESETS = [
     { id: 'easy',   label: 'Easy',   color: '#4ade80' },
@@ -6,7 +6,7 @@ const DIFFICULTY_PRESETS = [
     { id: 'hard',   label: 'Hard',   color: '#f87171' },
 ];
 
-export function Gameplay() {
+export function Content() {
     return (
         <>
             <HelpConceptCard heading="Objective">
@@ -14,30 +14,11 @@ export function Gameplay() {
                 Land more hits than you take in 20 seconds to win the round.
             </HelpConceptCard>
             <HelpConceptCard heading="Difficulty presets" visual={<HelpPresetRow presets={DIFFICULTY_PRESETS} activeId="medium" />}>
-                Easy, Medium and Hard change the opponent's starting DNA — and how many
-                generations it secretly pre-trains before round one even begins.
+                Easy, Medium and Hard decide how strong your opponent starts out — and how
+                much practice it has already had before you ever face it.
             </HelpConceptCard>
             <HelpConceptCard
-                heading="Evolution across rounds"
-                visual={
-                    <HelpDnaBars genes={[
-                        { label: 'Pursuit',    value: 0.45, delta: 0.25 },
-                        { label: 'Dodge',      value: 0.30, delta: 0.15 },
-                    ]} />
-                }
-            >
-                After every round the opponent evolves based on how it did against you —
-                it gets sharper at countering your exact playstyle each time.
-            </HelpConceptCard>
-        </>
-    );
-}
-
-export function Technical() {
-    return (
-        <>
-            <HelpConceptCard
-                heading="DNA — what makes an agent"
+                heading="Your opponent is a set of numbers"
                 visual={
                     <HelpDnaBars genes={[
                         { label: 'Pursuit',    value: 0.62 },
@@ -47,19 +28,21 @@ export function Technical() {
                     ]} />
                 }
             >
-                8 numbers between 0 and 1 — pursuit, dodge, accuracy, range, speed,
-                aim-lead, fire rate, bullet speed. These numbers <em>are</em> the
-                behavior — no hidden neural network.
+                How eagerly it chases, how well it dodges, how fast it shoots — all of it
+                is a handful of values called its DNA. These numbers <em>are</em> the
+                behavior; there's no hidden neural network.
             </HelpConceptCard>
-            <HelpConceptCard heading="The genetic algorithm" visual={<HelpPopulationDots count={16} elite={3} />}>
-                A population evolves via tournament selection, crossover between two
-                parents, and per-gene mutation. Top performers (gold) survive unchanged
-                — progress never gets lost.
-            </HelpConceptCard>
-            <HelpConceptCard heading="Pre-simulation">
-                Harder presets fight themselves for several generations before round one
-                — and can replay a recording of your own movement to prep specifically
-                for your playstyle.
+            <HelpConceptCard
+                heading="And they evolve against you"
+                visual={
+                    <HelpDnaBars genes={[
+                        { label: 'Pursuit',    value: 0.45, delta: 0.25 },
+                        { label: 'Dodge',      value: 0.30, delta: 0.15 },
+                    ]} />
+                }
+            >
+                After every round a new opponent is bred from whatever worked best against
+                you — so it keeps sharpening itself against your exact playstyle.
             </HelpConceptCard>
         </>
     );

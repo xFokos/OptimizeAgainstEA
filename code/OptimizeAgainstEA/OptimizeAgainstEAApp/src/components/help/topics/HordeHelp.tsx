@@ -7,7 +7,7 @@ const PILLARS_OBSTACLES = [
     { x: 65,    y: 44.4,  w: 11.25, h: 11.25, blocksBullets: true },
 ];
 
-export function Gameplay() {
+export function Content() {
     return (
         <>
             <HelpConceptCard heading="Objective">
@@ -19,7 +19,14 @@ export function Gameplay() {
                 visual={<HelpMapDiagram obstacles={PILLARS_OBSTACLES} spawnSides={['left', 'right']} />}
             >
                 Solid-bordered cover blocks bullets too; dashed cover only blocks
-                movement. Pick a built-in map or build your own in the Map Editor.
+                movement. The horde finds its way around walls rather than piling up on
+                them. Pick a built-in map or build your own in the Map Editor.
+            </HelpConceptCard>
+            <HelpConceptCard heading="The horde evolves as you fight" visual={<HelpPopulationDots count={20} elite={3} />}>
+                No wave list was ever written by hand. A fixed group stays on the field;
+                kill one and its slot comes back from an evolving gene pool. The ones that
+                gave you the most trouble (gold) return unchanged — so the pressure builds
+                out of your own fight, not a difficulty curve.
             </HelpConceptCard>
             <HelpConceptCard
                 heading="Difficulty"
@@ -27,25 +34,6 @@ export function Gameplay() {
             >
                 The DNA &amp; Wave tab controls wave size and how fast the horde evolves —
                 more agents and faster mutation both raise the pressure.
-            </HelpConceptCard>
-        </>
-    );
-}
-
-export function Technical() {
-    return (
-        <>
-            <HelpConceptCard heading="A living population, not scripted waves" visual={<HelpPopulationDots count={20} elite={0} />}>
-                There's no hand-authored wave list. A fixed-size population stays on the
-                field; kill one and its slot respawns from the evolving gene pool.
-            </HelpConceptCard>
-            <HelpConceptCard heading="Elites &amp; continuity" visual={<HelpPopulationDots count={20} elite={3} />}>
-                Top performers (gold) reincarnate with unchanged DNA, and their fitness
-                is smoothed across lives — one unlucky death doesn't erase a good strategy.
-            </HelpConceptCard>
-            <HelpConceptCard heading="Pathfinding around obstacles">
-                Agents follow a flow-field — a grid where every cell points toward you —
-                so they path around walls instead of getting stuck on them.
             </HelpConceptCard>
         </>
     );
