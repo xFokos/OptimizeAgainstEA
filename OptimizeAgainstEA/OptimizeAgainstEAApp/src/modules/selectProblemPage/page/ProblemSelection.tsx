@@ -28,7 +28,7 @@ export function ProblemSelection({ value, onChange }: ProblemSelectionProps) {
                 <ProblemCard
                   title="Maze Explorer"
                   description="Experiment with EAs in a Maze environment"
-                  image="../src/assets/maze_explorer.webp"
+                  image="Maze_Explorer.webp"
                   active={value === "mazeExplorer"}
                   onClick={() => onChange("mazeExplorer")}
                 />

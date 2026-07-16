@@ -11,7 +11,6 @@ import { MinimumPlacer } from './MinimumPlacer';
 import { GlobalMinimumPicker } from './GlobalMinimumPicker';
 
 interface CreateModeProps {
-  onBack: () => void;
   /** Navigate to another mode, optionally preloading the just-created map code. */
   onUseMap: (mode: GameMode, code: string) => void;
 }
@@ -29,7 +28,7 @@ const stepHint: Record<CreateStep, HintId> = {
   done: 'create.done',
 };
 
-export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
+export function CreateMode({ onUseMap }: CreateModeProps) {
   const [step, setStep] = useState<CreateStep>('place');
   const [size, setSize] = useState<MapSizeId>(DEFAULT_MAP_SIZE);
   const [copied, setCopied] = useState(false);
@@ -98,9 +97,8 @@ export function CreateMode({ onBack, onUseMap }: CreateModeProps) {
   return (
       <div className="create-mode">
         <div className="create-mode__topbar">
-          <button className="btn btn--ghost btn--sm" onClick={onBack}>
-            ← Back
-          </button>
+          {/* Placeholder keeps the step indicator centered (page-level top bar handles Back). */}
+          <span />
           <div className="step-indicator">
             {(['place', 'pick-global', 'done'] as const).map((s, i) => (
               <Fragment key={s}>
